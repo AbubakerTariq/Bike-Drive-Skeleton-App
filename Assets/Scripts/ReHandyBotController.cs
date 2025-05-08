@@ -10,63 +10,33 @@ public class ReHandyBotController : MonoBehaviour
     [SerializeField] private GameObject loader;
 
     // Script instance
-    private static ReHandyBotController instance;
+    public static ReHandyBotController instance;
 
     // Control library reference
-    private static DistalComm distalRobot;
+    private DistalComm distalRobot;
 
-    // Public RHB info related variables
-    public static bool RHBConnected => distalRobot.is_device_connected;
-    public static DistalComm.ExerciseData DistalData => distalRobot.DistalData;
-    public static float PinchValue
-    {
-        get
-        {
-            return Remap(DistalData.PositionR, minPinch, maxPinch, 1f, 0f);
-        }
-    }
-    public static string DeviceID
-    {
-        get
-        {
-            distalRobot.ReadDeviceId(out string deviceID);
-            return deviceID;
-        }
-    }
-    public static DistalComm.SystemInfo SystemInfo
-    {
-        get
-        {
-            distalRobot.ReadSystemInfo(out var systemInfo);
-            return systemInfo;
-        }
-    }
+    // RHB info related variables
+    private bool RHBConnected => distalRobot.is_device_connected;
+    private DistalComm.ExerciseData DistalData => distalRobot.DistalData;
 
-    // Public configurable variables
-    public static float minPinch = 0.0146f; // Default min pinch
-    public static float maxPinch = 0.0375f; // Default max pinch
-    public static float minRotation = -1.5f; // Default min rotation
-    public static float maxRotation = 1.5f; // Default max rotation
-    public static bool isROMGraspingDefault = false;
-    public static bool isROMPronationDefault = false;
-    public static bool isROMSupinationDefault = false;
-    public static bool strapFingerPanelShown = false;
-    public static bool isCalibrated = false;
+    // Default values
+    private float minPinch = 0.0146f; // Default min pinch
+    private float maxPinch = 0.0375f; // Default max pinch
 
     // New exercise related variables
-    private static bool isSystemStarted = false;
-    private static bool isExerciseStarted = false;
-    private static bool isExerciseStopping = false;
+    private bool isSystemStarted = false;
+    private bool isExerciseStarted = false;
+    private bool isExerciseStopping = false;
 
     // Configuration values;
-    private static float radialGain = 9f;
-    private static float angularGain = 14f;
-    private static bool stability = true;
-    private static bool safety = true;
-    private static float passiveKr = 5000f;
-    private static float passiveKp = 60;
-    private static float passiveBr = 6f;
-    private static float passiveBp = 0.6f;
+    private float radialGain = 9f;
+    private float angularGain = 14f;
+    private bool stability = true;
+    private bool safety = true;
+    private float passiveKr = 5000f;
+    private float passiveKp = 60;
+    private float passiveBr = 6f;
+    private float passiveBp = 0.6f;
 
     // Constants
     private const int MaxAttempts = 10;
@@ -83,22 +53,14 @@ public class ReHandyBotController : MonoBehaviour
     private void Awake()
     {
         // Singleton logic
-        if (instance == null)
-        {
-            distalRobot = new DistalComm();
-            instance = this;
-        }
-        else
+        if (instance != null && instance != this)
         {
             Destroy(gameObject);
+            return;
         }
-        DontDestroyOnLoad(gameObject);
 
-        // Small delay to make sure ReHandyBotSafetyController script is initialized
-        // DOVirtual.DelayedCall(0.1f, () => 
-        // {
-        //     ReHandyBotSafetyController.OnSafetyTriggered += () => isExerciseStarted = false;
-        // });
+        instance = this;
+        DontDestroyOnLoad(gameObject);
     }
 
     private void OnApplicationQuit()
@@ -115,7 +77,13 @@ public class ReHandyBotController : MonoBehaviour
     #endregion
 
     #region RHB control functions
-    public static bool EstablishConnection(UnityAction onComplete = null)
+
+    private void ConnectRHB()
+    {
+
+    }
+
+    private bool EstablishConnection(UnityAction onComplete = null)
     {
         if (RHBConnected)
         {
@@ -136,7 +104,7 @@ public class ReHandyBotController : MonoBehaviour
         return RHBConnected;
     }
 
-    public static void StartSystem(UnityAction onComplete = null)
+    private void StartSystem(UnityAction onComplete = null)
     {
         if (isSystemStarted)
         {
@@ -159,7 +127,7 @@ public class ReHandyBotController : MonoBehaviour
         }
     }
 
-    public static void StartExercise(bool unlockPinch, bool unlockRotation, UnityAction onComplete = null)
+    private void StartExercise(bool unlockPinch, bool unlockRotation, UnityAction onComplete = null)
     {
         if (isExerciseStarted)
         {
@@ -210,7 +178,7 @@ public class ReHandyBotController : MonoBehaviour
         }
     }
 
-    public static void StopExercise(UnityAction onComplete)
+    private void StopExercise(UnityAction onComplete)
     {
         if (!isExerciseStarted)
         {
@@ -225,26 +193,26 @@ public class ReHandyBotController : MonoBehaviour
         }
 
         isExerciseStopping = true;
-        instance.loader.SetActive(true);
+        loader.SetActive(true);
         Time.timeScale = 0f;
         DOTween.PauseAll();
 
         if (isMoving)
         {
             isMoving = false;
-            instance.StopCoroutine(moveRoutine);
+            StopCoroutine(moveRoutine);
         }
 
         if (isRotating)
         {
             isRotating = false;
-            instance.StopCoroutine(rotateRoutine);
+            StopCoroutine(rotateRoutine);
         }
 
         SetBrakes(true, true);
-        rotateRoutine = instance.StartCoroutine(instance.RotateDistalRoutine(0f, ()=>
+        rotateRoutine = StartCoroutine(RotateDistalRoutine(0f, ()=>
         {
-            moveRoutine = instance.StartCoroutine(instance.MoveDistalRoutine(maxPinch, () =>
+            moveRoutine = StartCoroutine(MoveDistalRoutine(maxPinch, () =>
             {
                 for (int i = 0; i < MaxAttempts; i++)
                 {
@@ -281,7 +249,7 @@ public class ReHandyBotController : MonoBehaviour
                 isExerciseStopping = false;
                 SetBrakes(false, false);
                 onComplete?.Invoke();
-                instance.loader.SetActive(false);
+                loader.SetActive(false);
                 Time.timeScale = 1f;
                 DOTween.PlayAll();
             }));
@@ -293,7 +261,7 @@ public class ReHandyBotController : MonoBehaviour
     /// </summary>
     /// <param name="unlockPinch">Horizontal Axis</param>
     /// <param name="unlockRotation">Vertical Axis</param>
-    public static void SetBrakes(bool unlockPinch, bool unlockRotation, UnityAction onComplete = null)
+    private void SetBrakes(bool unlockPinch, bool unlockRotation, UnityAction onComplete = null)
     {
         for (int i = 0; i < MaxAttempts; i++)
         {
@@ -309,7 +277,7 @@ public class ReHandyBotController : MonoBehaviour
         onComplete?.Invoke();
     }
 
-    public static void SetTarget(byte targetIndex, float pinchValue, float rotationValue, float pinchStiffness, float rotationStiffness, float pinchDamping, float rotationDamping, float pinchGain, float rotationGain, UnityAction onComplete = null)
+    private void SetTarget(byte targetIndex, float pinchValue, float rotationValue, float pinchStiffness, float rotationStiffness, float pinchDamping, float rotationDamping, float pinchGain, float rotationGain, UnityAction onComplete = null)
     {
         if (!isExerciseStarted || isExerciseStopping) return;
         
@@ -328,7 +296,7 @@ public class ReHandyBotController : MonoBehaviour
         }
     }
 
-    public static void SetGain(float radialGain, float angularGain)
+    private void SetGain(float radialGain, float angularGain)
     {
         for (int i = 0; i < MaxAttempts; i++)
         {
@@ -336,22 +304,22 @@ public class ReHandyBotController : MonoBehaviour
         }
     }
 
-    public static void SetEmptyTarget(UnityAction onComplete = null)
+    private void SetEmptyTarget(UnityAction onComplete = null)
     {
         SetTarget(1, 0.0145f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, onComplete);
     }
 
-    public static void AngularCalibration()
+    private void AngularCalibration()
     {
         // no need to do anything at this point
     }
 
-    public static void RadialCalibration()
+    private void RadialCalibration()
     {
         distalRobot.Calibration(DistalComm.CalibrationType.AxisCalib);
     }
 
-    public static void AllForceSensorsZeroCalibration()
+    private void AllForceSensorsZeroCalibration()
     {
         distalRobot.Calibration(DistalComm.CalibrationType.AllForceSensorsZeroCalib);
 
@@ -376,7 +344,7 @@ public class ReHandyBotController : MonoBehaviour
         });
     }
 
-    public static void MoveDistal(float target, UnityAction onComplete = null)
+    private void MoveDistal(float target, UnityAction onComplete = null)
     {
         if (!isExerciseStarted || isExerciseStopping) return;
 
@@ -385,10 +353,10 @@ public class ReHandyBotController : MonoBehaviour
         if (isMoving)
         {
             isMoving = false;
-            instance.StopCoroutine(moveRoutine);
+            StopCoroutine(moveRoutine);
         }
 
-        moveRoutine = instance.StartCoroutine(instance.MoveDistalRoutine(target, onComplete));
+        moveRoutine = StartCoroutine(MoveDistalRoutine(target, onComplete));
     }
 
     private IEnumerator MoveDistalRoutine(float target, UnityAction onComplete)
@@ -459,7 +427,7 @@ public class ReHandyBotController : MonoBehaviour
         onComplete?.Invoke();
     }
     
-    public static void RotateDistal(float target, UnityAction onComplete = null)
+    private void RotateDistal(float target, UnityAction onComplete = null)
     {
         if (!isExerciseStarted || isExerciseStopping) return;
 
@@ -468,10 +436,10 @@ public class ReHandyBotController : MonoBehaviour
         if (isRotating)
         {
             isRotating = false;
-            instance.StopCoroutine(rotateRoutine); 
+            StopCoroutine(rotateRoutine); 
         }
 
-        rotateRoutine = instance.StartCoroutine(instance.RotateDistalRoutine(target, onComplete));
+        rotateRoutine = StartCoroutine(RotateDistalRoutine(target, onComplete));
     }
 
     private IEnumerator RotateDistalRoutine(float target, UnityAction onComplete)
@@ -547,7 +515,7 @@ public class ReHandyBotController : MonoBehaviour
 
     #region Misc functions
 
-    public static float Remap(float value, float from1, float to1, float from2, float to2)
+    private float Remap(float value, float from1, float to1, float from2, float to2)
     {
         return (value - from1) / (to1 - from1) * (to2 - from2) + from2;
     }
