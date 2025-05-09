@@ -56,7 +56,7 @@ public class ReHandyBotController : MonoBehaviour
     private bool isMoving = false;
     private bool isRotating = false;
     private float minPinch = 0.0145f;
-    private float maxPinch = 0.0375f;
+    private float maxPinch = 0.03f;
     private Thread connectionThread;
     private Tween connectionTween;
     private bool isCalibrated = false;
@@ -282,6 +282,10 @@ public class ReHandyBotController : MonoBehaviour
             SetBrakes(unlockPinch, unlockRotation);
             SetEmptyTarget();
             onComplete?.Invoke();
+            
+            if (isCalibrated) 
+                OnExerciseStart?.Invoke();
+            
             return;
         }
 
@@ -318,7 +322,10 @@ public class ReHandyBotController : MonoBehaviour
 
             isExerciseStarted = true;
             SetEmptyTarget();
-            OnExerciseStart?.Invoke();
+
+            if (isCalibrated)
+                OnExerciseStart?.Invoke();
+            
             onComplete?.Invoke();
 
             if (setGainResponse) break;
@@ -332,6 +339,7 @@ public class ReHandyBotController : MonoBehaviour
         if (!isExerciseStarted)
         {
             SetBrakes(false, false);
+            OnExerciseStop?.Invoke();
             onComplete?.Invoke();
             return;
         }
@@ -460,7 +468,7 @@ public class ReHandyBotController : MonoBehaviour
         }
     }
 
-    private void SetOffsetForces(float radialOffsetForce, float angularOffsetForce)
+    public void SetOffsetForces(float radialOffsetForce, float angularOffsetForce)
     {
         for (int i = 0; i < MaxAttempts; i++)
         {

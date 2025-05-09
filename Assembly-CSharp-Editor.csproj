@@ -47,8 +47,8 @@
   <ItemGroup>
     <Compile Include="Assets\Bike game assets\RTG 1.3\WayTool\Editor\RTGWPEditor.cs" />
     <Compile Include="Assets\Bike game assets\Editor\CustomEditor.cs" />
-    <Compile Include="Assets\Bike game assets\RTG 1.3\Editor\RTG.cs" />
     <Compile Include="Assets\Bike game assets\Simple Motorcycle Physics\Editor\ChangeBike.cs" />
+    <Compile Include="Assets\Bike game assets\RTG 1.3\Editor\RTG.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">
@@ -407,12 +407,20 @@
       <HintPath>Library\PackageCache\com.unity.visualscripting@1.8.0\Editor\VisualScripting.Core\Dependencies\YamlDotNet\Unity.VisualScripting.YamlDotNet.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="DOTween">
+      <HintPath>Assets\Plugins\DoTween\DOTween\DOTween.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Unity.VisualScripting.TextureAssets">
       <HintPath>Library\PackageCache\com.unity.visualscripting@1.8.0\Editor\VisualScripting.Core\EditorAssetResources\Unity.VisualScripting.TextureAssets.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Unity.VisualScripting.IonicZip">
       <HintPath>Library\PackageCache\com.unity.visualscripting@1.8.0\Editor\VisualScripting.Core\Dependencies\DotNetZip\Unity.VisualScripting.IonicZip.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="NLog">
+      <HintPath>Assets\Plugins\NLog.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="unityplastic">
@@ -431,16 +439,8 @@
       <HintPath>Library\PackageCache\com.unity.testtools.codecoverage@1.2.2\lib\ReportGenerator\ReportGeneratorMerged.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="DOTween">
-      <HintPath>Assets\Plugins\DoTween\DOTween\DOTween.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="DOTweenEditor">
       <HintPath>Assets\Plugins\DoTween\DOTween\Editor\DOTweenEditor.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="NLog">
-      <HintPath>Assets\Plugins\NLog.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="nunit.framework">
