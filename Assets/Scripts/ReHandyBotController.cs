@@ -162,13 +162,13 @@ public class ReHandyBotController : MonoBehaviour
 
     private void OnCalibrate()
     {
-        loader.SetActive(false);
         allowCalibration = false;
-
+        
         StartExercise(false, false, () =>
         {
             DOVirtual.DelayedCall(0.1f, () =>
             {
+                loader.SetActive(false);
                 minPinch = DistalData.PositionR;
                 minPinch = Math.Clamp(minPinch, minPositionR, maxPositionR);
 
