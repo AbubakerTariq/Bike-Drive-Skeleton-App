@@ -35,8 +35,8 @@ public class ReHandyBotController : MonoBehaviour
     private bool stability = true;
     private bool safety = true;
     private float passiveKr = 5000f;
-    private float passiveKp = 60;
-    private float passiveBr = 6f;
+    private float passiveKp = 6f;
+    private float passiveBr = 60f;
     private float passiveBp = 0.6f;
     private float minPositionR = 0.0145f;
     private float maxPositionR = 0.06f;
@@ -70,6 +70,7 @@ public class ReHandyBotController : MonoBehaviour
 
         instance = this;
         DontDestroyOnLoad(gameObject);
+        distalRobot.SetLogLevel(DistalComm.DistalLogLevel.Info);
     }
 
     private void Start()
@@ -282,7 +283,7 @@ public class ReHandyBotController : MonoBehaviour
         }
     }
 
-    private void StopExercise(UnityAction onComplete)
+    private void StopExercise(UnityAction onComplete = null)
     {
         if (!isExerciseStarted)
         {
@@ -572,11 +573,11 @@ public class ReHandyBotController : MonoBehaviour
                 DistalComm.Log.Info("RotateDistal() - step " + ++step);
                 if (isExerciseStopping)
                 {
-                    distalRobot.HL_SetTarget(1, 0.0145f, current_target, Kr, Kp, Br, Bp, 1, 1);
+                    distalRobot.HL_SetTarget(1, DistalData.PositionR, current_target, Kr, Kp, Br, Bp, 1, 1);
                 }
                 else
                 {
-                    SetTarget(1, 0.0145f, current_target, Kr, Kp, Br, Bp, 1, 1);
+                    SetTarget(1, DistalData.PositionR, current_target, Kr, Kp, Br, Bp, 1, 1);
                 }
 
                 prev_time_ms = current_time_ms;
@@ -587,7 +588,7 @@ public class ReHandyBotController : MonoBehaviour
 
         if (!isExerciseStopping)
         {
-            SetTarget(1, 0.0145f, target, 0, Kp, 0, Bp, 1, 1);
+            SetTarget(1, DistalData.PositionR, target, Kr, Kp, Br, Bp, 1, 1);
         }
 
         stopwatch.Stop();
