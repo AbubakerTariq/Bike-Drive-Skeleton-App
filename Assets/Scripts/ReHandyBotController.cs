@@ -2,6 +2,7 @@
 using Articares.Distal;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -12,6 +13,7 @@ public class ReHandyBotController : MonoBehaviour
 {
     [Space] [Header("UI")]
     [SerializeField] private GameObject loader;
+    [SerializeField] private GameObject exerciseGuidelineText;
     [SerializeField] private TMP_Text loaderText;
 
     // Script instance
@@ -47,6 +49,7 @@ public class ReHandyBotController : MonoBehaviour
     private const int ServerPort = 3002;
 
     // Misc
+    private Queue<Action> MainThreadActionQueue = new();
     private Coroutine moveRoutine;
     private Coroutine rotateRoutine;
     private bool isMoving = false;
@@ -55,9 +58,10 @@ public class ReHandyBotController : MonoBehaviour
     private float maxPinch = 0.0375f;
     private Thread connectionThread;
     private Tween connectionTween;
+    private bool isCalibrated = false;
     private bool allowCalibration = false;
-    private Queue<Action> MainThreadActionQueue = new();
-
+    private const string PrototypeSceneName = "Prototype";
+    
     #region MonoBehavior Functions
     private void Awake()
     {
@@ -70,6 +74,8 @@ public class ReHandyBotController : MonoBehaviour
 
         instance = this;
         DontDestroyOnLoad(gameObject);
+
+        // Set log level so that the logs are stored in Nlog file
         distalRobot.SetLogLevel(DistalComm.DistalLogLevel.Info);
     }
 
@@ -81,9 +87,18 @@ public class ReHandyBotController : MonoBehaviour
 
     private void Update()
     {
+        // If robot is calibrated and user presses Enter
+        // Exercise state will be toggled
+        // The exercise will start if it isn't started already
+        // The exercise will stop if it is already started
+        if (isCalibrated && Input.GetKeyDown(KeyCode.Return))
+            ToggleExerciseState();
+
+        // Allow the user to press Y to calibrated the robot
         if (allowCalibration && Input.GetKeyDown(KeyCode.Y))
             Calibrate(OnCalibrate);
 
+        // Using an action queue to perform Unity related tasks (i.e UI changes) which are not allowed to be done from a background thread
         if (MainThreadActionQueue.Count == 0) return;
         
         while (MainThreadActionQueue.Count > 0)
@@ -92,10 +107,11 @@ public class ReHandyBotController : MonoBehaviour
 
     private void OnApplicationQuit()
     {
+        // Stop all RHB related processes when the application is closed
         connectionThread?.Abort();
         connectionTween?.Kill();
 
-        if (distalRobot == null)
+        if (distalRobot == null || !RHBConnected)
             return;
         
         if (isExerciseStarted) distalRobot.StopExercise();
@@ -161,33 +177,6 @@ public class ReHandyBotController : MonoBehaviour
         allowCalibration = true;
     }
 
-    private void OnCalibrate()
-    {
-        allowCalibration = false;
-        
-        StartExercise(false, false, () =>
-        {
-            DOVirtual.DelayedCall(0.1f, () =>
-            {
-                loader.SetActive(false);
-                minPinch = DistalData.PositionR;
-                minPinch = Math.Clamp(minPinch, minPositionR, maxPositionR);
-
-                for (int i = 0; i < MaxAttempts; i++)
-                {
-                    bool success = distalRobot.StopExercise();
-
-                    if (success)
-                    {
-                        SetBrakes(false, false);
-                        isExerciseStarted = false;
-                        break;
-                    }
-                }
-            });
-        });
-    }
-
     private bool EstablishConnection(UnityAction onComplete = null)
     {
         if (RHBConnected)
@@ -230,6 +219,57 @@ public class ReHandyBotController : MonoBehaviour
                 break;
             }
         }
+    }
+
+    private void Calibrate(UnityAction onComplete = null)
+    {
+        for (int i = 0; i < MaxAttempts; i++)
+        {
+            if (distalRobot.Calibration(DistalComm.CalibrationType.AxisCalib)) break;
+        }
+
+        // for (int i = 0; i < MaxAttempts; i++)
+        // {
+        //     if (distalRobot.Calibration(DistalComm.CalibrationType.AllForceSensorsZeroCalib)) break;
+        // }
+
+        onComplete.Invoke();
+    }
+
+    private void OnCalibrate()
+    {
+        allowCalibration = false;
+        StartExercise(false, false, () =>
+        {
+            DOVirtual.DelayedCall(0.1f, () =>
+            {
+                loader.SetActive(false);
+                minPinch = DistalData.PositionR;
+                minPinch = Math.Clamp(minPinch, minPositionR, maxPositionR);
+
+                for (int i = 0; i < MaxAttempts; i++)
+                {
+                    bool success = distalRobot.StopExercise();
+
+                    if (success)
+                    {
+                        SetBrakes(false, false);
+                        isExerciseStarted = false;
+
+                        isCalibrated = true;
+                        SceneManager.LoadScene(PrototypeSceneName);
+                        exerciseGuidelineText.SetActive(true);
+                        break;
+                    }
+                }
+            });
+        });
+    }
+
+    private void ToggleExerciseState()
+    {
+        if (isExerciseStarted) StopExercise();
+        else StartExercise(true, true);
     }
 
     private void StartExercise(bool unlockPinch, bool unlockRotation, UnityAction onComplete = null)
@@ -402,6 +442,11 @@ public class ReHandyBotController : MonoBehaviour
         }
     }
 
+    private void SetEmptyTarget(UnityAction onComplete = null)
+    {
+        SetTarget(1, 0.0145f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, onComplete);
+    }
+
     private void SetGain(float radialGain, float angularGain)
     {
         for (int i = 0; i < MaxAttempts; i++)
@@ -409,26 +454,7 @@ public class ReHandyBotController : MonoBehaviour
             if (distalRobot.SetGain(radialGain, angularGain)) break;
         }
     }
-
-    private void SetEmptyTarget(UnityAction onComplete = null)
-    {
-        SetTarget(1, 0.0145f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, onComplete);
-    }
-
-    private void Calibrate(UnityAction onComplete = null)
-    {
-        for (int i = 0; i < MaxAttempts; i++)
-        {
-            if (distalRobot.Calibration(DistalComm.CalibrationType.AxisCalib)) break;
-        }
-
-        for (int i = 0; i < MaxAttempts; i++)
-        {
-            if (distalRobot.Calibration(DistalComm.CalibrationType.AllForceSensorsZeroCalib)) break;
-        }
-
-        onComplete.Invoke();
-    }
+    
     private void MoveDistal(float target, UnityAction onComplete = null)
     {
         if (!isExerciseStarted || isExerciseStopping) return;
@@ -458,7 +484,7 @@ public class ReHandyBotController : MonoBehaviour
         System.Diagnostics.Stopwatch stopwatch = new();
         stopwatch.Start();
 
-        float init_position = distalRobot.DistalData.PositionR;
+        float init_position = DistalData.PositionR;
         float current_target = init_position;
         float current_time_ms = (float)stopwatch.Elapsed.TotalMilliseconds;
         float init_time_ms = current_time_ms;
@@ -541,7 +567,7 @@ public class ReHandyBotController : MonoBehaviour
         System.Diagnostics.Stopwatch stopwatch = new();
         stopwatch.Start();
 
-        float init_position = distalRobot.DistalData.PositionP;
+        float init_position = DistalData.PositionP;
         float current_target = init_position;
         float current_time_ms = (float)stopwatch.Elapsed.TotalMilliseconds;
         float init_time_ms = current_time_ms;
