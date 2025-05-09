@@ -2,26 +2,27 @@
 using Articares.Distal;
 using UnityEngine;
 using UnityEngine.Events;
+using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Threading;
+using TMPro;
 
 public class ReHandyBotController : MonoBehaviour
 {
     [Space] [Header("UI")]
     [SerializeField] private GameObject loader;
+    [SerializeField] private TMP_Text loaderText;
 
     // Script instance
     public static ReHandyBotController instance;
 
     // Control library reference
-    private DistalComm distalRobot;
+    private DistalComm distalRobot = new();
 
     // RHB info related variables
     private bool RHBConnected => distalRobot.is_device_connected;
     private DistalComm.ExerciseData DistalData => distalRobot.DistalData;
-
-    // Default values
-    private float minPinch = 0.0146f; // Default min pinch
-    private float maxPinch = 0.0375f; // Default max pinch
 
     // New exercise related variables
     private bool isSystemStarted = false;
@@ -37,6 +38,8 @@ public class ReHandyBotController : MonoBehaviour
     private float passiveKp = 60;
     private float passiveBr = 6f;
     private float passiveBp = 0.6f;
+    private float minPositionR = 0.0145f;
+    private float maxPositionR = 0.06f;
 
     // Constants
     private const int MaxAttempts = 10;
@@ -44,10 +47,16 @@ public class ReHandyBotController : MonoBehaviour
     private const int ServerPort = 3002;
 
     // Misc
-    private static Coroutine moveRoutine;
-    private static Coroutine rotateRoutine;
-    private static bool isMoving = false;
-    private static bool isRotating = false;
+    private Coroutine moveRoutine;
+    private Coroutine rotateRoutine;
+    private bool isMoving = false;
+    private bool isRotating = false;
+    private float minPinch = 0.0145f;
+    private float maxPinch = 0.0375f;
+    private Thread connectionThread;
+    private Tween connectionTween;
+    private bool allowCalibration = false;
+    private Queue<Action> MainThreadActionQueue = new();
 
     #region MonoBehavior Functions
     private void Awake()
@@ -63,10 +72,31 @@ public class ReHandyBotController : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
+    private void Start()
+    {
+        // Start is only called once as this is a singleton object so we will only connect once at the beginning
+        ConnectRHB();
+    }
+
+    private void Update()
+    {
+        if (allowCalibration && Input.GetKeyDown(KeyCode.Y))
+            Calibrate(OnCalibrate);
+
+        if (MainThreadActionQueue.Count == 0) return;
+        
+        while (MainThreadActionQueue.Count > 0)
+            MainThreadActionQueue.Dequeue().Invoke();
+    }
+
     private void OnApplicationQuit()
     {
-        if (distalRobot == null) return;
+        connectionThread?.Abort();
+        connectionTween?.Kill();
 
+        if (distalRobot == null)
+            return;
+        
         if (isExerciseStarted) distalRobot.StopExercise();
         if (isSystemStarted) distalRobot.StopSystem();
         if (RHBConnected) distalRobot.CloseConnection();
@@ -80,7 +110,81 @@ public class ReHandyBotController : MonoBehaviour
 
     private void ConnectRHB()
     {
+        connectionTween?.Kill();
+        connectionTween = DOVirtual.DelayedCall(10f, ReConnect);
 
+        connectionThread?.Abort();
+        connectionThread = new Thread(() =>
+        {
+            MainThreadActionQueue.Enqueue(() =>
+            {
+                loader.SetActive(true);
+            });
+
+            bool success = EstablishConnection();
+
+            MainThreadActionQueue.Enqueue(() =>
+            {
+                connectionTween.Kill();
+                
+                if (success)
+                {
+                    loader.SetActive(false);
+                    StartSystem(OnConnect);
+                }
+                else
+                {
+                    ReConnect();
+                }
+            });
+        });
+        connectionThread.Start();
+    }
+
+    private void ReConnect()
+    {
+        if (RHBConnected)
+        {
+            StartSystem(OnConnect);
+            return;
+        } 
+        ConnectRHB();
+    }
+
+    private void OnConnect()
+    {
+        SetBrakes(true, true);
+
+        loader.SetActive(true);
+        loaderText.text = "Align grippers horizontally and close the grippers\nPress Y to calibrate";
+        allowCalibration = true;
+    }
+
+    private void OnCalibrate()
+    {
+        loader.SetActive(false);
+        allowCalibration = false;
+
+        StartExercise(false, false, () =>
+        {
+            DOVirtual.DelayedCall(0.1f, () =>
+            {
+                minPinch = DistalData.PositionR;
+                minPinch = Math.Clamp(minPinch, minPositionR, maxPositionR);
+
+                for (int i = 0; i < MaxAttempts; i++)
+                {
+                    bool success = distalRobot.StopExercise();
+
+                    if (success)
+                    {
+                        SetBrakes(false, false);
+                        isExerciseStarted = false;
+                        break;
+                    }
+                }
+            });
+        });
     }
 
     private bool EstablishConnection(UnityAction onComplete = null)
@@ -193,6 +297,7 @@ public class ReHandyBotController : MonoBehaviour
         }
 
         isExerciseStopping = true;
+        loaderText.text = "Stopping Exercise...";
         loader.SetActive(true);
         Time.timeScale = 0f;
         DOTween.PauseAll();
@@ -309,41 +414,20 @@ public class ReHandyBotController : MonoBehaviour
         SetTarget(1, 0.0145f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, onComplete);
     }
 
-    private void AngularCalibration()
+    private void Calibrate(UnityAction onComplete = null)
     {
-        // no need to do anything at this point
-    }
-
-    private void RadialCalibration()
-    {
-        distalRobot.Calibration(DistalComm.CalibrationType.AxisCalib);
-    }
-
-    private void AllForceSensorsZeroCalibration()
-    {
-        distalRobot.Calibration(DistalComm.CalibrationType.AllForceSensorsZeroCalib);
-
-        StartExercise(false, false, () =>
+        for (int i = 0; i < MaxAttempts; i++)
         {
-            DOVirtual.DelayedCall(0.1f, () =>
-            {
-                minPinch = DistalData.PositionR;
+            if (distalRobot.Calibration(DistalComm.CalibrationType.AxisCalib)) break;
+        }
 
-                for (int i = 0; i < MaxAttempts; i++)
-                {
-                    bool success = distalRobot.StopExercise();
+        for (int i = 0; i < MaxAttempts; i++)
+        {
+            if (distalRobot.Calibration(DistalComm.CalibrationType.AllForceSensorsZeroCalib)) break;
+        }
 
-                    if (success)
-                    {
-                        SetBrakes(false, false);
-                        isExerciseStarted = false;
-                        break;
-                    }
-                }
-            });
-        });
+        onComplete.Invoke();
     }
-
     private void MoveDistal(float target, UnityAction onComplete = null)
     {
         if (!isExerciseStarted || isExerciseStopping) return;
