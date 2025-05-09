@@ -24,7 +24,8 @@ public class ReHandyBotController : MonoBehaviour
 
     // RHB info related variables
     private bool RHBConnected => distalRobot.is_device_connected;
-    private DistalComm.ExerciseData DistalData => distalRobot.DistalData;
+    public DistalComm.ExerciseData DistalData => distalRobot.DistalData;
+    public bool ExerciseActive => isExerciseStarted;
 
     // New exercise related variables
     private bool isSystemStarted = false;
@@ -60,6 +61,8 @@ public class ReHandyBotController : MonoBehaviour
     private Tween connectionTween;
     private bool isCalibrated = false;
     private bool allowCalibration = false;
+    public Action OnExerciseStart;
+    public Action OnExerciseStop;
     private const string PrototypeSceneName = "Prototype";
     
     #region MonoBehavior Functions
@@ -315,6 +318,7 @@ public class ReHandyBotController : MonoBehaviour
 
             isExerciseStarted = true;
             SetEmptyTarget();
+            OnExerciseStart?.Invoke();
             onComplete?.Invoke();
 
             if (setGainResponse) break;
@@ -394,6 +398,7 @@ public class ReHandyBotController : MonoBehaviour
                 isExerciseStarted = false;
                 isExerciseStopping = false;
                 SetBrakes(false, false);
+                OnExerciseStop?.Invoke();
                 onComplete?.Invoke();
                 loader.SetActive(false);
                 Time.timeScale = 1f;
@@ -452,6 +457,14 @@ public class ReHandyBotController : MonoBehaviour
         for (int i = 0; i < MaxAttempts; i++)
         {
             if (distalRobot.SetGain(radialGain, angularGain)) break;
+        }
+    }
+
+    private void SetOffsetForces(float radialOffsetForce, float angularOffsetForce)
+    {
+        for (int i = 0; i < MaxAttempts; i++)
+        {
+            if (distalRobot.SetOffsetForces(radialOffsetForce, angularOffsetForce)) break;
         }
     }
     
