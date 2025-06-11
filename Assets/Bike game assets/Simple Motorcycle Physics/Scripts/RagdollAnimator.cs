@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class RagdollAnimator : MonoBehaviour
@@ -10,6 +8,7 @@ public class RagdollAnimator : MonoBehaviour
     Animator animator;
     RaycastHit hit;
     int rand;
+
     void Start()
     {
         riderRagdoll = GameObject.FindWithTag("Ragdoll");
@@ -17,19 +16,15 @@ public class RagdollAnimator : MonoBehaviour
         col = riderRagdoll.transform.Find("Armature/Hips").GetComponent<Collider>();
         animator = GetComponent<Animator>();
         rb.maxAngularVelocity = 30f;
-
         InvokeRepeating("GenRandomNum",0,0.5f);
     }
 
-    // Update is called once per frame
     void Update()
     {
-        
         // For Blend Tree usage
         // animator.SetFloat("Velocity", Mathf.Clamp(rb.velocity.magnitude -1.1f , -1,1));
         // animator.SetFloat("Angular",Mathf.Clamp(rb.angularVelocity.magnitude -1f , -1,1));
         // For simplicity's sake we will use basic animator crossfade
-
 
         //For velocity and height based animation 
         // Physics.Raycast(rb.transform.position, Vector3.down, out hit, Mathf.Infinity, 0);
@@ -54,12 +49,9 @@ public class RagdollAnimator : MonoBehaviour
         //         animator.Play("MotionProtect");
         // }
 
-            
-
         // Simple Random Motion generation algorithm based on probabilities
         if (rb.velocity.magnitude < 2)
             animator.Play("Still");
-
         else
         {
             //Simple Random generation of Motion
@@ -73,11 +65,7 @@ public class RagdollAnimator : MonoBehaviour
             else
                 animator.Play("MotionLowSpeed");
                 //animator.CrossFade("MotionLowSpeed", 0.2f);
-
         }
-
-
-
     }
 
     void GenRandomNum()

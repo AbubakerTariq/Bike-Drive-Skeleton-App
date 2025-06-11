@@ -46,25 +46,25 @@ public class ChangeBike : EditorWindow
                 case 3: Replace("Motorcycle 4");
                 break;
             }
-
+        }
     }
-}
-void Replace(string s)
-{
-    GameObject player;
-    player = GameObject.FindGameObjectWithTag("Player");
-    var m1 = player.transform.Find("Motorcycle"); 
-    m1.gameObject.SetActive(false);
-    m1 = player.transform.Find("Motorcycle 2");
-    m1.gameObject.SetActive(false);
-    m1 = player.transform.Find("Motorcycle 3");
-    m1.gameObject.SetActive(false);
-    m1 = player.transform.Find("Motorcycle 4");
-    m1.gameObject.SetActive(false);
-    m1 = player.transform.Find(s);
-    m1.gameObject.SetActive(true);
-    player.GetComponent<MotorbikeController>().handles = m1.transform.Find("Handle System").gameObject;
-    player.GetComponent<MotorbikeController>().RearMudGuard = m1.transform.Find("Rear MudGuard System").gameObject;
-    EditorUtility.SetDirty(player.gameObject);
-}
+
+    void Replace(string s)
+    {
+        GameObject player;
+        player = GameObject.FindGameObjectWithTag("Player");
+        var m1 = player.transform.Find("Motorcycle"); 
+        m1.gameObject.SetActive(false);
+        m1 = player.transform.Find("Motorcycle 2");
+        m1.gameObject.SetActive(false);
+        m1 = player.transform.Find("Motorcycle 3");
+        m1.gameObject.SetActive(false);
+        m1 = player.transform.Find("Motorcycle 4");
+        m1.gameObject.SetActive(false);
+        m1 = player.transform.Find(s);
+        m1.gameObject.SetActive(true);
+        player.GetComponent<MotorbikeController>().handles = m1.transform.Find("Handle System").gameObject;
+        player.GetComponent<MotorbikeController>().RearMudGuard = m1.transform.Find("Rear MudGuard System").gameObject;
+        EditorUtility.SetDirty(player.gameObject);
+    }
 }

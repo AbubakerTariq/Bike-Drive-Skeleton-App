@@ -59,7 +59,6 @@
     <Compile Include="Assets\Bike game assets\RTG 1.3\Scripts\Mesh_CombineUtility.cs" />
     <Compile Include="Assets\Bike game assets\Simple Motorcycle Physics\Scripts\MotorDetails.cs" />
     <Compile Include="Assets\Bike game assets\Simple Motorcycle Physics\Scripts\RagdollJointConfig.cs" />
-    <Compile Include="Assets\Bike game assets\Simple Motorcycle Physics\Scripts\HapticTrigger.cs" />
     <Compile Include="Assets\Bike game assets\RTG 1.3\Scripts\WaypointCircuit.cs" />
     <Compile Include="Assets\Bike game assets\RTG 1.3\Scripts\Track_Config.cs" />
     <Compile Include="Assets\Scripts\CloseButton.cs" />

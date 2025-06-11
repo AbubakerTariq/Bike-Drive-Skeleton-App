@@ -3,10 +3,8 @@ using System.Collections;
 
 public class MotorbikeController : MonoBehaviour
 {
-
     public WheelCollider WColForward;
     public WheelCollider WColBack;
-
     public Transform wheelF;
     public Transform wheelB;
     [SerializeField]
@@ -15,44 +13,33 @@ public class MotorbikeController : MonoBehaviour
     public GameObject RearMudGuard;
     public Vector3 RearMudGuardSusOffset;
     [Tooltip("Lower values mean higher sensitivity")]
-
     public float preventGlitchAngle = 40;
-
     [Tooltip("Experimental Feature : Only for controlled low speeds")]
     public bool canArtificialStoppie = false;
     [Range(0.1f, 1f)]
     public float stoppieAmount = 0.3f;
     [HideInInspector]
     public bool fallen = false;
-
     public float maxSteerAngle = 45;
     public float maxMotorTorque = 500;
     [Tooltip("Adds more speed. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system and make the bike glitch badly.")]
     public float ArtificialAcceleration = 1000f;
     [Tooltip("Adds more braking power. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system, but it will definitely apply hard brakes")]
     [Range(0, 1)]
-
     public float ArtificialBrake = 0;
     public float maxForwardBrake = 400;
     public float maxBackBrake = 400;
-
     public float wheelRadius = 0.7f;
-
     public float steerSensivity = 30;
     public float controlAngle = 25;
     public float controlOmega = 30;
-
     public float lowSpeed = 8;
     public float highSpeed = 25;
-
     private WheelData[] wheels;
-
     private Transform thisTransform;
     public Vector3 com;
     Rigidbody rb;
     float startSteerSensitivity;
-
-
     public int currentGear = 1;
     public float revValue;
     float initialMotorTorque;
@@ -61,16 +48,12 @@ public class MotorbikeController : MonoBehaviour
     public GameObject Ragdoll;
     bool HardHit;
     GameObject tempRagdollClone, tempAnimRiderClone;
-
     [HideInInspector]
     public Vector3 collisionRelativeVelocity;
-
     float turnAngle;
-
-
+    
     public class WheelData
     {
-
         public WheelData(Transform transform, WheelCollider collider)
         {
             wheelTransform = transform;
@@ -94,7 +77,6 @@ public class MotorbikeController : MonoBehaviour
 
     void Start()
     {
-
         wheels = new WheelData[2];
         wheels[0] = new WheelData(wheelF, WColForward);
         wheels[1] = new WheelData(wheelB, WColBack);
@@ -106,17 +88,16 @@ public class MotorbikeController : MonoBehaviour
         initialMotorTorque = maxMotorTorque;
     }
 
-
     void FixedUpdate()
     {
         turnAngle = transform.eulerAngles.z;
         if (transform.eulerAngles.z > 180)
             turnAngle = transform.eulerAngles.z - 360;
 
-        uprightCheck();
+        UprightCheck();
         if (!fallen)
         {
-            uprightForce();
+            UprightForce();
             var input = new MotorbikeInput();
 
             if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) input.acceleration = 1;
@@ -133,11 +114,11 @@ public class MotorbikeController : MonoBehaviour
                 input.brakeForward = 1f;
             }
 
-            motoMove(motoControl(input));
-            steerHelper();
-            steerHandles();
+            MotoMove(motoControl(input));
+            SteerHelper();
+            SteerHandles();
         }
-        updateWheels();
+        UpdateWheels();
         RearMudGuardSuspension();
         CalcGear();
         if (canArtificialStoppie) // for natural stoppie increase forward brake to 50000 and Front Wheel collider forward friction to 5. Around those values a natural stoppie can be performed.
@@ -147,8 +128,8 @@ public class MotorbikeController : MonoBehaviour
         {
             Reset();
         }
-
     }
+
     void Awake()
     {
         Time.timeScale = 1.15f; //Makes simulation movement more agile. You can delete this line if it interferes with your project settings.
@@ -188,13 +169,12 @@ public class MotorbikeController : MonoBehaviour
         prevAngle = angle;
         prevOmega = omega;
 
-
         if (speedVal < lowSpeed)
         {
             float t = speedVal / lowSpeed;
             input.steer *= t * t;
             omega *= t * t;
-            angle = angle * (2 - t);
+            angle *= 2 - t;
             input.acceleration += Mathf.Abs(angle) * 3 * (1 - t);
         }
 
@@ -206,7 +186,7 @@ public class MotorbikeController : MonoBehaviour
                 omega *= t;
             }
         }
-        input.steer *= (1 - 2.3f * angle * angle);
+        input.steer *= 1 - 2.3f * angle * angle;
         input.steer = 1f / (speed.sqrMagnitude + 1f) * (input.steer * steerSensivity + angle * controlAngle + omega * controlOmega);
         float steerDelta = 10 * Time.fixedDeltaTime;
         input.steer = Mathf.Clamp(input.steer, prevSteer - steerDelta, prevSteer + steerDelta);
@@ -214,33 +194,33 @@ public class MotorbikeController : MonoBehaviour
 
         return input;
     }
-    private void uprightForce()
+
+    private void UprightForce()
     {
         rb.angularDrag -= 100 * Time.deltaTime;
         rb.angularDrag = Mathf.Clamp(rb.angularDrag, 0.1f, 100);
 
         if (speedVal < 1 && !Input.GetKey(KeyCode.W))
         {
-
             // var rot = Quaternion.FromToRotation(transform.up, Vector3.up);
             // rb.AddTorque(new Vector3(rot.x, rot.y, rot.z)* 10 , ForceMode.Acceleration);
             transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, transform.rotation.eulerAngles.y, 0);
             rb.constraints = RigidbodyConstraints.FreezeAll;
-
         }
         else
         {
             rb.constraints = RigidbodyConstraints.None;
         }
-
     }
+
     void OnCollisionEnter(Collision collision)
     {
         collisionRelativeVelocity = collision.relativeVelocity;
         if (collision.relativeVelocity.magnitude > 30)
             HardHit = true;
     }
-    public void uprightCheck()
+
+    public void UprightCheck()
     {
         if ((Mathf.Abs(turnAngle) > preventGlitchAngle || Input.GetKeyDown(KeyCode.F) || HardHit == true) && fallen == false)
         {
@@ -252,8 +232,7 @@ public class MotorbikeController : MonoBehaviour
         }
     }
 
-
-    private void motoMove(MotorbikeInput input)
+    private void MotoMove(MotorbikeInput input)
     {
         if (speedVal > 1)
             WColForward.steerAngle = Mathf.Clamp(input.steer, -1, 1) * maxSteerAngle;
@@ -268,11 +247,9 @@ public class MotorbikeController : MonoBehaviour
 
         if (Input.GetAxis("Vertical") < 0)
             rb.velocity = new Vector3(rb.velocity.x * (1 - ArtificialBrake / 10), rb.velocity.y, rb.velocity.z * (1 - ArtificialBrake / 10));
-
-
     }
 
-    private void updateWheels()
+    private void UpdateWheels()
     {
         float delta = Time.fixedDeltaTime;
 
@@ -293,28 +270,30 @@ public class MotorbikeController : MonoBehaviour
 
             w.rotation = Mathf.Repeat(w.rotation + delta * w.wheelCollider.rpm * 360.0f / 60.0f, 360f);
             w.wheelTransform.localRotation = Quaternion.Euler(w.rotation, Mathf.Lerp(w.wheelTransform.localRotation.y, w.wheelCollider.steerAngle, Time.deltaTime * 10), 0);
-
         }
     }
-    private void steerHandles()
+
+    private void SteerHandles()
     {
         handles.transform.localRotation = Quaternion.Euler(0, Mathf.Lerp(handles.transform.localRotation.y, WColForward.steerAngle, Time.deltaTime * 10), 0);
     }
+
     private void RearMudGuardSuspension()
     {
-        WheelHit hit;
-        if (WColBack.GetGroundHit(out hit))
+        if (WColBack.GetGroundHit(out WheelHit hit))
             RearMudGuard.transform.rotation = Quaternion.LookRotation(transform.position - wheelB.transform.position - RearMudGuardSusOffset, transform.forward);
     }
+
     private void CalcStoppie()
     {
         var stoppieAngle = transform.eulerAngles.x;
         if (transform.eulerAngles.x > 180)
             stoppieAngle = transform.eulerAngles.x - 360;
         if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.Space))
-            com.z += (speedVal * Time.deltaTime) / 5;
+            com.z += speedVal * Time.deltaTime / 5;
         else
             com.z -= Time.deltaTime * 100;
+        
         if (com.z < 0 || stoppieAngle > 5 + speedVal)
         {
             com.z = 0;
@@ -326,10 +305,11 @@ public class MotorbikeController : MonoBehaviour
             com.z = stoppieAmount;
     }
 
-    void steerHelper()
+    void SteerHelper()
     {
         steerSensivity = Mathf.Clamp(startSteerSensitivity - Mathf.Abs(turnAngle) * 0.9f, 10, startSteerSensitivity);
         controlAngle = Mathf.Clamp(controlAngle, 48, 65);
+
         if (Input.anyKey)
             controlAngle -= 1;
         else
@@ -337,7 +317,6 @@ public class MotorbikeController : MonoBehaviour
 
         if (turnAngle > 42 || turnAngle < -42)
             controlAngle += 2;
-
 
         if (turnAngle > 10 && Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
         {
@@ -356,6 +335,7 @@ public class MotorbikeController : MonoBehaviour
         {
             rb.AddTorque(-rb.angularVelocity * 2, ForceMode.Acceleration);
         }
+
         //Sets Sideways friction with speed gradations
         if (speedVal < 10)
             SetWheelFriction(1.5f);
@@ -367,8 +347,6 @@ public class MotorbikeController : MonoBehaviour
             SetWheelFriction(3);
         else
             SetWheelFriction(3.5f);
-
-
     }
 
     void SetWheelFriction(float friction)
@@ -379,6 +357,7 @@ public class MotorbikeController : MonoBehaviour
         WColBack.sidewaysFriction = wfc;
         WColForward.sidewaysFriction = wfc;
     }
+
     void CalcGear()
     {
         var prevGear = currentGear;
@@ -394,5 +373,4 @@ public class MotorbikeController : MonoBehaviour
         yield return new WaitForSeconds(0.1f);
         maxMotorTorque = initialMotorTorque;
     }
-
 }

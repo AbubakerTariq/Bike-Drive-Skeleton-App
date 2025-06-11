@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -19,10 +17,8 @@ public class MotorDetails : MonoBehaviour
         t5 = GameObject.Find("Rear");
         c1 = GameObject.Find("/MotorcycleWRider/WheelHolderForward/WCollider");
         c2 = GameObject.Find("/MotorcycleWRider/WheelHolderBack/WCollider");
-
     }
 
-    // Update is called once per frame
     void Update()
     {
         var realSpeed = motorbikeController.GetComponent<Rigidbody>().velocity.magnitude*2;

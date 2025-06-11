@@ -1,38 +1,26 @@
 using UnityEngine;
-using System.Collections;
 
 public class HelicopterCamera : MonoBehaviour
 {
-
     Transform target;
     public GameObject PrimaryTarget;
     public GameObject SecondaryTarget;
     public float distance = 20.0f;
     public float height = 5.0f;
     public float heightDamping = 2.0f;
-
     public float lookAtHeight = 0.0f;
-
     public Rigidbody parentRigidbody;
-
     public float rotationSnapTime = 0.3F;
-
     public float distanceSnapTime;
     public float distanceMultiplier;
     float initialdistanceMultiplier;
-
     private Vector3 lookAtVector;
-
     private float usedDistance;
-
     float wantedRotationAngle;
     float wantedHeight;
-
     float currentRotationAngle;
     float currentHeight;
-
     Vector3 wantedPosition;
-
     private float yVelocity = 0.0F;
     private float zVelocity = 0.0F;
     PerfectMouseLook perfectMouseLook;
@@ -40,8 +28,6 @@ public class HelicopterCamera : MonoBehaviour
     public bool counterRotation;
     MotorbikeController motorbikeController;
     bool changed,prevFallen;
-
-
 
     void Start()
     {
@@ -105,12 +91,7 @@ public class HelicopterCamera : MonoBehaviour
 
         wantedPosition += Quaternion.Euler(0, currentRotationAngle, 0) * new Vector3(0, 0, -usedDistance);
         lookAtVector = new Vector3(0, lookAtHeight, 0);
-
-
         transform.position = wantedPosition;
-
         transform.LookAt(target.position + lookAtVector);
-
     }
-
 }

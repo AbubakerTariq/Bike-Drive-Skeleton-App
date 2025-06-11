@@ -1,20 +1,14 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class RagdollJointConfig : MonoBehaviour
 {
-
     public bool invert;
-
     public float torqueForce;
     public float angularDamping;
     public float maxForce;
     public float springForce;
     public float springDamping;
-
     public Vector3 targetVel;
-
     public Transform target;
     private GameObject limb;
     private JointDrive drive;
@@ -73,6 +67,4 @@ public class RagdollJointConfig : MonoBehaviour
         }
         joint.targetRotation = target.localRotation * startingRotation;
     }
-
-
 }

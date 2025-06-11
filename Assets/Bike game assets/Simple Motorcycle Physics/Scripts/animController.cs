@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class animController : MonoBehaviour
@@ -14,7 +12,6 @@ public class animController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-
         if (transform.root.GetComponent<Rigidbody>().velocity.magnitude < 1f)
         {
             anim.CrossFade("Idle",0.3f);
@@ -23,7 +20,6 @@ public class animController : MonoBehaviour
         if (transform.root.GetComponent<Rigidbody>().velocity.magnitude > 1f && transform.root.GetComponent<Rigidbody>().velocity.magnitude < 5f)
         {
             anim.CrossFade("acc",0.3f);
-            
         }
         
         if (transform.root.GetComponent<Rigidbody>().velocity.magnitude > 5f && transform.root.GetComponent<Rigidbody>().velocity.magnitude < 10f)

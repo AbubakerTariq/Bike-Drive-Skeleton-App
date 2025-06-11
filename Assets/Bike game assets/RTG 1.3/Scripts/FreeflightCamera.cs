@@ -1,14 +1,11 @@
 using UnityEngine;
-using System.Collections;
 
 public class FreeflightCamera : MonoBehaviour 
 {
     public float speedNormal = 10.0f;
     public float speedFast   = 50.0f;
-
     public float mouseSensitivityX = 5.0f;
 	public float mouseSensitivityY = 5.0f;
-    
 	float rotY = 0.0f;
     
 	void Start()

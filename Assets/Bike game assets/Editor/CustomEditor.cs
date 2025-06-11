@@ -1,5 +1,4 @@
 using UnityEditor;
-using UnityEngine;
 
 [CustomEditor(typeof(CurvatureCalculator))]
 public class CurvatureCalculatorEditor : Editor
@@ -7,7 +6,6 @@ public class CurvatureCalculatorEditor : Editor
     public override void OnInspectorGUI()
     {
         CurvatureCalculator calculator = (CurvatureCalculator)target;
-
         base.OnInspectorGUI();
 
         if (calculator.curvatures != null)

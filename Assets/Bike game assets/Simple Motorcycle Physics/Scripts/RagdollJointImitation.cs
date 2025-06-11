@@ -1,25 +1,18 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class RagdollJointImitation : MonoBehaviour
 {
-
     private string limbTag = "TrackedLimb";
     GameObject CharacterCopyPosition;
-
     GameObject CharacterCopyAnimations;
     GameObject Motorcycle;
-
     private Transform animRoot;
     public int bodyPartMass = 1;
-
     public float Stiffness = 500f;
     public float jointAngularDamping = 10f;
-
     public Transform[] allAnimTrans;
     public ConfigurableJoint[] confJoints;
-
 
     void Start()
     {
@@ -56,8 +49,6 @@ public class RagdollJointImitation : MonoBehaviour
                 }
             }
         }
-
-
     }
 
     private void PopulateArrays()
@@ -113,5 +104,4 @@ public class RagdollJointImitation : MonoBehaviour
             }
         }
     }
-
 }

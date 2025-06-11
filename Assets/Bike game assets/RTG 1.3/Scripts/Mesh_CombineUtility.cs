@@ -1,15 +1,14 @@
 using UnityEngine;
-using System.Collections;
 
 //renamed to Mesh_CombineUtility to be compatible with U5. 
 //Code written by Unity Technologies.
 
-public class Mesh_CombineUtility {
-	
+public class Mesh_CombineUtility
+{
 	public struct MeshInstance
 	{
-		public Mesh      mesh;
-		public int       subMeshIndex;            
+		public Mesh mesh;
+		public int subMeshIndex;            
 		public Matrix4x4 transform;
 	}
 	
@@ -87,8 +86,8 @@ public class Mesh_CombineUtility {
 				invTranspose = invTranspose.inverse.transpose;
 				CopyNormal(combine.mesh.vertexCount, combine.mesh.normals, normals, ref offset, invTranspose);
 			}
-				
 		}
+
 		offset=0;
 		foreach( MeshInstance combine in combines )
 		{
@@ -98,8 +97,8 @@ public class Mesh_CombineUtility {
 				invTranspose = invTranspose.inverse.transpose;
 				CopyTangents(combine.mesh.vertexCount, combine.mesh.tangents, tangents, ref offset, invTranspose);
 			}
-				
 		}
+
 		offset=0;
 		foreach( MeshInstance combine in combines )
 		{
@@ -115,7 +114,7 @@ public class Mesh_CombineUtility {
 		}
 		
 		offset=0;
-		foreach( MeshInstance combine in combines )
+		foreach(MeshInstance combine in combines)
 		{
 			if (combine.mesh)
 				CopyColors(combine.mesh.vertexCount, combine.mesh.colors, colors, ref offset);
@@ -124,7 +123,7 @@ public class Mesh_CombineUtility {
 		int triangleOffset=0;
 		int stripOffset=0;
 		int vertexOffset=0;
-		foreach( MeshInstance combine in combines )
+		foreach(MeshInstance combine in combines)
 		{
 			if (combine.mesh)
 			{
@@ -167,17 +166,19 @@ public class Mesh_CombineUtility {
 				vertexOffset += combine.mesh.vertexCount;
 			}
 		}
-		
-		Mesh mesh = new Mesh();
-		mesh.name = "Combined Mesh";
-		mesh.vertices = vertices;
-		mesh.normals = normals;
-		mesh.colors = colors;
-		mesh.uv = uv;
-		mesh.uv2 = uv1;
-		mesh.tangents = tangents;
 
-		if (generateStrips)
+        Mesh mesh = new Mesh
+        {
+            name = "Combined Mesh",
+            vertices = vertices,
+            normals = normals,
+            colors = colors,
+            uv = uv,
+            uv2 = uv1,
+            tangents = tangents
+        };
+
+        if (generateStrips)
 			mesh.SetTriangles(strip, 0);
 		else
 			mesh.triangles = triangles;
