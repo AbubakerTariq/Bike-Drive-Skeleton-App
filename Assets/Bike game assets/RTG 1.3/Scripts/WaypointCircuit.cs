@@ -26,6 +26,25 @@ public class WaypointCircuit : MonoBehaviour
         numPoints = Waypoints.Length;
     }
 
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Keypad9))
+        {
+            float totalDistance = 0;
+            foreach (var d in distances)
+            {
+                totalDistance += d;
+            }
+
+            Debug.Log($"Total distance: {totalDistance}");
+
+            float r = Random.Range(0f, totalDistance);
+            var p = GetRoutePoint(r);
+            var a = Mathf.Atan2(p.direction.y, p.direction.x);
+            Debug.Log($"World pos at {r}: {p.position}, direction: {p.direction}, angle: {a}");
+        }
+    }
+
     public void AddWayPoint(Transform newTile)
     {
         Vector3 newTilePosition = newTile.position;
@@ -43,7 +62,6 @@ public class WaypointCircuit : MonoBehaviour
         Waypoints = new Transform[transform.childCount];
         int n = 0;
         foreach (Transform child in transform) Waypoints[n++] = child;
-        
     }
 
     public RoutePoint GetRoutePoint(float dist)
