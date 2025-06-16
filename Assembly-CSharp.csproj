@@ -45,6 +45,7 @@
     <Analyzer Include="C:\Users\AbuBakerTariq\.vscode\extensions\visualstudiotoolsforunity.vstuc-1.1.2\Analyzers\Microsoft.Unity.Analyzers.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Scripts\Track.cs" />
     <Compile Include="Assets\Bike game assets\RTG 1.3\Big Screen\Source\Camera_BigScreens.cs" />
     <Compile Include="Assets\Bike game assets\Simple Motorcycle Physics\Scripts\MotorbikeController.cs" />
     <Compile Include="Assets\Bike game assets\RTG 1.3\Scripts\Track_Generator.cs" />
@@ -67,7 +68,6 @@
     <Compile Include="Assets\Bike game assets\RTG 1.3\Scripts\FreeflightCamera.cs" />
     <Compile Include="Assets\Bike game assets\Simple Motorcycle Physics\Scripts\EngineSoundManager.cs" />
     <Compile Include="Assets\Bike game assets\RTG 1.3\WayTool\RTGWaypointsContainer.cs" />
-    <Compile Include="Assets\Scripts\Track.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

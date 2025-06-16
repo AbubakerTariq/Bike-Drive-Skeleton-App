@@ -3,6 +3,7 @@ using System.Collections;
 
 public class MotorbikeController : MonoBehaviour
 {
+    public static MotorbikeController Instance;
     public WheelCollider WColForward;
     public WheelCollider WColBack;
     public Transform wheelF;
@@ -75,6 +76,11 @@ public class MotorbikeController : MonoBehaviour
         public float brakeBack;
     }
 
+    private void Awake()
+    {
+        Instance = this;
+    }
+
     void Start()
     {
         wheels = new WheelData[2];
@@ -114,7 +120,7 @@ public class MotorbikeController : MonoBehaviour
                 input.brakeForward = 1f;
             }
 
-            MotoMove(motoControl(input));
+            MotoMove(MotoControl(input));
             SteerHelper();
             SteerHandles();
         }
@@ -130,16 +136,20 @@ public class MotorbikeController : MonoBehaviour
         }
     }
 
-    void Awake()
-    {
-        Time.timeScale = 1.15f; //Makes simulation movement more agile. You can delete this line if it interferes with your project settings.
-    }
-
     private void Reset()
     {
+        // Reset bike position to the closest center point to the bike's current position
         Transform t = GetComponent<Transform>();
-        t.position = t.position + new Vector3(0, 0.1f, 0);
-        t.eulerAngles = new Vector3(0, transform.rotation.eulerAngles.y, 0);
+        t.position = Track.Instance.GetClosestPointOnCenterLine(t.position) + new Vector3(0f, 0.1f, 0f);
+
+        // Reset bike rotation to align with the rotation of the track
+        Quaternion rotation = Track.Instance.GetTrackRotationAtPosition(t.position);
+        float yaw = rotation.eulerAngles.y;
+        t.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+
+        // Reset the bike velocity to 0
+        rb.velocity = Vector3.zero;
+        
         rb.angularDrag = 100;
         rb.centerOfMass = com;
         HardHit = false;
@@ -149,13 +159,13 @@ public class MotorbikeController : MonoBehaviour
         Rider.SetActive(true);
     }
 
-    private Vector3 prevPos = new Vector3();
+    private Vector3 prevPos = new();
     private float prevAngle = 0;
     private float prevOmega = 0;
     private float speedVal = 0;
     private float prevSteer = 0f;
 
-    private MotorbikeInput motoControl(MotorbikeInput input)
+    private MotorbikeInput MotoControl(MotorbikeInput input)
     {
         var posNow = thisTransform.position;
         var speed = (posNow - prevPos) / Time.fixedDeltaTime;
