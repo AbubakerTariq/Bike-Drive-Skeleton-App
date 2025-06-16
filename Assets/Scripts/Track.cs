@@ -55,7 +55,6 @@ public class Track : MonoBehaviour
     #region Helper functions
     /// <summary>
     /// Returns the world position on the centerline at the specified distance along the track.
-    /// Useful for placing objects or evaluating movement at a specific point on the track.
     /// Automatically wraps around if the distance exceeds the total track length.
     /// </summary>
     /// <param name="dist">Distance along the track in world units.</param>
@@ -79,7 +78,6 @@ public class Track : MonoBehaviour
 
     /// <summary>
     /// Returns the distance along the centerline that is closest to the given world position.
-    /// Useful for determining how far along the track a position is.
     /// </summary>
     /// <param name="pos">World position to evaluate.</param>
     /// <returns>Distance (in world units) along the track to the closest point on the centerline.</returns>
@@ -116,7 +114,6 @@ public class Track : MonoBehaviour
 
     /// <summary>
     /// Returns the closest world position on the centerline to the given position.
-    /// Useful for snapping objects to the center of the track.
     /// </summary>
     /// <param name="position">World position to evaluate.</param>
     /// <returns>Closest point on the centerline in world coordinates.</returns>
@@ -151,7 +148,6 @@ public class Track : MonoBehaviour
 
     /// <summary>
     /// Returns the rotation aligned with the track direction near the given world position.
-    /// Useful for spawning objects or aligning them to follow the centerline.
     /// </summary>
     /// <param name="pos">World position to evaluate.</param>
     /// <returns>Quaternion representing track-aligned rotation at the closest waypoint segment.</returns>
@@ -175,6 +171,38 @@ public class Track : MonoBehaviour
 
         return Quaternion.LookRotation(dir, Vector3.up);
     }
+
+    /// <summary>
+    /// Calculates the curvature of the track at the given world position.
+    /// Finds the nearest point on the centerline, samples positions ahead and behind to form a triangle, and uses Heron's formula to compute the radius of curvature.
+    /// Returns the inverse of the radius to represent curvature (higher = tighter turn).
+    /// </summary>
+    /// <param name="position">The world position to evaluate curvature at.</param>
+    /// <returns>Curvature value (float), where higher means a sharper turn.</returns>
+    public float GetCurvatureAtPosition(Vector3 position)
+    {
+        float offset = 5f;
+        Vector3 centerPos = GetClosestPointOnCenterLine(position);
+
+        float dist = GetDistanceAtPosition(centerPos);
+
+        Vector3 p0 = GetPositionAtDistance(dist - offset);
+        Vector3 p1 = GetPositionAtDistance(dist);
+        Vector3 p2 = GetPositionAtDistance(dist + offset);
+
+        float a = Vector3.Distance(p0, p1);
+        float b = Vector3.Distance(p1, p2);
+        float c = Vector3.Distance(p2, p0);
+
+        float s = (a + b + c) * 0.5f;
+        float area = Mathf.Sqrt(Mathf.Max(s * (s - a) * (s - b) * (s - c), 0f));
+
+        if (area < 1e-4f) return 0f;
+
+        float radius = (a * b * c) / (4f * area);
+        return 1f / radius;
+    }
+
     #endregion
 
     #region Debugging functions
