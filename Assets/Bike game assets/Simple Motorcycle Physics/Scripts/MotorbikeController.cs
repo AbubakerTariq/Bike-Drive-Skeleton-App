@@ -94,6 +94,11 @@ public class MotorbikeController : MonoBehaviour
         initialMotorTorque = maxMotorTorque;
     }
 
+    void Update()
+    {
+        Debug.Log($"Bike direction: {GetBikeDirectionVector()}, bike velocity: {GetBikeVelocityVector()}");
+    }
+
     void FixedUpdate()
     {
         turnAngle = transform.eulerAngles.z;
@@ -382,5 +387,15 @@ public class MotorbikeController : MonoBehaviour
         maxMotorTorque = 0;
         yield return new WaitForSeconds(0.1f);
         maxMotorTorque = initialMotorTorque;
+    }
+
+    Vector3 GetBikeDirectionVector()
+    {
+        return transform.forward;
+    }
+
+    Vector3 GetBikeVelocityVector()
+    {
+        return rb.velocity;
     }
 }
