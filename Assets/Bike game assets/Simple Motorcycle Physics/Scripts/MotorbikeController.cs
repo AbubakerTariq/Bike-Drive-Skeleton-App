@@ -94,11 +94,6 @@ public class MotorbikeController : MonoBehaviour
         initialMotorTorque = maxMotorTorque;
     }
 
-    void Update()
-    {
-        Debug.Log($"Bike direction: {GetBikeDirectionVector()}, bike velocity: {GetBikeVelocityVector()}");
-    }
-
     void FixedUpdate()
     {
         turnAngle = transform.eulerAngles.z;

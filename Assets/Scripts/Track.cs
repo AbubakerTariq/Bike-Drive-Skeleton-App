@@ -276,6 +276,39 @@ public class Track : MonoBehaviour
         float radius = (a * b * c) / (4f * area);
         return 1f / radius;
     }
+
+    /// <summary>
+    /// Returns the tangent (forward direction) of the centerline at a given distance along the track.
+    /// </summary>
+    /// <param name="dist">Distance along the track.</param>
+    /// <returns>Normalized direction vector representing the tangent at the given distance.</returns>
+    public Vector3 GetTangentAtDistance(float dist)
+    {
+        dist = Mathf.Repeat(dist, distances[^1]);
+
+        int i = 1;
+        while (i < distances.Count && distances[i] < dist)
+            i++;
+
+        int p1 = i - 1;
+        int p2 = i % centerPoints.Count;
+
+        Vector3 dir = (centerPoints[p2] - centerPoints[p1]).normalized;
+        return dir;
+    }
+
+    /// <summary>
+    /// Returns the tangent (forward direction) of the centerline closest to a given world position.
+    /// Internally finds the nearest point on the track and returns the direction at that location.
+    /// </summary>
+    /// <param name="position">World position to evaluate tangent from.</param>
+    /// <returns>Normalized direction vector representing the tangent at the closest point on the centerline.</returns>
+    public Vector3 GetTangentAtPosition(Vector3 position)
+    {
+        Vector3 closest = GetClosestPointOnCenterLine(position);
+        float dist = GetDistanceAtPosition(closest);
+        return GetTangentAtDistance(dist);
+    }
     #endregion
 
     #region Debugging functions
