@@ -29,6 +29,7 @@ public class Track : MonoBehaviour
 
         // Set up the center line visual
         SetupCenterLineVisual();
+        Debug.Log($"Track number: {gameObject.name}, center points: {centerPoints.Count}");
     }
 
     private void SetupWaypointList()
@@ -308,6 +309,33 @@ public class Track : MonoBehaviour
         Vector3 closest = GetClosestPointOnCenterLine(position);
         float dist = GetDistanceAtPosition(closest);
         return GetTangentAtDistance(dist);
+    }
+
+    /// <summary>
+    /// Returns the Y-axis angle (in degrees) of the centerline tangent at the given distance.
+    /// </summary>
+    /// <param name="dist">Distance along the track.</param>
+    /// <returns>Y-axis angle in degrees.</returns>
+    public float GetTangentAngleAtDistance(float dist)
+    {
+        Vector3 dir = GetTangentAtDistance(dist);
+        return Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
+    }
+
+    /// <summary>
+    /// Returns the Y-axis angle (in degrees) of the centerline tangent closest to a given position.
+    /// </summary>
+    /// <param name="position">World position to evaluate tangent angle from.</param>
+    /// <returns>Y-axis angle in degrees.</returns>
+    public float GetTangentAngleAtPosition(Vector3 position)
+    {
+        Vector3 dir = GetTangentAtPosition(position);
+        return Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
+    }
+
+    public float GetTrackLength()
+    {
+        return distances[^1];
     }
     #endregion
 

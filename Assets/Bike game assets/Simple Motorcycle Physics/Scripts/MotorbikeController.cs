@@ -384,12 +384,17 @@ public class MotorbikeController : MonoBehaviour
         maxMotorTorque = initialMotorTorque;
     }
 
-    Vector3 GetBikeDirectionVector()
+    public Vector3 GetBikePosition()
+    {
+        return transform.position;
+    }
+    
+    public Vector3 GetBikeDirectionVector()
     {
         return transform.forward;
     }
 
-    Vector3 GetBikeVelocityVector()
+    public Vector3 GetBikeVelocityVector()
     {
         return rb.velocity;
     }
