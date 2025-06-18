@@ -7,10 +7,12 @@ public class Track : MonoBehaviour
 
     [Space]
     [SerializeField] private Transform waypointsParent;
-    [SerializeField] private bool splineCurve = false;
 
     List<Transform> waypoints = new();
     List<float> distances = new();
+    List<Vector3> centerPoints = new();
+    private readonly int curveResolution = 20;
+    private readonly float angleThreshold = 5f;
 
     private void Awake()
     {
@@ -24,15 +26,50 @@ public class Track : MonoBehaviour
 
         // Calculate the total distance covered by the track
         SetupTrackDistances();
+
+        // Set up the center line visual
+        SetupCenterLineVisual();
     }
 
     private void SetupWaypointList()
     {
         waypoints = new();
+        centerPoints = new();
 
         foreach (Transform t in waypointsParent)
         {
             waypoints.Add(t);
+        }
+
+        if (waypoints == null || waypoints.Count < 4)
+            return;
+
+        for (int i = 0; i < waypoints.Count; i++)
+        {
+            Vector3 p0 = waypoints[(i - 1 + waypoints.Count) % waypoints.Count].position;
+            Vector3 p1 = waypoints[i % waypoints.Count].position;
+            Vector3 p2 = waypoints[(i + 1) % waypoints.Count].position;
+            Vector3 p3 = waypoints[(i + 2) % waypoints.Count].position;
+
+            float angle = Vector3.Angle(p2 - p1, p1 - p0);
+            if (Mathf.Abs(angle - 180f) < angleThreshold)
+            {
+                if (centerPoints.Count == 0 || centerPoints[^1] != p1)
+                    centerPoints.Add(p1);
+                centerPoints.Add(p2);
+                continue;
+            }
+
+            Vector3 prevPos = p1;
+            if (centerPoints.Count == 0 || centerPoints[^1] != prevPos)
+                centerPoints.Add(prevPos);
+
+            for (int j = 1; j <= curveResolution; j++)
+            {
+                float t = j / (float)curveResolution;
+                Vector3 pos = GetCatmullRomPosition(t, p0, p1, p2, p3);
+                centerPoints.Add(pos);
+            }
         }
     }
 
@@ -40,16 +77,37 @@ public class Track : MonoBehaviour
     {
         float totalTrackDistance = 0f;
         distances = new();
-        distances.Add(0);
-        
-        for (int i = 1; i < waypoints.Count; i++)
+        distances.Add(0f);
+
+        for (int i = 1; i < centerPoints.Count; i++)
         {
-            totalTrackDistance += Vector3.Distance(waypoints[i - 1].position, waypoints[i].position);
+            totalTrackDistance += Vector3.Distance(centerPoints[i - 1], centerPoints[i]);
             distances.Add(totalTrackDistance);
         }
 
-        totalTrackDistance += Vector3.Distance(waypoints[^1].position, waypoints[0].position);
+        // Connect last point to first if the track loops
+        totalTrackDistance += Vector3.Distance(centerPoints[^1], centerPoints[0]);
         distances.Add(totalTrackDistance);
+    }
+
+    private void SetupCenterLineVisual()
+    {
+        var lineRenderer = GetComponent<LineRenderer>();
+        if (lineRenderer == null || centerPoints == null || centerPoints.Count < 2)
+            return;
+
+        int count = centerPoints.Count + 1;
+        Vector3[] positions = new Vector3[count];
+
+        for (int i = 0; i < centerPoints.Count; i++)
+        {
+            positions[i] = centerPoints[i];
+        }
+
+        positions[^1] = centerPoints[0]; // Close the loop
+
+        lineRenderer.positionCount = count;
+        lineRenderer.SetPositions(positions);
     }
 
     #region Helper functions
@@ -61,6 +119,9 @@ public class Track : MonoBehaviour
     /// <returns>World position on the centerline at the given distance.</returns>
     public Vector3 GetPositionAtDistance(float dist)
     {
+        if (centerPoints == null || centerPoints.Count < 2 || distances == null || distances.Count != centerPoints.Count + 1)
+            return Vector3.zero;
+
         dist = Mathf.Repeat(dist, distances[^1]);
 
         int i = 1;
@@ -70,10 +131,10 @@ public class Track : MonoBehaviour
         }
 
         int p1 = i - 1;
-        int p2 = i % waypoints.Count;
+        int p2 = i % centerPoints.Count;
 
         float t = Mathf.InverseLerp(distances[p1], distances[i], dist);
-        return Vector3.Lerp(waypoints[p1].position, waypoints[p2].position, t);
+        return Vector3.Lerp(centerPoints[p1], centerPoints[p2], t);
     }
 
     /// <summary>
@@ -83,15 +144,15 @@ public class Track : MonoBehaviour
     /// <returns>Distance (in world units) along the track to the closest point on the centerline.</returns>
     public float GetDistanceAtPosition(Vector3 pos)
     {
-        float closestDist = float.MaxValue;
+        float closestSqrDist = float.MaxValue;
         float projectedDistance = 0f;
 
-        for (int i = 0; i < waypoints.Count; i++)
+        for (int i = 0; i < centerPoints.Count; i++)
         {
-            int j = (i + 1) % waypoints.Count;
+            int j = (i + 1) % centerPoints.Count;
 
-            Vector3 a = waypoints[i].position;
-            Vector3 b = waypoints[j].position;
+            Vector3 a = centerPoints[i];
+            Vector3 b = centerPoints[j];
 
             Vector3 ab = b - a;
             Vector3 ap = pos - a;
@@ -100,9 +161,9 @@ public class Track : MonoBehaviour
             Vector3 projection = a + ab * t;
 
             float sqrDist = (pos - projection).sqrMagnitude;
-            if (sqrDist < closestDist)
+            if (sqrDist < closestSqrDist)
             {
-                closestDist = sqrDist;
+                closestSqrDist = sqrDist;
                 float segmentStart = distances[i];
                 float segmentEnd = distances[i + 1];
                 projectedDistance = Mathf.Lerp(segmentStart, segmentEnd, t);
@@ -122,12 +183,12 @@ public class Track : MonoBehaviour
         float closestSqrDist = float.MaxValue;
         Vector3 closestPoint = Vector3.zero;
 
-        for (int i = 0; i < waypoints.Count; i++)
+        for (int i = 0; i < centerPoints.Count; i++)
         {
-            int j = (i + 1) % waypoints.Count;
+            int j = (i + 1) % centerPoints.Count;
 
-            Vector3 a = waypoints[i].position;
-            Vector3 b = waypoints[j].position;
+            Vector3 a = centerPoints[i];
+            Vector3 b = centerPoints[j];
 
             Vector3 ab = b - a;
             Vector3 ap = position - a;
@@ -156,9 +217,9 @@ public class Track : MonoBehaviour
         float closestSqrDist = float.MaxValue;
         int closestIndex = 0;
 
-        for (int i = 0; i < waypoints.Count; i++)
+        for (int i = 0; i < centerPoints.Count; i++)
         {
-            float sqrDist = (waypoints[i].position - pos).sqrMagnitude;
+            float sqrDist = (centerPoints[i] - pos).sqrMagnitude;
             if (sqrDist < closestSqrDist)
             {
                 closestSqrDist = sqrDist;
@@ -166,8 +227,8 @@ public class Track : MonoBehaviour
             }
         }
 
-        int nextIndex = (closestIndex + 1) % waypoints.Count;
-        Vector3 dir = (waypoints[nextIndex].position - waypoints[closestIndex].position).normalized;
+        int nextIndex = (closestIndex + 1) % centerPoints.Count;
+        Vector3 dir = (centerPoints[nextIndex] - centerPoints[closestIndex]).normalized;
 
         return Quaternion.LookRotation(dir, Vector3.up);
     }
@@ -202,62 +263,40 @@ public class Track : MonoBehaviour
         float radius = (a * b * c) / (4f * area);
         return 1f / radius;
     }
-
     #endregion
 
     #region Debugging functions
-    private readonly int curveResolution = 20;
-    private readonly float angleThreshold = 5f;
-
     private void OnDrawGizmos()
     {
         SetupWaypointList();
 
-        if (splineCurve)
+        if (waypoints == null || waypoints.Count < 4)
+        return;
+
+        Gizmos.color = Color.cyan;
+
+        for (int i = 0; i < waypoints.Count; i++)
         {
-            if (waypoints == null || waypoints.Count < 4)
-            return;
+            Vector3 p0 = waypoints[(i - 1 + waypoints.Count) % waypoints.Count].position;
+            Vector3 p1 = waypoints[i % waypoints.Count].position;
+            Vector3 p2 = waypoints[(i + 1) % waypoints.Count].position;
+            Vector3 p3 = waypoints[(i + 2) % waypoints.Count].position;
 
-            Gizmos.color = Color.cyan;
-
-            for (int i = 0; i < waypoints.Count; i++)
+            float angle = Vector3.Angle(p2 - p1, p1 - p0);
+            if (Mathf.Abs(angle - 180f) < angleThreshold)
             {
-                Vector3 p0 = waypoints[(i - 1 + waypoints.Count) % waypoints.Count].position;
-                Vector3 p1 = waypoints[i % waypoints.Count].position;
-                Vector3 p2 = waypoints[(i + 1) % waypoints.Count].position;
-                Vector3 p3 = waypoints[(i + 2) % waypoints.Count].position;
-
-                float angle = Vector3.Angle(p2 - p1, p1 - p0);
-                if (Mathf.Abs(angle - 180f) < angleThreshold)
-                {
-                    Gizmos.DrawLine(p1, p2);
-                    continue;
-                }
-
-                Vector3 prevPos = p1;
-                for (int j = 1; j <= curveResolution; j++)
-                {
-                    float t = j / (float)curveResolution;
-                    Vector3 pos = GetCatmullRomPosition(t, p0, p1, p2, p3);
-                    Gizmos.DrawLine(prevPos, pos);
-                    prevPos = pos;
-                }
-            }
-        }
-        else
-        {
-            SetupWaypointList();
-
-            if (waypoints == null || waypoints.Count < 2)
-                return;
-
-            Gizmos.color = Color.white;
-            for (int i =  1; i < waypoints.Count; i++)
-            {
-                Gizmos.DrawLine(waypoints[i - 1].position, waypoints[i].position);
+                Gizmos.DrawLine(p1, p2);
+                continue;
             }
 
-            Gizmos.DrawLine(waypoints[^1].position, waypoints[0].position);
+            Vector3 prevPos = p1;
+            for (int j = 1; j <= curveResolution; j++)
+            {
+                float t = j / (float)curveResolution;
+                Vector3 pos = GetCatmullRomPosition(t, p0, p1, p2, p3);
+                Gizmos.DrawLine(prevPos, pos);
+                prevPos = pos;
+            }
         }
     }
     

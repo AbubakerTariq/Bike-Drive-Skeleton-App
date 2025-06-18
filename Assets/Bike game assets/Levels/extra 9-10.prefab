@@ -5841,37 +5841,6 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300012, guid: c3747c18edb92f846bd8c5e315ccd1a3, type: 3}
---- !u!1 &1626316626442937109
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 324082676767868505}
-  m_Layer: 0
-  m_Name: Waypoint 085
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &324082676767868505
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1626316626442937109}
-  m_LocalRotation: {x: -0, y: 0.7071068, z: -0, w: 0.7071068}
-  m_LocalPosition: {x: -250, y: 0, z: 375}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 8788580385464286820}
-  m_RootOrder: 85
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1666670657869689278
 GameObject:
   m_ObjectHideFlags: 0
@@ -21243,7 +21212,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8788580385464286820}
-  - component: {fileID: 5845301822719646815}
   m_Layer: 0
   m_Name: Waypoints
   m_TagString: Untagged
@@ -21348,109 +21316,9 @@ Transform:
   - {fileID: 6562004073860775478}
   - {fileID: 8353804227236355317}
   - {fileID: 3342117274948707750}
-  - {fileID: 324082676767868505}
   m_Father: {fileID: 2926516009164246812}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &5845301822719646815
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7021637701144048003}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5032ae1e85dbdb84ba484b6b72987e8b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  Waypoints:
-  - {fileID: 4838639362699629917}
-  - {fileID: 4928806173965984170}
-  - {fileID: 3419627111261098391}
-  - {fileID: 5077942666242471389}
-  - {fileID: 1259760552997678268}
-  - {fileID: 4032264369220739013}
-  - {fileID: 4704149217649496142}
-  - {fileID: 7066710304832474471}
-  - {fileID: 3746001653550969818}
-  - {fileID: 521358877463956514}
-  - {fileID: 4251716424275395854}
-  - {fileID: 1875096043770277966}
-  - {fileID: 6802575905841257251}
-  - {fileID: 4563307451416362022}
-  - {fileID: 3056171132359797003}
-  - {fileID: 3856663458385287278}
-  - {fileID: 8712038472282140304}
-  - {fileID: 5724981920168960054}
-  - {fileID: 8563480595047174553}
-  - {fileID: 1976477814806496363}
-  - {fileID: 6815696801090327835}
-  - {fileID: 5713732005616754460}
-  - {fileID: 8984791699880759192}
-  - {fileID: 6115656900504990623}
-  - {fileID: 3696404738998294}
-  - {fileID: 8430491791044798776}
-  - {fileID: 4297714107034360655}
-  - {fileID: 8808214557747389260}
-  - {fileID: 3316239735025085736}
-  - {fileID: 8056539301328886892}
-  - {fileID: 7700813484755113796}
-  - {fileID: 1091349460549690181}
-  - {fileID: 8588696538703310856}
-  - {fileID: 1323900336419023227}
-  - {fileID: 4093916546446019303}
-  - {fileID: 5263723571318103192}
-  - {fileID: 7689602671766550382}
-  - {fileID: 7314696799115927037}
-  - {fileID: 2418422258070546268}
-  - {fileID: 8189487970722760603}
-  - {fileID: 4439072541764224349}
-  - {fileID: 1118320194318461589}
-  - {fileID: 360382447422742149}
-  - {fileID: 8155590690903224204}
-  - {fileID: 4634971286695650373}
-  - {fileID: 6376801429467153860}
-  - {fileID: 4927758405533109275}
-  - {fileID: 5662164957550849413}
-  - {fileID: 3074002836790786177}
-  - {fileID: 5066276165637778611}
-  - {fileID: 3249428551486464566}
-  - {fileID: 3913150441988220586}
-  - {fileID: 4403207404960103918}
-  - {fileID: 651040933061849946}
-  - {fileID: 3277084709212780135}
-  - {fileID: 3302721525329639478}
-  - {fileID: 1644641865136621547}
-  - {fileID: 9183972642905636848}
-  - {fileID: 547542226621922146}
-  - {fileID: 2288442970900294831}
-  - {fileID: 3859119745359273315}
-  - {fileID: 7838246394228133680}
-  - {fileID: 7335731564043250724}
-  - {fileID: 9142223347645024478}
-  - {fileID: 7178351545372314232}
-  - {fileID: 3161140484591343059}
-  - {fileID: 1765183661847007166}
-  - {fileID: 6170651567279358530}
-  - {fileID: 1302020076411662353}
-  - {fileID: 6516084788074199148}
-  - {fileID: 3995225054478968385}
-  - {fileID: 462614613513749047}
-  - {fileID: 2036552663271892737}
-  - {fileID: 7529758471589611921}
-  - {fileID: 5189738444499060561}
-  - {fileID: 2844426424839631725}
-  - {fileID: 2313886645396597198}
-  - {fileID: 1381838657638613981}
-  - {fileID: 8092562460876498126}
-  - {fileID: 5656582616954866302}
-  - {fileID: 742310770571645796}
-  - {fileID: 5906245581429960038}
-  - {fileID: 6562004073860775478}
-  - {fileID: 8353804227236355317}
-  - {fileID: 3342117274948707750}
-  - {fileID: 324082676767868505}
 --- !u!1 &7023297557799904467
 GameObject:
   m_ObjectHideFlags: 0
@@ -23102,6 +22970,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2926516009164246812}
+  - component: {fileID: -5773919010642646114}
   - component: {fileID: 4113928589020465472}
   m_Layer: 0
   m_Name: extra 9-10
@@ -23129,6 +22998,105 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!120 &-5773919010642646114
+LineRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7362081325336703237}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 0
+  m_LightProbeUsage: 0
+  m_ReflectionProbeUsage: 0
+  m_RayTracingMode: 0
+  m_RayTraceProcedural: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: 70713a4889c275e4f83373f59b5ba129, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_Positions:
+  - {x: 0, y: 0, z: 0}
+  - {x: 0, y: 0, z: 1}
+  m_Parameters:
+    serializedVersion: 3
+    widthMultiplier: 1
+    widthCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0.25
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0.33333334
+        outWeight: 0.33333334
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+    colorGradient:
+      serializedVersion: 2
+      key0: {r: 1, g: 1, b: 1, a: 1}
+      key1: {r: 1, g: 1, b: 1, a: 1}
+      key2: {r: 0, g: 0, b: 0, a: 0}
+      key3: {r: 0, g: 0, b: 0, a: 0}
+      key4: {r: 0, g: 0, b: 0, a: 0}
+      key5: {r: 0, g: 0, b: 0, a: 0}
+      key6: {r: 0, g: 0, b: 0, a: 0}
+      key7: {r: 0, g: 0, b: 0, a: 0}
+      ctime0: 0
+      ctime1: 65535
+      ctime2: 0
+      ctime3: 0
+      ctime4: 0
+      ctime5: 0
+      ctime6: 0
+      ctime7: 0
+      atime0: 0
+      atime1: 65535
+      atime2: 0
+      atime3: 0
+      atime4: 0
+      atime5: 0
+      atime6: 0
+      atime7: 0
+      m_Mode: 0
+      m_NumColorKeys: 2
+      m_NumAlphaKeys: 2
+    numCornerVertices: 0
+    numCapVertices: 0
+    alignment: 0
+    textureMode: 0
+    shadowBias: 0.5
+    generateLightingData: 0
+  m_UseWorldSpace: 1
+  m_Loop: 0
 --- !u!114 &4113928589020465472
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -23141,7 +23109,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 49568cc28fb6d5f4890325acfdfe7159, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  segmentsParent: {fileID: 632618327860538551}
   waypointsParent: {fileID: 8788580385464286820}
 --- !u!1 &7373002848677451116
 GameObject:

@@ -53,7 +53,6 @@
     <Compile Include="Assets\Scripts\DataManager.cs" />
     <Compile Include="Assets\Bike game assets\Simple Motorcycle Physics\Scripts\RagdollJointImitation.cs" />
     <Compile Include="Assets\Bike game assets\Simple Motorcycle Physics\Scripts\SimpleSmoothMouseLook.cs" />
-    <Compile Include="Assets\Bike game assets\Scripts\CurvatureCalculator.cs" />
     <Compile Include="Assets\Bike game assets\Simple Motorcycle Physics\Scripts\animController.cs" />
     <Compile Include="Assets\Bike game assets\Simple Motorcycle Physics\Scripts\PerfectMouseLook.cs" />
     <Compile Include="Assets\Bike game assets\Simple Motorcycle Physics\Scripts\RagdollAnimator.cs" />
