@@ -12,6 +12,7 @@ public class Track : MonoBehaviour
     List<float> distances = new();
     List<Vector3> centerPoints = new();
     private readonly int curveResolution = 20;
+    [SerializeField] private bool splineCurve = false;
 
     private void Awake()
     {
@@ -336,19 +337,24 @@ public class Track : MonoBehaviour
         if (centerPoints == null || centerPoints.Count < 2)
             return;
 
-        Gizmos.color = Color.cyan;
-        for (int i = 1; i < centerPoints.Count; i++)
+        if (splineCurve)
         {
-            Gizmos.DrawLine(centerPoints[i - 1], centerPoints[i]);
+            Gizmos.color = Color.cyan;
+            for (int i = 1; i < centerPoints.Count; i++)
+            {
+                Gizmos.DrawLine(centerPoints[i - 1], centerPoints[i]);
+            }
+            Gizmos.DrawLine(centerPoints[^1], centerPoints[0]);
         }
-        Gizmos.DrawLine(centerPoints[^1], centerPoints[0]);
-
-        Gizmos.color = Color.white;
-        for (int i = 1; i < waypoints.Count; i++)
+        else
         {
-            Gizmos.DrawLine(waypoints[i - 1].position, waypoints[i].position);
+            Gizmos.color = Color.white;
+            for (int i = 1; i < waypoints.Count; i++)
+            {
+                Gizmos.DrawLine(waypoints[i - 1].position, waypoints[i].position);
+            }
+            Gizmos.DrawLine(waypoints[^1].position, waypoints[0].position);
         }
-        Gizmos.DrawLine(waypoints[^1].position, waypoints[0].position);
     }
     #endregion
 }
