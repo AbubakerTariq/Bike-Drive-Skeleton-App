@@ -33,25 +33,22 @@ public class Track : MonoBehaviour
     private void SetupWaypointList()
     {
         waypoints = new();
-        centerPoints = new();
 
         foreach (Transform t in waypointsParent)
         {
             waypoints.Add(t);
         }
 
-        List<Vector3> ReSampled = new();
-        ReSampled = ResampleAlongEntireTrack(waypoints, 20f);
-
         if (waypoints == null || waypoints.Count < 4)
             return;
 
-        for (int i = 0; i < ReSampled.Count; i++)
+        centerPoints = new();
+        for (int i = 0; i < waypoints.Count; i++)
         {
-            Vector3 p0 = ReSampled[(i - 1 + ReSampled.Count) % ReSampled.Count];
-            Vector3 p1 = ReSampled[i % ReSampled.Count];
-            Vector3 p2 = ReSampled[(i + 1) % ReSampled.Count];
-            Vector3 p3 = ReSampled[(i + 2) % ReSampled.Count];
+            Vector3 p0 = waypoints[(i - 1 + waypoints.Count) % waypoints.Count].position;
+            Vector3 p1 = waypoints[i % waypoints.Count].position;
+            Vector3 p2 = waypoints[(i + 1) % waypoints.Count].position;
+            Vector3 p3 = waypoints[(i + 2) % waypoints.Count].position;
 
             Vector3 prevPos = p1;
             if (centerPoints.Count == 0 || centerPoints[^1] != prevPos)
@@ -64,41 +61,6 @@ public class Track : MonoBehaviour
                 centerPoints.Add(pos);
             }
         }
-    }
-
-    private List<Vector3> ResampleAlongEntireTrack(List<Transform> originalWaypoints, float spacing)
-    {
-        List<Vector3> resampled = new();
-        if (originalWaypoints == null || originalWaypoints.Count < 2)
-            return resampled;
-
-        List<Vector3> positions = new();
-        for (int i = 0; i < originalWaypoints.Count; i++)
-            positions.Add(originalWaypoints[i].position);
-
-        float totalDistance = 0f;
-        float nextSampleDist = 0f;
-
-        for (int i = 0; i < positions.Count; i++)
-        {
-            Vector3 a = positions[i];
-            Vector3 b = positions[(i + 1) % positions.Count];
-
-            float segmentLength = Vector3.Distance(a, b);
-            Vector3 dir = (b - a).normalized;
-
-            while (totalDistance + segmentLength >= nextSampleDist)
-            {
-                float t = (nextSampleDist - totalDistance) / segmentLength;
-                Vector3 sample = Vector3.Lerp(a, b, t);
-                resampled.Add(sample);
-                nextSampleDist += spacing;
-            }
-
-            totalDistance += segmentLength;
-        }
-
-        return resampled;
     }
 
     private Vector3 GetCatmullRomPosition(float t, Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3)
@@ -374,13 +336,6 @@ public class Track : MonoBehaviour
         if (centerPoints == null || centerPoints.Count < 2)
             return;
 
-        // Gizmos.color = splineCurve ? Color.cyan : Color.white;
-        // for (int i = 1; i < centerPoints.Count; i++)
-        // {
-        //     Gizmos.DrawLine(centerPoints[i - 1], centerPoints[i]);
-        // }
-        // Gizmos.DrawLine(centerPoints[^1], centerPoints[0]);
-
         Gizmos.color = Color.cyan;
         for (int i = 1; i < centerPoints.Count; i++)
         {
@@ -388,18 +343,12 @@ public class Track : MonoBehaviour
         }
         Gizmos.DrawLine(centerPoints[^1], centerPoints[0]);
 
-        // for (int i = 1; i < waypoints.Count; i++)
-        // {
-        //     Gizmos.DrawLine(waypoints[i - 1].position, waypoints[i].position);
-        // }
-        // Gizmos.DrawLine(waypoints[^1].position, waypoints[0].position);
-
-        // Gizmos.color = Color.black;
-        // for (int i = 1; i < ReSampled.Count; i++)
-        // {
-        //     Gizmos.DrawLine(ReSampled[i - 1], ReSampled[i]);
-        // }
-        // Gizmos.DrawLine(ReSampled[^1], ReSampled[0]);
+        Gizmos.color = Color.white;
+        for (int i = 1; i < waypoints.Count; i++)
+        {
+            Gizmos.DrawLine(waypoints[i - 1].position, waypoints[i].position);
+        }
+        Gizmos.DrawLine(waypoints[^1].position, waypoints[0].position);
     }
     #endregion
 }
