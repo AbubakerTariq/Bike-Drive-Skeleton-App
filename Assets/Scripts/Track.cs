@@ -7,12 +7,11 @@ public class Track : MonoBehaviour
 
     [Space]
     [SerializeField] private Transform waypointsParent;
+    [SerializeField] private int curveResolution = 20;
 
     List<Transform> waypoints = new();
     List<float> distances = new();
     List<Vector3> centerPoints = new();
-    private readonly int curveResolution = 20;
-    [SerializeField] private bool splineCurve = false;
 
     private void Awake()
     {
@@ -80,8 +79,10 @@ public class Track : MonoBehaviour
     private void SetupTrackDistances()
     {
         float totalTrackDistance = 0f;
-        distances = new();
-        distances.Add(0f);
+        distances = new()
+        {
+            0f
+        };
 
         for (int i = 1; i < centerPoints.Count; i++)
         {
@@ -337,24 +338,12 @@ public class Track : MonoBehaviour
         if (centerPoints == null || centerPoints.Count < 2)
             return;
 
-        if (splineCurve)
+        Gizmos.color = Color.cyan;
+        for (int i = 1; i < centerPoints.Count; i++)
         {
-            Gizmos.color = Color.cyan;
-            for (int i = 1; i < centerPoints.Count; i++)
-            {
-                Gizmos.DrawLine(centerPoints[i - 1], centerPoints[i]);
-            }
-            Gizmos.DrawLine(centerPoints[^1], centerPoints[0]);
+            Gizmos.DrawLine(centerPoints[i - 1], centerPoints[i]);
         }
-        else
-        {
-            Gizmos.color = Color.white;
-            for (int i = 1; i < waypoints.Count; i++)
-            {
-                Gizmos.DrawLine(waypoints[i - 1].position, waypoints[i].position);
-            }
-            Gizmos.DrawLine(waypoints[^1].position, waypoints[0].position);
-        }
+        Gizmos.DrawLine(centerPoints[^1], centerPoints[0]);
     }
     #endregion
 }
