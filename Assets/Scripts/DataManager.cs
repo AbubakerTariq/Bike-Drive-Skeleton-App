@@ -6,12 +6,27 @@ using UnityEngine;
 
 public class DataManager : MonoBehaviour
 {
+    private static DataManager instance;
+    
     // Variable to store file path of the data file
     private string filePath;
     
     // The thread and timer to help save the data in the CSV file
     private System.Timers.Timer dataTimer;
     private Thread timerThread;
+
+    private void Awake()
+    {
+        // Singleton logic
+        if (instance != null && instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        instance = this;
+        DontDestroyOnLoad(gameObject);
+    }
 
     private void Start()
     {

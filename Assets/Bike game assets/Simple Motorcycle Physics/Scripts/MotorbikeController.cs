@@ -358,20 +358,24 @@ public class MotorbikeController : MonoBehaviour
 
     private void Reset()
     {
-        Transform transf = GetComponent<Transform>(); // TODO: why is thisTransform not used here??
-        transf.position += new Vector3(0, 0.1f, 0);
-        transf.eulerAngles = new Vector3(0, transform.rotation.eulerAngles.y, 0);
+        // Reset bike position to the closest center point to the bike's current position
+        Transform t = GetComponent<Transform>();
+        t.position = Track.Instance.GetClosestPointOnCenterLine(t.position) + new Vector3(0f, 0.1f, 0f);
 
-        // Reset to initial tranform coordinates (TODO: keep or discard):
-        // transf.position = transform_initial.position;
-        // transf.eulerAngles = transform_initial.eulerAngles;
+        // Reset bike rotation to align with the rotation of the track
+        Quaternion rotation = Track.Instance.GetTrackRotationAtPosition(t.position);
+        float yaw = rotation.eulerAngles.y;
+        t.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
 
-        rigid_body.angularDrag = 100f;
+        // Reset the bike velocity to 0 (optional)
+        rigid_body.velocity = Vector3.zero;
+        
+        rigid_body.angularDrag = 100;
         rigid_body.centerOfMass = com;
         HardHit = false;
         bike_fallen = false;
-        // Destroy(tempRagdollClone);
-        // Destroy(tempAnimRiderClone);
+        Destroy(tempRagdollClone);
+        Destroy(tempAnimRiderClone);
         Rider.SetActive(true);
     }
 
@@ -599,8 +603,8 @@ public class MotorbikeController : MonoBehaviour
         if ((Mathf.Abs(angle_turn) > ANGLE_NONSLIP_MAX_DEG || Input.GetKeyDown(KeyCode.F) || HardHit == true) && bike_fallen == false)
         {
             Rider.SetActive(false);
-            // tempRagdollClone = Instantiate(Ragdoll);
-            // tempAnimRiderClone = Instantiate(RagdollAnimation);
+            tempRagdollClone = Instantiate(Ragdoll);
+            tempAnimRiderClone = Instantiate(RagdollAnimation);
             rigid_body.centerOfMass = new Vector3(0, 0.5f, 0);
             bike_fallen = true;
         }
