@@ -1,58 +1,127 @@
-using UnityEngine;
+using System;
 using System.Collections;
+using UnityEngine;
 
 public class MotorbikeController : MonoBehaviour
 {
+    ////////////////////////////////////////////////////////////////////////////
+    // Bike control parameters:
+    ////////////////////////////////////////////////////////////////////////////
+    
+    public float ANGLE_STEER_MAX = 45f;
+    public float TORQUE_MOTOR_MAX = 500f; // [Tooltip("Adds more speed. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system and make the bike glitch badly.")]
+
+    public float FACTOR_ACCEL = 1000f; // [Tooltip("Adds more braking power. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system, but it will definitely apply hard brakes")]
+    [Range(0, 1)]
+
+    public float FACTOR_BRAKE = 0f;
+    public float FACTOR_BRAKE_FWD = 400f;
+    public float FACTOR_BRAKE_BACK = 400f;
+
+    public float RADIUS_WHEEL = 0.7f;
+
+    public float STEER_SENSITIVITY = 30.0f;
+    public float FACTOR_ANGLE_STEER = 25.0f;
+    public float FACTOR_DT_ANGLE_STEER = 30.0f;
+
+    public float FACTOR_ANGLE_SQUARED_STEER = 2.3f;
+    public float FACTOR_INC_STEER = 10f;
+
+    public float SPEED_LOW = 8.0f;
+    public float SPEED_HIGH = 25.0f;
+
+    public float ANGLE_NONSLIP_MAX_DEG = 40; // [Tooltip("Experimental Feature : Only for controlled low speeds")]
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Bike 'physical' parts:
+    ////////////////////////////////////////////////////////////////////////////
+    
     public static MotorbikeController Instance;
-    public WheelCollider WColForward;
-    public WheelCollider WColBack;
+
+    // Wheels:
+    public WheelCollider wheel_coll_fwd; // gameObject.AddComponent<WheelCollider>();
+    public WheelCollider wheel_coll_back; // gameObject.AddComponent<WheelCollider>();
+
     public Transform wheelF;
     public Transform wheelB;
     [SerializeField]
+
+    // Handles:
     public GameObject handles;
     [SerializeField]
+
+    // Mudguard:
     public GameObject RearMudGuard;
-    public Vector3 RearMudGuardSusOffset;
-    [Tooltip("Lower values mean higher sensitivity")]
-    public float preventGlitchAngle = 40;
-    [Tooltip("Experimental Feature : Only for controlled low speeds")]
-    public bool canArtificialStoppie = false;
-    [Range(0.1f, 1f)]
-    public float stoppieAmount = 0.3f;
-    [HideInInspector]
-    public bool fallen = false;
-    public float maxSteerAngle = 45;
-    public float maxMotorTorque = 500;
-    [Tooltip("Adds more speed. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system and make the bike glitch badly.")]
-    public float ArtificialAcceleration = 1000f;
-    [Tooltip("Adds more braking power. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system, but it will definitely apply hard brakes")]
-    [Range(0, 1)]
-    public float ArtificialBrake = 0;
-    public float maxForwardBrake = 400;
-    public float maxBackBrake = 400;
-    public float wheelRadius = 0.7f;
-    public float steerSensivity = 30;
-    public float controlAngle = 25;
-    public float controlOmega = 30;
-    public float lowSpeed = 8;
-    public float highSpeed = 25;
+    public Vector3 RearMudGuardSusOffset; 
+
     private WheelData[] wheels;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Bike spatial transform and rigid body:
+    ////////////////////////////////////////////////////////////////////////////
+
     private Transform thisTransform;
     public Vector3 com;
-    Rigidbody rb;
-    float startSteerSensitivity;
-    public int currentGear = 1;
-    public float revValue;
-    float initialMotorTorque;
+    Rigidbody rigid_body;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Driving conditions:
+    ////////////////////////////////////////////////////////////////////////////
+
+    float steer_sensitivity_init;
+    float torque_motor_init; 
+    float angle_turn;
+    public float rpm_value; 
+    
+    // [HideInInspector]
+
+    public Vector3 velocity_rel_collision;
+
+    // Initial conditions:
+    public bool bike_fallen = false;
+    public int gear_curr = 1;
+
+    ///////////////////////////////////////////////////////////
+    // "Stoppie" parameters(TODO: discard?):
+    ///////////////////////////////////////////////////////////
+
+    public float STOPPIE_AMOUNT = 0.3f;     
+    [HideInInspector]
+
+    public bool canArtificialStoppie = false;     
+    [Range(0.1f, 1f)]
+
+    ///////////////////////////////////////////////////////////
+    // Rider parameters:
+    ///////////////////////////////////////////////////////////
+
     public GameObject Rider;
     public GameObject RagdollAnimation;
     public GameObject Ragdoll;
     bool HardHit;
     GameObject tempRagdollClone, tempAnimRiderClone;
-    [HideInInspector]
-    public Vector3 collisionRelativeVelocity;
-    float turnAngle;
+
+    ///////////////////////////////////////////////////////////
+    // Auxiliary variables:
+    ///////////////////////////////////////////////////////////
     
+    const bool USE_RHB_THROTTLE = true;
+    const bool USE_RHB_STEER = true;
+
+    Transform transform_initial;
+
+    ///////////////////////////////////////////////////////////
+    // Timers and counters:
+    ///////////////////////////////////////////////////////////
+
+    private const int DECIM_DATA_DISP_BIKE_CTRL = 50;
+    int step_count_prev = 0;
+    // private bool step_initial = true;
+
+    ///////////////////////////////////////////////////////////
+    // Wheel data:
+    ///////////////////////////////////////////////////////////
+
     public class WheelData
     {
         public WheelData(Transform transform, WheelCollider collider)
@@ -68,229 +137,511 @@ public class MotorbikeController : MonoBehaviour
         public float rotation = 0f;
     }
 
+    ///////////////////////////////////////////////////////////
+    // Motorbike input:
+    ///////////////////////////////////////////////////////////
+
     public struct MotorbikeInput
     {
         public float steer;
         public float acceleration;
         public float brakeForward;
         public float brakeBack;
+
+        public float throttle_rhb; // NEW: 11.06.2025   
     }
 
-    private void Awake()
-    {
-        Instance = this;
-    }
+    /////////////////////////////////////////////////////////////
+    // Previous kinematic states:
+    /////////////////////////////////////////////////////////////
+
+    private Vector3 position_prev = new Vector3();
+
+    private float angle_prev = 0;
+    private float dt_angle_prev = 0;
+
+    private float vel_magn = 0;
+    private float steer_prev = 0f;
+
+    /////////////////////////////////////////////////////////////
+    // METHODS:
+    /////////////////////////////////////////////////////////////
 
     void Start()
     {
+        // Initialize wheels data:
         wheels = new WheelData[2];
-        wheels[0] = new WheelData(wheelF, WColForward);
-        wheels[1] = new WheelData(wheelB, WColBack);
+        wheels[0] = new WheelData(wheelF, wheel_coll_fwd);
+        wheels[1] = new WheelData(wheelB, wheel_coll_back);
 
+        // Spatial transform and rigid body:
         thisTransform = GetComponent<Transform>();
-        rb = GetComponent<Rigidbody>();
-        rb.centerOfMass = com;
-        startSteerSensitivity = steerSensivity;
-        initialMotorTorque = maxMotorTorque;
+        rigid_body = GetComponent<Rigidbody>();
+        rigid_body.centerOfMass = com;
+
+        // Initialize driving conditions:
+        steer_sensitivity_init = STEER_SENSITIVITY;
+        torque_motor_init = TORQUE_MOTOR_MAX;
+
+        // Make copy of initial transform values for resetting purposes:
+        transform_initial = thisTransform;
     }
 
     void FixedUpdate()
     {
-        turnAngle = transform.eulerAngles.z;
+        const bool DISP_FIXED_UPDATE_ON = true;
+
+        int step_count = ReHandyBotController.instance.step_count;
+
+        angle_turn = transform.eulerAngles.z;
         if (transform.eulerAngles.z > 180)
-            turnAngle = transform.eulerAngles.z - 360;
+            angle_turn = transform.eulerAngles.z - 360;        
 
-        UprightCheck();
-        if (!fallen)
-        {
-            UprightForce();
+        ////////////////////////////////////////////////////////////////
+        // Check if bike is balanced:
+        ////////////////////////////////////////////////////////////////
+
+        uprightCheck();
+
+        ////////////////////////////////////////////////////////////////
+        // If bike is balanced, process control inputs and update bike's kinematic state:
+        ////////////////////////////////////////////////////////////////
+        
+        if (!bike_fallen)
+        {   
             var input = new MotorbikeInput();
+            float steer_rhb_raw = 0f;
 
-            if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) input.acceleration = 1;
-            if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) input.steer += 1;
-            if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) input.steer -= 1;
+            ////////////////////////////////////////////////////////////////
+            // Acceleration input - KEYBOARD:
+            ////////////////////////////////////////////////////////////////         
 
-            if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
+            if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) && !USE_RHB_THROTTLE)
+                input.acceleration = 1f; // this input gets modified at low speeds - see motorControl()
+            else
+                input.acceleration = 0f;           
+
+            ////////////////////////////////////////////////////////////////
+            // RHB radial input - throttle:
+            ////////////////////////////////////////////////////////////////
+            
+            float pos_rad = ReHandyBotController.instance.DistalData.PositionR;
+
+            float pos_rad_zero = ReHandyBotController.instance.POS_RAD_THROT_ZERO;
+
+            float dist_rad_full = ReHandyBotController.instance.DIST_RAD_THROT_FULL;
+            float input_throt_max = ReHandyBotController.instance.INPUT_THROT_MAX;
+
+            if (ReHandyBotController.instance.ExerciseActive)
+                input.throttle_rhb = Mathf.Clamp(-(pos_rad - pos_rad_zero) / dist_rad_full, 0f, input_throt_max);
+            else
+                input.throttle_rhb = 0f; 
+
+            ////////////////////////////////////////////////////////////////
+            // RHB rotational input - steering:
+            ////////////////////////////////////////////////////////////////
+            
+            float pos_phi = ReHandyBotController.instance.DistalData.PositionP;
+
+            /*
+            float fact_phi_steer = ReHandyBotController.instance.FACT_PHI_STEER;
+            float input_steer_max = ReHandyBotController.instance.INPUT_STEER_MAX;
+
+            if (ReHandyBotController.instance.ExerciseActive)
+                steer_rhb_raw = Mathf.Clamp(fact_phi_steer*pos_phi, -input_steer_max, input_steer_max);
+            else
+                steer_rhb_raw = 0f;
+            */
+
+            float input_steer_lim = ReHandyBotController.instance.INPUT_STEER_LIM;
+
+            if (pos_phi > input_steer_lim)
+                steer_rhb_raw = 1.0f;
+            else if (pos_phi < -input_steer_lim)
+                steer_rhb_raw = -1.0f;
+            else  
+                steer_rhb_raw = pos_phi / input_steer_lim;
+
+            ////////////////////////////////////////////////////////////////
+            // Steering input selection:
+            ////////////////////////////////////////////////////////////////
+
+            if (USE_RHB_STEER)
             {
-                input.brakeBack = 0.3f;
-                input.brakeForward = 0.5f;
+                // Steering input - RHB:
+                input.steer = steer_rhb_raw;
             }
-            if (Input.GetKey(KeyCode.Space))
+            else
             {
-                input.brakeForward = 1f;
+                // Steering input - KEYBOARD:
+                if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
+                    input.steer = 1;
+
+                if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
+                    input.steer = -1;
+            }        
+
+            ////////////////////////////////////////////////////////////////
+            // Console output:
+            ////////////////////////////////////////////////////////////////
+            
+            if ((step_count % DECIM_DATA_DISP_BIKE_CTRL) == 0 && step_count > step_count_prev
+                && ReHandyBotController.instance.ExerciseActive && DISP_FIXED_UPDATE_ON)
+            {
+                ExternalConsoleLogger.Log("    ====================================================================");
+                ExternalConsoleLogger.Log("    FixedUpdate(" + step_count +  "):");
+                ExternalConsoleLogger.Log("    steer keyboard[" + String.Format("{0:#0.00}", input.steer) + "]");
+                ExternalConsoleLogger.Log("    steer RHB raw [" + String.Format("{0:#0.00}", steer_rhb_raw) + "]");
+                ExternalConsoleLogger.Log("    throttle      [" + String.Format("{0:#0.000}", input.throttle_rhb) + 
+                    "] acceleration [" + input.acceleration + "]");
+
+                ExternalConsoleLogger.Log("\n");
             }
 
-            MotoMove(MotoControl(input));
-            SteerHelper();
-            SteerHandles();
+            ////////////////////////////////////////////////////////////////
+            // 'Upright force' calculations:
+            ////////////////////////////////////////////////////////////////
+
+            bool input_force_trq_on;
+
+            if (USE_RHB_THROTTLE)
+            {
+                if (input.throttle_rhb >= 0.5f*input_throt_max)
+                    input_force_trq_on = true;
+                else
+                    input_force_trq_on = false;
+            }
+            else
+            {
+                if (input.acceleration > 0f)
+                    input_force_trq_on = true;
+                else
+                    input_force_trq_on = false;
+            }
+
+            uprightForce(input_force_trq_on);
+
+            ////////////////////////////////////////////////////////////////
+            // Motion commands:
+            ////////////////////////////////////////////////////////////////
+
+            motoControlRHB(input, step_count, USE_RHB_THROTTLE, pos_rad, pos_phi);
+
+            steerHelper();
+            steerHandles();
         }
-        UpdateWheels();
+
+        updateWheels();
         RearMudGuardSuspension();
         CalcGear();
-        if (canArtificialStoppie) // for natural stoppie increase forward brake to 50000 and Front Wheel collider forward friction to 5. Around those values a natural stoppie can be performed.
-            CalcStoppie(); //Requires prevent falling
 
-        if (Input.GetKey(KeyCode.R) && fallen == true)
+        // TODO: keep or discard
+        // if (canArtificialStoppie) // for natural stoppie increase forward brake to 50000 and Front Wheel collider forward friction to 5. Around those values a natural stoppie can be performed.
+        //    CalcStoppie(); // Requires prevent falling
+
+        if (Input.GetKey(KeyCode.R) && bike_fallen == true)
         {
             Reset();
         }
+
+        ////////////////////////////////////////////////////////////////
+        // Store current step count for any tests:
+        ////////////////////////////////////////////////////////////////
+
+        step_count_prev = step_count;
+    }
+
+    void Awake()
+    {
+        Time.timeScale = 1.15f; //Makes simulation movement more agile. You can delete this line if it interferes with your project settings.
     }
 
     private void Reset()
     {
-        // Reset bike position to the closest center point to the bike's current position
-        Transform t = GetComponent<Transform>();
-        t.position = Track.Instance.GetClosestPointOnCenterLine(t.position) + new Vector3(0f, 0.1f, 0f);
+        Transform transf = GetComponent<Transform>(); // TODO: why is thisTransform not used here??
+        transf.position += new Vector3(0, 0.1f, 0);
+        transf.eulerAngles = new Vector3(0, transform.rotation.eulerAngles.y, 0);
 
-        // Reset bike rotation to align with the rotation of the track
-        Quaternion rotation = Track.Instance.GetTrackRotationAtPosition(t.position);
-        float yaw = rotation.eulerAngles.y;
-        t.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+        // Reset to initial tranform coordinates (TODO: keep or discard):
+        // transf.position = transform_initial.position;
+        // transf.eulerAngles = transform_initial.eulerAngles;
 
-        // Reset the bike velocity to 0
-        rb.velocity = Vector3.zero;
-        
-        rb.angularDrag = 100;
-        rb.centerOfMass = com;
+        rigid_body.angularDrag = 100f;
+        rigid_body.centerOfMass = com;
         HardHit = false;
-        fallen = false;
-        Destroy(tempRagdollClone);
-        Destroy(tempAnimRiderClone);
+        bike_fallen = false;
+        // Destroy(tempRagdollClone);
+        // Destroy(tempAnimRiderClone);
         Rider.SetActive(true);
     }
 
-    private Vector3 prevPos = new();
-    private float prevAngle = 0;
-    private float prevOmega = 0;
-    private float speedVal = 0;
-    private float prevSteer = 0f;
-
-    private MotorbikeInput MotoControl(MotorbikeInput input)
+    private void motoControlRHB(MotorbikeInput input, int step_count, bool use_rhb_throttle, float pos_rad, float pos_phi)
     {
-        var posNow = thisTransform.position;
-        var speed = (posNow - prevPos) / Time.fixedDeltaTime;
-        prevPos = posNow;
+        const bool DISP_MOTOR_CONTROL_ON = true;
 
-        speedVal = speed.magnitude;
-        var moveForward = speed.normalized;
+        // Time step:
+        float dt_step = Time.fixedDeltaTime;
 
-        var angle = Vector3.Dot(moveForward, Vector3.Cross(thisTransform.up, new Vector3(0, 1, 0)));
-        var omega = (angle - prevAngle) / Time.fixedDeltaTime;
-        prevAngle = angle;
-        prevOmega = omega;
+        ////////////////////////////////////////////////////////////////
+        // Position and velocity:
+        ////////////////////////////////////////////////////////////////
+        ///
+        var position = thisTransform.position;
+        var velocity = (position - position_prev) / dt_step;
+        position_prev = position;
 
-        if (speedVal < lowSpeed)
+        vel_magn = velocity.magnitude;
+        var vel_unit_vect = velocity.normalized;
+
+        ////////////////////////////////////////////////////////////////
+        // Angle and angular vel:
+        ////////////////////////////////////////////////////////////////
+
+        var angle = Vector3.Dot(vel_unit_vect, Vector3.Cross(thisTransform.up, new Vector3(0, 1, 0)));
+        var dt_angle = (angle - angle_prev) / dt_step;
+        angle_prev = angle;
+        dt_angle_prev = dt_angle;
+
+        ////////////////////////////////////////////////////////////////
+        // Display section:
+        ////////////////////////////////////////////////////////////////
+
+        if ((step_count % DECIM_DATA_DISP_BIKE_CTRL) == 0 && step_count > step_count_prev &&
+           ReHandyBotController.instance.ExerciseActive && DISP_MOTOR_CONTROL_ON)
         {
-            float t = speedVal / lowSpeed;
-            input.steer *= t * t;
-            omega *= t * t;
-            angle *= 2 - t;
-            input.acceleration += Mathf.Abs(angle) * 3 * (1 - t);
+            ExternalConsoleLogger.Log("    --------------------------------------------------------------------");
+            ExternalConsoleLogger.Log("    motoControl (" + step_count + ") dt_step [" + String.Format("{0:#0.000}", dt_step) + "]:");
+
+            ExternalConsoleLogger.Log("    " +
+                "input.steer INTIAL[" + String.Format("{0:#0.000}", input.steer) + "] \n");
         }
 
-        if (speedVal > highSpeed)
+        ////////////////////////////////////////////////////////////////
+        // Update steering & angle values based on speed:
+        ////////////////////////////////////////////////////////////////
+
+        float ratio_speed = 0f;
+
+        if (vel_magn < SPEED_LOW)
         {
-            float t = speedVal / highSpeed;
-            if (omega * angle < 0f)
+            ratio_speed = vel_magn / SPEED_LOW;
+            input.steer *= ratio_speed * ratio_speed;
+
+            angle *= (2f - ratio_speed);
+            dt_angle *= ratio_speed * ratio_speed;
+
+            input.acceleration += Mathf.Abs(angle) * 3f * (1 - ratio_speed);
+        }
+
+        if (vel_magn > SPEED_HIGH)
+        {
+            ratio_speed = vel_magn / SPEED_HIGH;
+
+            if (dt_angle * angle < 0f)
+                dt_angle *= ratio_speed;
+        }
+
+        ////////////////////////////////////////////////////////////////
+        // Display section:
+        ////////////////////////////////////////////////////////////////
+
+        if (step_count % DECIM_DATA_DISP_BIKE_CTRL == 0 && step_count > step_count_prev &&
+           ReHandyBotController.instance.ExerciseActive && DISP_MOTOR_CONTROL_ON)
+        {
+            ExternalConsoleLogger.Log("    " +
+                "position [" + position +
+                "]  vel_magn [" + String.Format("{0:#0.000}", vel_magn) +
+                "]  SPEED_LOW [" + String.Format("{0:#0.000}", SPEED_LOW) +
+                "]  SPEED_HIGH [" + String.Format("{0:#0.000}", SPEED_HIGH) +
+                "]  ratio_speed [" + String.Format("{0:#0.000}", ratio_speed) + "]");
+
+            ExternalConsoleLogger.Log("    " +
+                "input.steer MIDDLE [" + String.Format("{0:#0.000}", input.steer) + "] ");
+        }
+
+        ////////////////////////////////////////////////////////////////
+        // Further update steering:
+        ////////////////////////////////////////////////////////////////
+
+        float inc_steer = FACTOR_INC_STEER * dt_step;
+
+        input.steer *= (1 - FACTOR_ANGLE_SQUARED_STEER * angle * angle);
+
+        input.steer = 1.0f / (velocity.sqrMagnitude + 1.0f) *
+            (STEER_SENSITIVITY * input.steer +
+            FACTOR_ANGLE_STEER * angle +
+            FACTOR_DT_ANGLE_STEER * dt_angle);
+
+        input.steer = Mathf.Clamp(input.steer, steer_prev - inc_steer, steer_prev + inc_steer);
+
+        ////////////////////////////////////////////////////////////////
+        // Save steering value for next step:
+        ////////////////////////////////////////////////////////////////
+
+        steer_prev = input.steer;
+
+        if (step_count % DECIM_DATA_DISP_BIKE_CTRL == 0 && step_count > step_count_prev &&
+            ReHandyBotController.instance.ExerciseActive && DISP_MOTOR_CONTROL_ON)
+        {
+            ExternalConsoleLogger.Log("    " +
+                "input.steer FINAL  [" + String.Format("{0:#0.000}", input.steer) + "] ");
+
+            ExternalConsoleLogger.Log("\n");
+        }
+
+        ////////////////////////////////////////////////////////////////
+        // Update steering angle (wheel colliders):
+        ////////////////////////////////////////////////////////////////
+
+        try
+        {
+            if (vel_magn > 1f)
+                wheel_coll_fwd.steerAngle = Mathf.Clamp(input.steer, -1, 1) * ANGLE_STEER_MAX;
+            else
+                wheel_coll_fwd.steerAngle = Mathf.Clamp(input.steer, -vel_magn, vel_magn);
+        }
+        catch (Exception exc)
+        {
+            ExternalConsoleLogger.Log("    -------------------------------------------------------------");
+            ExternalConsoleLogger.Log("    motoControlRHB(): EXCEPTION - failed to access wheel_coll_fwd.steerAngle\n");
+            ExternalConsoleLogger.Log("      Exception message: [" + exc.Message + "]");
+            ExternalConsoleLogger.Log("      Stack trace:       [" + exc.StackTrace + "] \n");
+        }
+
+        ////////////////////////////////////////////////////////////////
+        // Update brake torques:
+        ////////////////////////////////////////////////////////////////
+
+        wheel_coll_fwd.brakeTorque = FACTOR_BRAKE_FWD * input.brakeForward;
+        wheel_coll_back.brakeTorque = FACTOR_BRAKE_BACK * input.brakeBack;
+
+        ////////////////////////////////////////////////////////////////
+        // Select input for torque & force control:
+        ////////////////////////////////////////////////////////////////
+
+        if (use_rhb_throttle) {
+            wheel_coll_back.motorTorque = TORQUE_MOTOR_MAX * input.throttle_rhb;
+
+            if (vel_magn < SPEED_HIGH)
+                rigid_body.AddForce(FACTOR_ACCEL * input.throttle_rhb * transform.forward);
+        }
+        else {
+            wheel_coll_back.motorTorque = TORQUE_MOTOR_MAX * input.acceleration;
+
+            if (vel_magn < SPEED_HIGH)
+                rigid_body.AddForce(FACTOR_ACCEL * input.acceleration * transform.forward );
+        }
+
+        ////////////////////////////////////////////////////////////////
+        // Update rigid-body Cartesian velocities:
+        ////////////////////////////////////////////////////////////////
+
+        if (Input.GetAxis("Vertical") < 0)
+            rigid_body.velocity = new Vector3(
+                rigid_body.velocity.x * (1.0f - FACTOR_BRAKE / 10f),
+                rigid_body.velocity.y,
+                rigid_body.velocity.z * (1.0f - FACTOR_BRAKE / 10f));
+
+        ////////////////////////////////////////////////////////////////
+        // Console outputs:
+        ////////////////////////////////////////////////////////////////
+
+        if (step_count % DECIM_DATA_DISP_BIKE_CTRL == 0 && step_count > step_count_prev &&
+            ReHandyBotController.instance.ExerciseActive && DISP_MOTOR_CONTROL_ON)
+        {           
+            try
             {
-                omega *= t;
+                ExternalConsoleLogger.Log("    " +
+                    "wheel_coll_fwd.motorTorque [" + wheel_coll_fwd.motorTorque + "]" );
+                ExternalConsoleLogger.Log("    " +
+                    "wheel_coll_back.motorTorque [" + wheel_coll_back.motorTorque + "]" );
             }
+            catch (Exception exc)
+            {
+                ExternalConsoleLogger.Log("   -------------------------------------------------------------");
+                ExternalConsoleLogger.Log("   motoControlRHB(): EXCEPTION - failed to access wheel collider\n");
+                ExternalConsoleLogger.Log("      Exception message: [" + exc.Message + "]");
+                ExternalConsoleLogger.Log("      Stack trace:       [" + exc.StackTrace + "] \n");
+            }
+
+            ExternalConsoleLogger.Log("\n");
         }
-        input.steer *= 1 - 2.3f * angle * angle;
-        input.steer = 1f / (speed.sqrMagnitude + 1f) * (input.steer * steerSensivity + angle * controlAngle + omega * controlOmega);
-        float steerDelta = 10 * Time.fixedDeltaTime;
-        input.steer = Mathf.Clamp(input.steer, prevSteer - steerDelta, prevSteer + steerDelta);
-        prevSteer = input.steer;
-
-        return input;
     }
-
-    private void UprightForce()
+        
+    private void uprightForce(bool input_force_trq_on)
     {
-        rb.angularDrag -= 100 * Time.deltaTime;
-        rb.angularDrag = Mathf.Clamp(rb.angularDrag, 0.1f, 100);
+        rigid_body.angularDrag -= 100 * Time.deltaTime;
+        rigid_body.angularDrag = Mathf.Clamp(rigid_body.angularDrag, 0.1f, 100);
 
-        if (speedVal < 1 && !Input.GetKey(KeyCode.W))
+        if (vel_magn < 1 && !input_force_trq_on) // was Input.GetKey(KeyCode.W) (11.06.2025)
         {
             // var rot = Quaternion.FromToRotation(transform.up, Vector3.up);
-            // rb.AddTorque(new Vector3(rot.x, rot.y, rot.z)* 10 , ForceMode.Acceleration);
+            // rigid_body.AddTorque(new Vector3(rot.x, rot.y, rot.z)* 10 , ForceMode.Acceleration);
+
             transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, transform.rotation.eulerAngles.y, 0);
-            rb.constraints = RigidbodyConstraints.FreezeAll;
+            rigid_body.constraints = RigidbodyConstraints.FreezeAll;
         }
         else
         {
-            rb.constraints = RigidbodyConstraints.None;
+            rigid_body.constraints = RigidbodyConstraints.None;
         }
     }
 
     void OnCollisionEnter(Collision collision)
     {
-        collisionRelativeVelocity = collision.relativeVelocity;
+        velocity_rel_collision = collision.relativeVelocity;
         if (collision.relativeVelocity.magnitude > 30)
             HardHit = true;
     }
 
-    public void UprightCheck()
+    public void uprightCheck()
     {
-        if ((Mathf.Abs(turnAngle) > preventGlitchAngle || Input.GetKeyDown(KeyCode.F) || HardHit == true) && fallen == false)
+        if ((Mathf.Abs(angle_turn) > ANGLE_NONSLIP_MAX_DEG || Input.GetKeyDown(KeyCode.F) || HardHit == true) && bike_fallen == false)
         {
             Rider.SetActive(false);
-            tempRagdollClone = Instantiate(Ragdoll);
-            tempAnimRiderClone = Instantiate(RagdollAnimation);
-            rb.centerOfMass = new Vector3(0, 0.5f, 0);
-            fallen = true;
+            // tempRagdollClone = Instantiate(Ragdoll);
+            // tempAnimRiderClone = Instantiate(RagdollAnimation);
+            rigid_body.centerOfMass = new Vector3(0, 0.5f, 0);
+            bike_fallen = true;
         }
     }
 
-    private void MotoMove(MotorbikeInput input)
-    {
-        if (speedVal > 1)
-            WColForward.steerAngle = Mathf.Clamp(input.steer, -1, 1) * maxSteerAngle;
-        else
-            WColForward.steerAngle = Mathf.Clamp(input.steer, -speedVal, speedVal);
-
-        WColForward.brakeTorque = maxForwardBrake * input.brakeForward;
-        WColBack.brakeTorque = maxBackBrake * input.brakeBack;
-        WColBack.motorTorque = maxMotorTorque * input.acceleration;
-        if (speedVal < highSpeed)
-            rb.AddForce(transform.forward * ArtificialAcceleration * input.acceleration);
-
-        if (Input.GetAxis("Vertical") < 0)
-            rb.velocity = new Vector3(rb.velocity.x * (1 - ArtificialBrake / 10), rb.velocity.y, rb.velocity.z * (1 - ArtificialBrake / 10));
-    }
-
-    private void UpdateWheels()
+    private void updateWheels()
     {
         float delta = Time.fixedDeltaTime;
 
-        foreach (WheelData w in wheels)
+        foreach (WheelData wheel_this in wheels)
         {
             WheelHit hit;
 
-            Vector3 localPos = w.wheelTransform.localPosition;
-            if (w.wheelCollider.GetGroundHit(out hit))
+            Vector3 localPos = wheel_this.wheelTransform.localPosition;
+            if (wheel_this.wheelCollider.GetGroundHit(out hit))
             {
-                localPos.y -= Vector3.Dot(w.wheelTransform.position - hit.point, transform.up) - wheelRadius;
-                w.wheelTransform.localPosition = localPos;
+                localPos.y -= Vector3.Dot(wheel_this.wheelTransform.position - hit.point, transform.up) - RADIUS_WHEEL;
+                wheel_this.wheelTransform.localPosition = localPos;
             }
             else
             {
-                localPos.y = w.wheelStartPos.y;
+                localPos.y = wheel_this.wheelStartPos.y;
             }
 
-            w.rotation = Mathf.Repeat(w.rotation + delta * w.wheelCollider.rpm * 360.0f / 60.0f, 360f);
-            w.wheelTransform.localRotation = Quaternion.Euler(w.rotation, Mathf.Lerp(w.wheelTransform.localRotation.y, w.wheelCollider.steerAngle, Time.deltaTime * 10), 0);
+            wheel_this.rotation = Mathf.Repeat(wheel_this.rotation + delta * wheel_this.wheelCollider.rpm * 360.0f / 60.0f, 360f);
+            wheel_this.wheelTransform.localRotation = Quaternion.Euler(
+                wheel_this.rotation, 
+                Mathf.Lerp(wheel_this.wheelTransform.localRotation.y, wheel_this.wheelCollider.steerAngle, Time.deltaTime * 10), 
+                0);
         }
     }
 
-    private void SteerHandles()
+    private void steerHandles()
     {
-        handles.transform.localRotation = Quaternion.Euler(0, Mathf.Lerp(handles.transform.localRotation.y, WColForward.steerAngle, Time.deltaTime * 10), 0);
+        handles.transform.localRotation = Quaternion.Euler(0, Mathf.Lerp(handles.transform.localRotation.y, wheel_coll_fwd.steerAngle, Time.deltaTime * 10), 0);
     }
 
     private void RearMudGuardSuspension()
     {
-        if (WColBack.GetGroundHit(out WheelHit hit))
+        WheelHit hit;
+        if (wheel_coll_back.GetGroundHit(out hit))
             RearMudGuard.transform.rotation = Quaternion.LookRotation(transform.position - wheelB.transform.position - RearMudGuardSusOffset, transform.forward);
     }
 
@@ -300,60 +651,58 @@ public class MotorbikeController : MonoBehaviour
         if (transform.eulerAngles.x > 180)
             stoppieAngle = transform.eulerAngles.x - 360;
         if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.Space))
-            com.z += speedVal * Time.deltaTime / 5;
+            com.z += (vel_magn * Time.deltaTime) / 5;
         else
             com.z -= Time.deltaTime * 100;
-        
-        if (com.z < 0 || stoppieAngle > 5 + speedVal)
+        if (com.z < 0 || stoppieAngle > 5 + vel_magn)
         {
             com.z = 0;
             if (stoppieAngle > 50)
                 com.z -= stoppieAngle / 10;
         }
 
-        else if (com.z > stoppieAmount)
-            com.z = stoppieAmount;
+        else if (com.z > STOPPIE_AMOUNT)
+            com.z = STOPPIE_AMOUNT;
     }
 
-    void SteerHelper()
+    void steerHelper()
     {
-        steerSensivity = Mathf.Clamp(startSteerSensitivity - Mathf.Abs(turnAngle) * 0.9f, 10, startSteerSensitivity);
-        controlAngle = Mathf.Clamp(controlAngle, 48, 65);
-
+        STEER_SENSITIVITY = Mathf.Clamp(steer_sensitivity_init - Mathf.Abs(angle_turn) * 0.9f, 10, steer_sensitivity_init);
+        FACTOR_ANGLE_STEER = Mathf.Clamp(FACTOR_ANGLE_STEER, 48, 65);
         if (Input.anyKey)
-            controlAngle -= 1;
+            FACTOR_ANGLE_STEER -= 1;
         else
-            controlAngle += 1;
+            FACTOR_ANGLE_STEER += 1;
 
-        if (turnAngle > 42 || turnAngle < -42)
-            controlAngle += 2;
+        if (angle_turn > 42 || angle_turn < -42)
+            FACTOR_ANGLE_STEER += 2;
 
-        if (turnAngle > 10 && Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
+
+        if (angle_turn > 10 && Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
         {
-            rb.AddTorque(-transform.forward * 0.1f * turnAngle, ForceMode.Acceleration);
+            rigid_body.AddTorque(-transform.forward * 0.1f * angle_turn, ForceMode.Acceleration);
         }
 
-        else if (turnAngle > 20 && Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
+        else if (angle_turn > 20 && Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
         {
-            rb.AddTorque(-rb.angularVelocity * 2, ForceMode.Acceleration);
+            rigid_body.AddTorque(-rigid_body.angularVelocity * 2, ForceMode.Acceleration);
         }
-        else if (turnAngle < -10 && Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
+        else if (angle_turn < -10 && Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
         {
-            rb.AddTorque(transform.forward * 0.1f * -turnAngle, ForceMode.Acceleration);
+            rigid_body.AddTorque(transform.forward * 0.1f * -angle_turn, ForceMode.Acceleration);
         }
-        else if (turnAngle < -20 && Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
+        else if (angle_turn < -20 && Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
         {
-            rb.AddTorque(-rb.angularVelocity * 2, ForceMode.Acceleration);
+            rigid_body.AddTorque(-rigid_body.angularVelocity * 2, ForceMode.Acceleration);
         }
-
         //Sets Sideways friction with speed gradations
-        if (speedVal < 10)
+        if (vel_magn < 10)
             SetWheelFriction(1.5f);
-        else if(speedVal < 20 && speedVal > 10)
+        else if(vel_magn < 20 && vel_magn > 10)
             SetWheelFriction(2);
-        else if(speedVal < 30 && speedVal > 20)
+        else if(vel_magn < 30 && vel_magn > 20)
             SetWheelFriction(2.5f);
-        else if(speedVal < 40 && speedVal > 20)
+        else if(vel_magn < 40 && vel_magn > 20)
             SetWheelFriction(3);
         else
             SetWheelFriction(3.5f);
@@ -362,40 +711,30 @@ public class MotorbikeController : MonoBehaviour
     void SetWheelFriction(float friction)
     {
         WheelFrictionCurve wfc;
-        wfc = WColBack.sidewaysFriction;
+        wfc = wheel_coll_back.sidewaysFriction;
         wfc.stiffness = friction;
-        WColBack.sidewaysFriction = wfc;
-        WColForward.sidewaysFriction = wfc;
+        wheel_coll_back.sidewaysFriction = wfc;
+        wheel_coll_fwd.sidewaysFriction = wfc;
     }
 
     void CalcGear()
     {
-        var prevGear = currentGear;
-        currentGear = Mathf.FloorToInt(speedVal / 13);
-        if (currentGear != prevGear)
+        int FACT_GEAR = 13;
+        var gear_prev = gear_curr;
+
+        gear_curr = Mathf.FloorToInt(vel_magn / FACT_GEAR);
+
+        if (gear_curr != gear_prev)
             StartCoroutine(MotorDisengage());
-        revValue = speedVal % 13 / 13;
+
+        rpm_value = vel_magn % FACT_GEAR / FACT_GEAR;
     }
 
     IEnumerator MotorDisengage()
     {
-        maxMotorTorque = 0;
+        TORQUE_MOTOR_MAX = 0;
         yield return new WaitForSeconds(0.1f);
-        maxMotorTorque = initialMotorTorque;
+        TORQUE_MOTOR_MAX = torque_motor_init;
     }
 
-    public Vector3 GetBikePosition()
-    {
-        return transform.position;
-    }
-    
-    public Vector3 GetBikeDirectionVector()
-    {
-        return transform.forward;
-    }
-
-    public Vector3 GetBikeVelocityVector()
-    {
-        return rb.velocity;
-    }
 }

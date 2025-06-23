@@ -1536,7 +1536,7 @@ GameObject:
   - component: {fileID: 1479870654655137861}
   - component: {fileID: 1479870654655137860}
   m_Layer: 0
-  m_Name: WCollider
+  m_Name: WColliderBack
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1691,7 +1691,7 @@ GameObject:
   - component: {fileID: 1479870654682857109}
   - component: {fileID: 1479870654682857108}
   m_Layer: 0
-  m_Name: WCollider
+  m_Name: WColliderFront
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2162,36 +2162,38 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56717b2fd6707fa48890f733b8ade5df, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  WColForward: {fileID: 1479870654682857108}
-  WColBack: {fileID: 1479870654655137860}
+  ANGLE_STEER_MAX: 45
+  TORQUE_MOTOR_MAX: 500
+  FACTOR_ACCEL: 1000
+  FACTOR_BRAKE: 0
+  FACTOR_BRAKE_FWD: 400
+  FACTOR_BRAKE_BACK: 400
+  RADIUS_WHEEL: 0.7
+  STEER_SENSITIVITY: 30
+  FACTOR_ANGLE_STEER: 25
+  FACTOR_DT_ANGLE_STEER: 30
+  FACTOR_ANGLE_SQUARED_STEER: 2.3
+  FACTOR_INC_STEER: 10
+  SPEED_LOW: 8
+  SPEED_HIGH: 25
+  ANGLE_NONSLIP_MAX_DEG: 40
+  wheel_coll_fwd: {fileID: 1479870654682857108}
+  wheel_coll_back: {fileID: 1479870654655137860}
   wheelF: {fileID: 1479870656397148938}
   wheelB: {fileID: 1479870655386689225}
   handles: {fileID: 1479870656375659463}
   RearMudGuard: {fileID: 1479870656474662210}
   RearMudGuardSusOffset: {x: 0, y: 0, z: 0}
-  preventGlitchAngle: 70
-  canArtificialStoppie: 0
-  stoppieAmount: 0.7
-  fallen: 0
-  maxSteerAngle: 45
-  maxMotorTorque: 900
-  ArtificialAcceleration: 4500
-  ArtificialBrake: 0.02
-  maxForwardBrake: 1000
-  maxBackBrake: 200
-  wheelRadius: 0.5
-  steerSensivity: 39
-  controlAngle: 50
-  controlOmega: 60
-  lowSpeed: 9
-  highSpeed: 100
   com: {x: 0, y: 1.5, z: 0}
-  currentGear: 1
-  revValue: 0
+  rpm_value: 0
+  velocity_rel_collision: {x: 0, y: 0, z: 0}
+  bike_fallen: 0
+  gear_curr: 1
+  STOPPIE_AMOUNT: 0.3
+  canArtificialStoppie: 0
   Rider: {fileID: 1479870655507070262}
   RagdollAnimation: {fileID: 7985579707336744918, guid: a940ea4ebb45c9b45b7cf112fa49b7ae, type: 3}
   Ragdoll: {fileID: 3092097735282227737, guid: cd9e90ccf08bae74aa61d8797586998f, type: 3}
-  collisionRelativeVelocity: {x: 0, y: 0, z: 0}
 --- !u!4 &1479870654891984138
 Transform:
   m_ObjectHideFlags: 0

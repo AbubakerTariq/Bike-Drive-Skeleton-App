@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,8 +19,10 @@ public class MotorDetails : MonoBehaviour
         t5 = GameObject.Find("Rear");
         c1 = GameObject.Find("/MotorcycleWRider/WheelHolderForward/WCollider");
         c2 = GameObject.Find("/MotorcycleWRider/WheelHolderBack/WCollider");
+
     }
 
+    // Update is called once per frame
     void Update()
     {
         var realSpeed = motorbikeController.GetComponent<Rigidbody>().velocity.magnitude*2;
@@ -33,7 +37,7 @@ public class MotorDetails : MonoBehaviour
         t2.GetComponent<Text>().color = Color.red;
         else
         t2.GetComponent<Text>().color = Color.white;
-        t3.GetComponent<Text>().text = "Control ω [rad⋅s−1] : " + motorbikeController.controlAngle;
+        t3.GetComponent<Text>().text = "Control ω [rad⋅s−1] : " + motorbikeController.FACTOR_ANGLE_STEER;
         t4.GetComponent<Text>().text = "Steer Angle [deg] : " + c1.GetComponent<WheelCollider>().steerAngle;
         c2.GetComponent<WheelCollider>().GetGroundHit(out hit);
         t5.GetComponent<Text>().text = "Rear Grip Force [N] : " + hit.force;

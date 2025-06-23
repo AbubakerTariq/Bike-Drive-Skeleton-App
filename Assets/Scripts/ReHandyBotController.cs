@@ -1,13 +1,18 @@
-﻿using DG.Tweening;
-using Articares.Distal;
+﻿using Articares.Distal;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.SceneManagement;
+// using UnityEngine.UI;
+// using UnityEngine.Video;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
+//using System.Runtime.Remoting.Messaging;
+using System.IO;
 using TMPro;
+using static Articares.Distal.DistalComm;
 
 public class ReHandyBotController : MonoBehaviour
 {
@@ -16,23 +21,38 @@ public class ReHandyBotController : MonoBehaviour
     [SerializeField] private GameObject exerciseGuidelineText;
     [SerializeField] private TMP_Text loaderText;
 
-    // Script instance
+    ////////////////////////////////////////////////////////////////////////////
+    // Script instance:
+    ////////////////////////////////////////////////////////////////////////////
+    ///
     public static ReHandyBotController instance;
 
-    // Control library reference
+    ////////////////////////////////////////////////////////////////////////////
+    // Control library reference:
+    ////////////////////////////////////////////////////////////////////////////
+    ///
     private DistalComm distalRobot = new();
 
-    // RHB info related variables
+    ////////////////////////////////////////////////////////////////////////////
+    // RHB info related variables:
+    ////////////////////////////////////////////////////////////////////////////
+    ///
     private bool RHBConnected => distalRobot.is_device_connected;
     public DistalComm.ExerciseData DistalData => distalRobot.DistalData;
     public bool ExerciseActive => isExerciseStarted;
 
-    // New exercise related variables
+    ////////////////////////////////////////////////////////////////////////////
+    // New exercise related variables:
+    ////////////////////////////////////////////////////////////////////////////
+    ///
     private bool isSystemStarted = false;
     private bool isExerciseStarted = false;
     private bool isExerciseStopping = false;
 
-    // Configuration values;
+    ////////////////////////////////////////////////////////////////////////////
+    // Configuration values:
+    ////////////////////////////////////////////////////////////////////////////
+    ///
     private float radialGain = 9f;
     private float angularGain = 14f;
     private bool stability = true;
@@ -44,12 +64,18 @@ public class ReHandyBotController : MonoBehaviour
     private float minPositionR = 0.0145f;
     private float maxPositionR = 0.06f;
 
-    // Constants
+    ////////////////////////////////////////////////////////////////////////////
+    // Constants:
+    ////////////////////////////////////////////////////////////////////////////
+    ///
     private const int MaxAttempts = 10;
     private const string ServerIP = "192.168.102.1";
     private const int ServerPort = 3002;
 
-    // Misc
+    ////////////////////////////////////////////////////////////////////////////
+    // Misc:
+    ////////////////////////////////////////////////////////////////////////////
+    ///
     private Queue<Action> MainThreadActionQueue = new();
     private Coroutine moveRoutine;
     private Coroutine rotateRoutine;
@@ -64,8 +90,50 @@ public class ReHandyBotController : MonoBehaviour
     public Action OnExerciseStart;
     public Action OnExerciseStop;
     private const string PrototypeSceneName = "Prototype";
-    
+
+    ////////////////////////////////////////////////////////////////////////////
+    // RHB control settings:
+    ////////////////////////////////////////////////////////////////////////////
+
+    // Throttle settings:
+    public float POS_RAD_THROT_ZERO = 0.029f;
+    public float K_STIFF_RAD_THROT  = 1250f;
+    public float B_DAMP_RAD_THROT   = 16.5f;
+
+    public float DIST_RAD_THROT_FULL = 0.005f;
+    public float INPUT_THROT_MAX = 1.5f;
+
+    // Steering settings:
+    public float POS_PHI_STEER_ZERO = 0f;
+    public float K_STIFF_PHI_STEER  = 0.3f;
+    public float B_DAMP_PHI_STEER   = 0.029f;
+
+    // public float FACT_PHI_STEER = -0.5f;
+    // public float INPUT_STEER_MAX = Mathf.PI / 4.0f;
+    public float INPUT_STEER_LIM = 3.0f * Mathf.PI / 180f;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Timers & data display:
+    ////////////////////////////////////////////////////////////////////////////
+    ///
+    private bool timerActive = false;
+    private bool timerActivePrev = false;
+    private bool timerLocked = false;
+    private bool timerLockDetected = false;
+
+    private float timeElapsedValue = 0f;
+
+    private int T_TIMER_LOCK_MSEC = 50;
+    private const int DECIM_DATA_DISP_RHB_CTRL = 50;
+
+    public int step_count = 0;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Methods section:
+    ////////////////////////////////////////////////////////////////////////////
+
     #region MonoBehavior Functions
+
     private void Awake()
     {
         // Singleton logic
@@ -90,6 +158,12 @@ public class ReHandyBotController : MonoBehaviour
 
     private void Update()
     {
+        const bool DISP_UPDATE_ON = false;
+
+        ////////////////////////////////////////////////////////////////////////////
+        // State check:
+        ////////////////////////////////////////////////////////////////////////////
+
         // If robot is calibrated and user presses Enter
         // Exercise state will be toggled
         // The exercise will start if it isn't started already
@@ -97,11 +171,89 @@ public class ReHandyBotController : MonoBehaviour
         if (isCalibrated && Input.GetKeyDown(KeyCode.Return))
             ToggleExerciseState();
 
-        // Allow the user to press Y to calibrated the robot
+        ////////////////////////////////////////////////////////////////////////////
+        // Allow the user to press Y to calibrate the robot:
+        ////////////////////////////////////////////////////////////////////////////
+
         if (allowCalibration && Input.GetKeyDown(KeyCode.Y))
             Calibrate(OnCalibrate);
 
+        ////////////////////////////////////////////////////////////////////////////
+        // Time elapsed display:
+        ////////////////////////////////////////////////////////////////////////////    
+
+        /*
+        while (timerLocked)
+        {
+            System.Threading.Thread.Sleep(T_TIMER_LOCK_MSEC);
+            timerLockDetected = true;
+        }
+
+        if (timerLockDetected)
+        {
+            ExternalConsoleLogger.Log(" ");
+            ExternalConsoleLogger.Log("____________________________________________________________________");
+            ExternalConsoleLogger.Log("Update(): timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
+            timerLockDetected = false;
+        }
+
+        if (timerActive)
+        {
+            // Restart timer:
+            if (timerActivePrev != timerActive)
+            {
+                timeElapsedValue = 0f;
+            }
+            else
+            {
+                timeElapsedValue += Time.deltaTime;
+            }
+        }
+
+        // Record timer state for next step:
+        timerActivePrev = timerActive;
+
+        // Time elapsed computation:
+        TimeSpan timeElapsed = TimeSpan.FromSeconds(timeElapsedValue);
+        */
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Send target command to RHB firmware:
+        ////////////////////////////////////////////////////////////////////////////
+
+        byte IDX_TARG = 1;
+
+        SetTarget(IDX_TARG,
+            POS_RAD_THROT_ZERO, POS_PHI_STEER_ZERO,
+            K_STIFF_RAD_THROT, K_STIFF_PHI_STEER,
+            B_DAMP_RAD_THROT, B_DAMP_PHI_STEER,
+            1.0f, 1.0f);
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Console output:
+        ////////////////////////////////////////////////////////////////////////////
+        
+        float pos_rad = ReHandyBotController.instance.DistalData.PositionR;
+        float pos_phi = ReHandyBotController.instance.DistalData.PositionP;
+
+        if ((step_count % DECIM_DATA_DISP_RHB_CTRL) == 0 && ExerciseActive && DISP_UPDATE_ON) {
+            ExternalConsoleLogger.Log("____________________________________________________________________");
+            ExternalConsoleLogger.Log("[" + step_count + "] t:[" + timeElapsedValue + "] pos[" +
+                String.Format("{0:#0.0000}", pos_rad) + "][" +
+                String.Format("{0:#0.00}", pos_phi) + 
+                "]\n");
+        }
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Update step counter:
+        ////////////////////////////////////////////////////////////////////////////
+        ///
+        step_count++;
+
+        ////////////////////////////////////////////////////////////////////////////
         // Using an action queue to perform Unity related tasks (i.e UI changes) which are not allowed to be done from a background thread
+        ////////////////////////////////////////////////////////////////////////////
+        
         if (MainThreadActionQueue.Count == 0) return;
         
         while (MainThreadActionQueue.Count > 0)
@@ -176,7 +328,7 @@ public class ReHandyBotController : MonoBehaviour
         SetBrakes(true, true);
 
         loader.SetActive(true);
-        loaderText.text = "Align grippers horizontally and close the grippers\nPress Y to calibrate";
+        loaderText.text = "Align grippers horizontally and close the grippers\nCLICK on this screen and press Y to calibrate";
         allowCalibration = true;
     }
 
@@ -279,6 +431,7 @@ public class ReHandyBotController : MonoBehaviour
     {
         if (isExerciseStarted)
         {
+
             SetBrakes(unlockPinch, unlockRotation);
             SetEmptyTarget();
             onComplete?.Invoke();

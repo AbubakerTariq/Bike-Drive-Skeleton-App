@@ -40,11 +40,11 @@ public class HelicopterCamera : MonoBehaviour
 
     void LateUpdate()
     {
-        if(motorbikeController.fallen!=prevFallen)
+        if(motorbikeController.bike_fallen!=prevFallen)
         changed = false;
-        prevFallen = motorbikeController.fallen;
+        prevFallen = motorbikeController.bike_fallen;
         
-        if (motorbikeController.fallen && changed == false)
+        if (motorbikeController.bike_fallen && changed == false)
         {
             if(SecondaryTarget == null)
             target = GameObject.FindGameObjectWithTag("Ragdoll").transform.Find("Armature/Hips");
@@ -52,7 +52,7 @@ public class HelicopterCamera : MonoBehaviour
             changed = true;
         }
 
-        else if(motorbikeController.fallen == false && changed == false)
+        else if(motorbikeController.bike_fallen == false && changed == false)
         {
             target = PrimaryTarget.transform;
             parentRigidbody = PrimaryTarget.GetComponent<Rigidbody>();

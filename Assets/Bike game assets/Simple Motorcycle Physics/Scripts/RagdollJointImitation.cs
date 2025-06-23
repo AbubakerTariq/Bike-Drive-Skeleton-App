@@ -1,18 +1,25 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class RagdollJointImitation : MonoBehaviour
 {
+
     private string limbTag = "TrackedLimb";
     GameObject CharacterCopyPosition;
+
     GameObject CharacterCopyAnimations;
     GameObject Motorcycle;
+
     private Transform animRoot;
     public int bodyPartMass = 1;
+
     public float Stiffness = 500f;
     public float jointAngularDamping = 10f;
+
     public Transform[] allAnimTrans;
     public ConfigurableJoint[] confJoints;
+
 
     void Start()
     {
@@ -49,6 +56,8 @@ public class RagdollJointImitation : MonoBehaviour
                 }
             }
         }
+
+
     }
 
     private void PopulateArrays()
@@ -81,7 +90,7 @@ public class RagdollJointImitation : MonoBehaviour
                 cj.enablePreprocessing = false;
                 trans.GetComponent<Rigidbody>().solverIterations = 4;
                 trans.GetComponent<Rigidbody>().mass = bodyPartMass;
-                trans.GetComponent<Rigidbody>().velocity = Motorcycle.GetComponent<MotorbikeController>().collisionRelativeVelocity * -1;
+                trans.GetComponent<Rigidbody>().velocity = Motorcycle.GetComponent<MotorbikeController>().velocity_rel_collision * -1;
             }
         }
         confJoints = jointList.ToArray();
@@ -104,4 +113,5 @@ public class RagdollJointImitation : MonoBehaviour
             }
         }
     }
+
 }
