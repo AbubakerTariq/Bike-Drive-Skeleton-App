@@ -353,7 +353,7 @@ public class MotorbikeController : MonoBehaviour
 
     void Awake()
     {
-        Time.timeScale = 1.15f; //Makes simulation movement more agile. You can delete this line if it interferes with your project settings.
+        Instance = this;
     }
 
     private void Reset()
@@ -741,4 +741,18 @@ public class MotorbikeController : MonoBehaviour
         TORQUE_MOTOR_MAX = torque_motor_init;
     }
 
+    public Vector3 GetBikePosition()
+    {
+        return transform.position;
+    }
+    
+    public Vector3 GetBikeDirectionVector()
+    {
+        return transform.forward;
+    }
+
+    public Vector3 GetBikeVelocityVector()
+    {
+        return rigid_body.velocity;
+    }
 }
