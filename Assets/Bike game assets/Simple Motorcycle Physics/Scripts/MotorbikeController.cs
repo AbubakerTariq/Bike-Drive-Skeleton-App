@@ -8,34 +8,44 @@ public class MotorbikeController : MonoBehaviour
     // Bike control parameters:
     ////////////////////////////////////////////////////////////////////////////
     
-    public float ANGLE_STEER_MAX = 45f;
-    public float TORQUE_MOTOR_MAX = 500f; // [Tooltip("Adds more speed. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system and make the bike glitch badly.")]
+    [HideInInspector] public float ANGLE_STEER_MAX = 45f;
+    [HideInInspector] public float TORQUE_MOTOR_MAX = 500f; // [Tooltip("Adds more speed. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system and make the bike glitch badly.")]
 
-    public float FACTOR_ACCEL = 1000f; // [Tooltip("Adds more braking power. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system, but it will definitely apply hard brakes")]
-    [Range(0, 1)]
+    [HideInInspector] public float FACTOR_ACCEL = 1000f; // [Tooltip("Adds more braking power. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system, but it will definitely apply hard brakes")]
+    // [Range(0, 1)]
 
-    public float FACTOR_BRAKE = 0f;
-    public float FACTOR_BRAKE_FWD = 400f;
-    public float FACTOR_BRAKE_BACK = 400f;
+    [HideInInspector] public float FACTOR_BRAKE = 0f;
+    [HideInInspector] public float FACTOR_BRAKE_FWD = 400f;
+    [HideInInspector] public float FACTOR_BRAKE_BACK = 400f;
 
-    public float RADIUS_WHEEL = 0.7f;
+    [HideInInspector] public float RADIUS_WHEEL = 0.7f;
 
-    public float STEER_SENSITIVITY = 60f; // was 30f;
-    public float FACTOR_ANGLE_STEER = 25.0f;
-    public float FACTOR_DT_ANGLE_STEER = 30.0f;
+    [HideInInspector] public float STEER_SENSITIVITY = 60f; // was 30f;
+    [HideInInspector] public float FACTOR_ANGLE_STEER = 25.0f;
+    [HideInInspector] public float FACTOR_DT_ANGLE_STEER = 30.0f;
 
-    public float FACTOR_ANGLE_SQUARED_STEER = 2.3f;
-    public float FACTOR_INC_STEER = 10f;
+    [HideInInspector] public float FACTOR_ANGLE_SQUARED_STEER = 2.3f;
+    [HideInInspector] public float FACTOR_INC_STEER = 10f;
 
-    public float SPEED_LOW = 8.0f;
-    public float SPEED_HIGH = 25.0f;
+    [HideInInspector] public float SPEED_LOW = 8.0f;
+    [HideInInspector] public float SPEED_HIGH = 25.0f;
 
-    public float ANGLE_NONSLIP_MAX_DEG = 40; // [Tooltip("Experimental Feature : Only for controlled low speeds")]
+    [HideInInspector] public float ANGLE_NONSLIP_MAX_DEG = 40; // [Tooltip("Experimental Feature : Only for controlled low speeds")]
+
+    // Throttle - input geometry settings:
+    private float DIST_RADIAL_THROT_FULL = 0.005f;
+    private float INPUT_THROT_MAX = 6.0f; // was 3.0f; // KEY PARAM
+
+    // Steering - input geometry settings:
+    private float FACT_PHI_STEER = -0.5f;
+
+    private float INPUT_STEER_MAX_DEG = 45.0f;
+    private float INPUT_STEER_LIM_DEG = 3.0f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike 'physical' parts:
     ////////////////////////////////////////////////////////////////////////////
-    
+
     public static MotorbikeController Instance;
 
     // Wheels:
@@ -44,13 +54,13 @@ public class MotorbikeController : MonoBehaviour
 
     public Transform wheelF;
     public Transform wheelB;
-    [SerializeField]
 
     // Handles:
-    public GameObject handles;
     [SerializeField]
+    public GameObject handles;
 
     // Mudguard:
+    [SerializeField]
     public GameObject RearMudGuard;
     public Vector3 RearMudGuardSusOffset; 
 
@@ -73,23 +83,18 @@ public class MotorbikeController : MonoBehaviour
     float angle_turn;
     public float rpm_value; 
     
-    // [HideInInspector]
-
-    public Vector3 velocity_rel_collision;
+    [HideInInspector] public Vector3 velocity_rel_collision;
 
     // Initial conditions:
     public bool bike_fallen = false;
     public int gear_curr = 1;
 
     ///////////////////////////////////////////////////////////
-    // "Stoppie" parameters(TODO: discard?):
+    // "Stoppie" parameters (TODO: discard?):
     ///////////////////////////////////////////////////////////
 
     public float STOPPIE_AMOUNT = 0.3f;     
-    [HideInInspector]
-
-    public bool canArtificialStoppie = false;     
-    [Range(0.1f, 1f)]
+    // [HideInInspector] public bool canArtificialStoppie = false; [Range(0.1f, 1f)]
 
     ///////////////////////////////////////////////////////////
     // Rider parameters:
@@ -118,7 +123,6 @@ public class MotorbikeController : MonoBehaviour
 
     private const int DECIM_DATA_DISP_BIKE_CTRL = 50;
     int step_count_prev = 0;
-    // private bool step_initial = true;
 
     ///////////////////////////////////////////////////////////
     // Wheel data:
@@ -169,7 +173,7 @@ public class MotorbikeController : MonoBehaviour
     // Console displays:
     /////////////////////////////////////////////////////////////
 
-    private bool DISP_FIXED_UPDATE_ON = false;
+    private bool DISP_FIXED_UPDATE_ON = true;
     private bool DISP_MOTOR_CONTROL_ON = true;
 
     /////////////////////////////////////////////////////////////
@@ -237,9 +241,8 @@ public class MotorbikeController : MonoBehaviour
             float pos_rad = ReHandyBotController.instance.DistalData.PositionR;
 
             float pos_rad_zero = ReHandyBotController.instance.POS_RADIAL_THROT_ZERO;
-
-            float dist_rad_full = ReHandyBotController.instance.DIST_RADIAL_THROT_FULL;
-            float input_throt_max = ReHandyBotController.instance.INPUT_THROT_MAX;
+            float dist_rad_full = DIST_RADIAL_THROT_FULL;
+            float input_throt_max = INPUT_THROT_MAX;
 
             if (ReHandyBotController.instance.ExerciseActive)
                 input.throttle_rhb = Mathf.Clamp(-(pos_rad - pos_rad_zero) / dist_rad_full, 0f, input_throt_max);

@@ -24,7 +24,7 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Script instance:
     ////////////////////////////////////////////////////////////////////////////
-    ///
+    
     public static ReHandyBotController instance;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -90,32 +90,25 @@ public class ReHandyBotController : MonoBehaviour
     private Tween connectionTween;
     private bool isCalibrated = false;
     private bool allowCalibration = false;
+
     public Action OnExerciseStart;
     public Action OnExerciseStop;
+
     private const string PrototypeSceneName = "Prototype";
 
     ////////////////////////////////////////////////////////////////////////////
     // RHB control settings:
     ////////////////////////////////////////////////////////////////////////////
 
-    // Throttle settings:
-    public float POS_RADIAL_THROT_ZERO = 0.029f;
-    public float K_STIFF_RADIAL_THROT  = 2500f;
-    public float B_DAMP_RADIAL_THROT   = 21.0f;
-
-    public float DIST_RADIAL_THROT_FULL = 0.005f;
-    public float INPUT_THROT_MAX = 6.0f; // was 3.0f; // KEY PARAM
+    // Throttle - default haptics settings:
+    [HideInInspector] public float POS_RADIAL_THROT_ZERO = 0.029f;
+    private float K_STIFF_RADIAL_THROT  = 2500f;
+    private float B_DAMP_RADIAL_THROT   = 21.0f;
 
     // Steering - default haptics settings:
-    public float POS_PHI_STEER_ZERO = 0f;
-    public float K_STIFF_PHI_STEER = 0.0f; // was 0.15f;
-    public float B_DAMP_PHI_STEER = 0.0f; // was 0.0185f;
-
-    // Steering - input geometry settings:
-    public float FACT_PHI_STEER = -0.5f;
-
-    public float INPUT_STEER_MAX_DEG = 45.0f;
-    public float INPUT_STEER_LIM_DEG = 3.0f;
+    [HideInInspector] public float POS_PHI_STEER_ZERO = 0f;
+    private float K_STIFF_PHI_STEER = 0.0f; // was 0.15f;
+    private float B_DAMP_PHI_STEER = 0.0f; // was 0.0185f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Timers & data display:
@@ -127,11 +120,11 @@ public class ReHandyBotController : MonoBehaviour
     private bool timerLockDetected = false;
     private float timeElapsedValue = 0f;
 
-    public int DT_TIMER_LOCK_MSEC = 50; // timer lock to control time step
+    [HideInInspector] public int DT_TIMER_LOCK_MSEC = 50; // timer lock to control time step
 
     private const int DECIM_DATA_DISP_RHB_CTRL = 50;
 
-    public int step_count = 0;
+    [HideInInspector] public int step_count = 0;
 
     ////////////////////////////////////////////////////////////////////////////
     // Methods section:
