@@ -131,6 +131,13 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Methods section:
     ////////////////////////////////////////////////////////////////////////////
+    
+    private bool DISP_TIMER_ACTIVITY_ON = true;
+    private bool DISP_UPDATE_ON = false;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Methods section:
+    ////////////////////////////////////////////////////////////////////////////
 
     #region MonoBehavior Functions
 
@@ -158,7 +165,7 @@ public class ReHandyBotController : MonoBehaviour
 
     private void Update()
     {
-        const bool DISP_UPDATE_ON = false;
+      
 
         ////////////////////////////////////////////////////////////////////////////
         // State check:
@@ -182,18 +189,21 @@ public class ReHandyBotController : MonoBehaviour
         // Time elapsed display:
         ////////////////////////////////////////////////////////////////////////////    
 
-        /*
         while (timerLocked)
         {
             System.Threading.Thread.Sleep(T_TIMER_LOCK_MSEC);
             timerLockDetected = true;
         }
 
-        if (timerLockDetected)
-        {
-            ExternalConsoleLogger.Log(" ");
-            ExternalConsoleLogger.Log("____________________________________________________________________");
-            ExternalConsoleLogger.Log("Update(): timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
+        if (timerLockDetected) {
+
+            if ((step_count % DECIM_DATA_DISP_RHB_CTRL) ==0 && DISP_TIMER_ACTIVITY_ON)
+            {
+                ExternalConsoleLogger.Log(" ");
+                ExternalConsoleLogger.Log("____________________________________________________________________");
+                ExternalConsoleLogger.Log("Update(): timerLockDetected = [" + timerLockDetected + "], timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
+            }
+
             timerLockDetected = false;
         }
 
@@ -215,7 +225,6 @@ public class ReHandyBotController : MonoBehaviour
 
         // Time elapsed computation:
         TimeSpan timeElapsed = TimeSpan.FromSeconds(timeElapsedValue);
-        */
 
         ////////////////////////////////////////////////////////////////////////////
         // Send target command to RHB firmware:
@@ -238,7 +247,7 @@ public class ReHandyBotController : MonoBehaviour
 
         if ((step_count % DECIM_DATA_DISP_RHB_CTRL) == 0 && ExerciseActive && DISP_UPDATE_ON) {
             ExternalConsoleLogger.Log("____________________________________________________________________");
-            ExternalConsoleLogger.Log("[" + step_count + "] t:[" + timeElapsedValue + "] pos[" +
+            ExternalConsoleLogger.Log("[" + step_count + "] timeElapsedValue:[" + timeElapsedValue + "] pos[" +
                 String.Format("{0:#0.0000}", pos_rad) + "][" +
                 String.Format("{0:#0.00}", pos_phi) + 
                 "]\n");
@@ -423,12 +432,20 @@ public class ReHandyBotController : MonoBehaviour
 
     private void ToggleExerciseState()
     {
-        if (isExerciseStarted) StopExercise();
-        else StartExercise(true, true);
+        if (isExerciseStarted)
+        {
+            StopExercise();
+        }
+        else
+        {
+            StartExercise(true, true);
+        }
     }
 
     private void StartExercise(bool unlockPinch, bool unlockRotation, UnityAction onComplete = null)
     {
+        bool timer_started = false;
+
         if (isExerciseStarted)
         {
 
@@ -476,6 +493,22 @@ public class ReHandyBotController : MonoBehaviour
             isExerciseStarted = true;
             SetEmptyTarget();
 
+            // Start timer:
+            if (!timer_started)
+            {
+                timerLocked = true;
+                timerActivePrev = timerActive;
+                timerActive = true;
+                System.Threading.Thread.Sleep(T_TIMER_LOCK_MSEC);
+                timerLocked = false;
+
+                ExternalConsoleLogger.Log(" ");
+                ExternalConsoleLogger.Log("____________________________________________________________________");
+                ExternalConsoleLogger.Log("StartExercise(): timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
+
+                timer_started = true;
+            }
+ 
             if (isCalibrated)
                 OnExerciseStart?.Invoke();
             
@@ -489,6 +522,8 @@ public class ReHandyBotController : MonoBehaviour
 
     private void StopExercise(UnityAction onComplete = null)
     {
+        bool timer_stopped = false;
+
         if (!isExerciseStarted)
         {
             SetBrakes(false, false);
@@ -507,6 +542,18 @@ public class ReHandyBotController : MonoBehaviour
         loader.SetActive(true);
         Time.timeScale = 0f;
         DOTween.PauseAll();
+
+        // Stop timer:
+        timerLocked = true;
+        timerActivePrev = timerActive;
+        timerActive = false;
+        System.Threading.Thread.Sleep(T_TIMER_LOCK_MSEC);
+        timerLocked = false;
+        timerLocked = false;
+
+        ExternalConsoleLogger.Log(" ");
+        ExternalConsoleLogger.Log("____________________________________________________________________");
+        ExternalConsoleLogger.Log("StopExercise(): timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
 
         if (isMoving)
         {

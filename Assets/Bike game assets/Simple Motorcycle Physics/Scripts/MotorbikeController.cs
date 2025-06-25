@@ -164,6 +164,13 @@ public class MotorbikeController : MonoBehaviour
     private float steer_prev = 0f;
 
     /////////////////////////////////////////////////////////////
+    // Console displays:
+    /////////////////////////////////////////////////////////////
+
+    private bool DISP_FIXED_UPDATE_ON = false;
+    private bool DISP_MOTOR_CONTROL_ON = false;
+
+    /////////////////////////////////////////////////////////////
     // METHODS:
     /////////////////////////////////////////////////////////////
 
@@ -189,8 +196,6 @@ public class MotorbikeController : MonoBehaviour
 
     void FixedUpdate()
     {
-        const bool DISP_FIXED_UPDATE_ON = true;
-
         int step_count = ReHandyBotController.instance.step_count;
 
         angle_turn = transform.eulerAngles.z;
@@ -381,8 +386,6 @@ public class MotorbikeController : MonoBehaviour
 
     private void motoControlRHB(MotorbikeInput input, int step_count, bool use_rhb_throttle, float pos_rad, float pos_phi)
     {
-        const bool DISP_MOTOR_CONTROL_ON = true;
-
         // Time step:
         float dt_step = Time.fixedDeltaTime;
 
