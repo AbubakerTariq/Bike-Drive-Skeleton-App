@@ -52,14 +52,14 @@ public class DataManager : MonoBehaviour
 
     private void SetupRecordingEvents()
     {
-        ReHandyBotController.instance.OnExerciseStart += StartDataRecording;
-        ReHandyBotController.instance.OnExerciseStop += StopDataRecording;
+        ReHandyBotController.Instance.OnExerciseStart += StartDataRecording;
+        ReHandyBotController.Instance.OnExerciseStop += StopDataRecording;
     }
 
     // This is for usage for SetOffsetForces command, currently being called with dummy values
     private void SetOffsetForces()
     {
-        ReHandyBotController.instance.SetOffsetForces(0f, 0f);
+        ReHandyBotController.Instance.SetOffsetForces(0f, 0f);
     }
 
     private void Destroy()
@@ -122,11 +122,11 @@ public class DataManager : MonoBehaviour
         {
             string datetime = DateTime.UtcNow.ToLocalTime().ToString("MMM-dd-yyyy HH:mm:ss.fff tt \"GMT\"zzz") ;
             string output = $"{datetime}," +
-                            $"{ReHandyBotController.instance.DistalData.UptimeMs}," +
-                            $"{ReHandyBotController.instance.DistalData.PositionR}," +
-                            $"{ReHandyBotController.instance.DistalData.VelocityR}," +
-                            $"{ReHandyBotController.instance.DistalData.PositionP}," +
-                            $"{ReHandyBotController.instance.DistalData.VelocityP}," +
+                            $"{ReHandyBotController.Instance.DistalData.UptimeMs}," +
+                            $"{ReHandyBotController.Instance.DistalData.PositionR}," +
+                            $"{ReHandyBotController.Instance.DistalData.VelocityR}," +
+                            $"{ReHandyBotController.Instance.DistalData.PositionP}," +
+                            $"{ReHandyBotController.Instance.DistalData.VelocityP}," +
                             $"{cartesianPosition}," +
                             $"{directionAngle}," +
                             $"{speed}," +

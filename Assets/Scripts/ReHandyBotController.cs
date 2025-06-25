@@ -25,7 +25,7 @@ public class ReHandyBotController : MonoBehaviour
     // Script instance:
     ////////////////////////////////////////////////////////////////////////////
     
-    public static ReHandyBotController instance;
+    public static ReHandyBotController Instance;
 
     ////////////////////////////////////////////////////////////////////////////
     // Control library reference:
@@ -142,13 +142,13 @@ public class ReHandyBotController : MonoBehaviour
     private void Awake()
     {
         // Singleton logic
-        if (instance != null && instance != this)
+        if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
             return;
         }
 
-        instance = this;
+        Instance = this;
         DontDestroyOnLoad(gameObject);
 
         // Set log level so that the logs are stored in Nlog file
@@ -244,14 +244,14 @@ public class ReHandyBotController : MonoBehaviour
         // Console output:
         ////////////////////////////////////////////////////////////////////////////
         
-        float pos_rad = ReHandyBotController.instance.DistalData.PositionR;
-        float pos_phi = ReHandyBotController.instance.DistalData.PositionP;
+        float pos_rad = ReHandyBotController.Instance.DistalData.PositionR;
+        float pos_phi = ReHandyBotController.Instance.DistalData.PositionP;
 
         if ((step_count % DECIM_DATA_DISP_RHB_CTRL) == 0 && ExerciseActive && DISP_UPDATE_ON) {
             ExternalConsoleLogger.Log("____________________________________________________________________");
-            ExternalConsoleLogger.Log("[" + step_count + "] timeElapsedValue:[" + timeElapsedValue + "] pos[" +
-                String.Format("{0:#0.0000}", pos_rad) + "][" +
-                String.Format("{0:#0.00}", pos_phi) + 
+            ExternalConsoleLogger.Log("[" + step_count + "] timeElapsedValue:[" + timeElapsedValue + 
+                "]  RHB RADIAL pos [" + String.Format("{0:#0.0000}", pos_rad) + 
+                "]  ROTATIONAL pos [" + String.Format("{0:#0.00}", pos_phi) + 
                 "]\n");
         }
 
@@ -285,7 +285,7 @@ public class ReHandyBotController : MonoBehaviour
         if (RHBConnected) distalRobot.CloseConnection();
 
         distalRobot = null;
-        instance = null;
+        Instance = null;
     }
     #endregion
 
