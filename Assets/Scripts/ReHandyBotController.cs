@@ -30,13 +30,13 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Control library reference:
     ////////////////////////////////////////////////////////////////////////////
-    ///
+    
     private DistalComm distalRobot = new();
 
     ////////////////////////////////////////////////////////////////////////////
     // RHB info related variables:
     ////////////////////////////////////////////////////////////////////////////
-    ///
+    
     private bool RHBConnected => distalRobot.is_device_connected;
     public DistalComm.ExerciseData DistalData => distalRobot.DistalData;
     public bool ExerciseActive => isExerciseStarted;
@@ -44,7 +44,7 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // New exercise related variables:
     ////////////////////////////////////////////////////////////////////////////
-    ///
+    
     private bool isSystemStarted = false;
     private bool isExerciseStarted = false;
     private bool isExerciseStopping = false;
@@ -52,22 +52,25 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Configuration values:
     ////////////////////////////////////////////////////////////////////////////
-    ///
+    
     private float radialGain = 9f;
     private float angularGain = 14f;
-    private bool stability = true;
-    private bool safety = true;
+    private bool  stability = true;
+    private bool  safety = true;
+
     private float passiveKr = 5000f;
     private float passiveKp = 6f;
+
     private float passiveBr = 60f;
     private float passiveBp = 0.6f;
+
     private float minPositionR = 0.0145f;
     private float maxPositionR = 0.06f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Constants:
     ////////////////////////////////////////////////////////////////////////////
-    ///
+    
     private const int MaxAttempts = 10;
     private const string ServerIP = "192.168.102.1";
     private const int ServerPort = 3002;
@@ -75,10 +78,10 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Misc:
     ////////////////////////////////////////////////////////////////////////////
-    ///
+    
     private Queue<Action> MainThreadActionQueue = new();
-    private Coroutine moveRoutine;
-    private Coroutine rotateRoutine;
+    private Coroutine motionRoutineRadial;
+    private Coroutine motionRoutineRotational;
     private bool isMoving = false;
     private bool isRotating = false;
     private float minPinch = 0.0145f;
@@ -96,34 +99,36 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     // Throttle settings:
-    public float POS_RAD_THROT_ZERO = 0.029f;
-    public float K_STIFF_RAD_THROT  = 1250f;
-    public float B_DAMP_RAD_THROT   = 16.5f;
+    public float POS_RADIAL_THROT_ZERO = 0.029f;
+    public float K_STIFF_RADIAL_THROT  = 2500f;
+    public float B_DAMP_RADIAL_THROT   = 21.0f;
 
-    public float DIST_RAD_THROT_FULL = 0.005f;
-    public float INPUT_THROT_MAX = 1.5f;
+    public float DIST_RADIAL_THROT_FULL = 0.005f;
+    public float INPUT_THROT_MAX = 6.0f; // was 3.0f; // KEY PARAM
 
-    // Steering settings:
+    // Steering - default haptics settings:
     public float POS_PHI_STEER_ZERO = 0f;
-    public float K_STIFF_PHI_STEER  = 0.3f;
-    public float B_DAMP_PHI_STEER   = 0.029f;
+    public float K_STIFF_PHI_STEER = 0.0f; // was 0.15f;
+    public float B_DAMP_PHI_STEER = 0.0f; // was 0.0185f;
 
-    // public float FACT_PHI_STEER = -0.5f;
-    // public float INPUT_STEER_MAX = Mathf.PI / 4.0f;
-    public float INPUT_STEER_LIM = 3.0f * Mathf.PI / 180f;
+    // Steering - input geometry settings:
+    public float FACT_PHI_STEER = -0.5f;
+
+    public float INPUT_STEER_MAX_DEG = 45.0f;
+    public float INPUT_STEER_LIM_DEG = 3.0f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Timers & data display:
     ////////////////////////////////////////////////////////////////////////////
-    ///
+    
     private bool timerActive = false;
     private bool timerActivePrev = false;
     private bool timerLocked = false;
     private bool timerLockDetected = false;
-
     private float timeElapsedValue = 0f;
 
-    private int T_TIMER_LOCK_MSEC = 50;
+    public int DT_TIMER_LOCK_MSEC = 50; // timer lock to control time step
+
     private const int DECIM_DATA_DISP_RHB_CTRL = 50;
 
     public int step_count = 0;
@@ -132,8 +137,8 @@ public class ReHandyBotController : MonoBehaviour
     // Methods section:
     ////////////////////////////////////////////////////////////////////////////
     
-    private bool DISP_TIMER_ACTIVITY_ON = true;
-    private bool DISP_UPDATE_ON = false;
+    private bool DISP_TIMER_ACTIVITY_ON = false;
+    private bool DISP_UPDATE_ON = true;
 
     ////////////////////////////////////////////////////////////////////////////
     // Methods section:
@@ -165,8 +170,6 @@ public class ReHandyBotController : MonoBehaviour
 
     private void Update()
     {
-      
-
         ////////////////////////////////////////////////////////////////////////////
         // State check:
         ////////////////////////////////////////////////////////////////////////////
@@ -189,11 +192,17 @@ public class ReHandyBotController : MonoBehaviour
         // Time elapsed display:
         ////////////////////////////////////////////////////////////////////////////    
 
+        /*
         while (timerLocked)
         {
             System.Threading.Thread.Sleep(T_TIMER_LOCK_MSEC);
             timerLockDetected = true;
         }
+        */
+
+        // HACK: make thread sleep always:
+        System.Threading.Thread.Sleep(DT_TIMER_LOCK_MSEC);
+        timerLockDetected = true;
 
         if (timerLockDetected) {
 
@@ -201,7 +210,7 @@ public class ReHandyBotController : MonoBehaviour
             {
                 ExternalConsoleLogger.Log(" ");
                 ExternalConsoleLogger.Log("____________________________________________________________________");
-                ExternalConsoleLogger.Log("Update(): timerLockDetected = [" + timerLockDetected + "], timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
+                ExternalConsoleLogger.Log("Update(" + step_count +"): timerLockDetected = [" + timerLockDetected + "], timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
             }
 
             timerLockDetected = false;
@@ -233,9 +242,9 @@ public class ReHandyBotController : MonoBehaviour
         byte IDX_TARG = 1;
 
         SetTarget(IDX_TARG,
-            POS_RAD_THROT_ZERO, POS_PHI_STEER_ZERO,
-            K_STIFF_RAD_THROT, K_STIFF_PHI_STEER,
-            B_DAMP_RAD_THROT, B_DAMP_PHI_STEER,
+            POS_RADIAL_THROT_ZERO, POS_PHI_STEER_ZERO,
+            K_STIFF_RADIAL_THROT, K_STIFF_PHI_STEER,
+            B_DAMP_RADIAL_THROT, B_DAMP_PHI_STEER,
             1.0f, 1.0f);
 
         ////////////////////////////////////////////////////////////////////////////
@@ -256,7 +265,7 @@ public class ReHandyBotController : MonoBehaviour
         ////////////////////////////////////////////////////////////////////////////
         // Update step counter:
         ////////////////////////////////////////////////////////////////////////////
-        ///
+        
         step_count++;
 
         ////////////////////////////////////////////////////////////////////////////
@@ -442,14 +451,14 @@ public class ReHandyBotController : MonoBehaviour
         }
     }
 
-    private void StartExercise(bool unlockPinch, bool unlockRotation, UnityAction onComplete = null)
+    private void StartExercise(bool unlockRadial, bool unlockRotational, UnityAction onComplete = null)
     {
-        bool timer_started = false;
+        // bool timer_started = false;
 
         if (isExerciseStarted)
         {
 
-            SetBrakes(unlockPinch, unlockRotation);
+            SetBrakes(unlockRadial, unlockRotational);
             SetEmptyTarget();
             onComplete?.Invoke();
             
@@ -461,7 +470,7 @@ public class ReHandyBotController : MonoBehaviour
 
         for (int i = 0; i < MaxAttempts; i++)
         {
-            distalRobot.HL_StartExercise(1, unlockPinch, unlockRotation, 0f, 0f, out bool startExerciseResponse, out bool setGainResponse, radialGain, angularGain, stability);
+            distalRobot.HL_StartExercise(1, unlockRadial, unlockRotational, 0f, 0f, out bool startExerciseResponse, out bool setGainResponse, radialGain, angularGain, stability);
 
             if (!startExerciseResponse)
             {
@@ -494,6 +503,7 @@ public class ReHandyBotController : MonoBehaviour
             SetEmptyTarget();
 
             // Start timer:
+            /*
             if (!timer_started)
             {
                 timerLocked = true;
@@ -508,6 +518,7 @@ public class ReHandyBotController : MonoBehaviour
 
                 timer_started = true;
             }
+            */
  
             if (isCalibrated)
                 OnExerciseStart?.Invoke();
@@ -544,6 +555,7 @@ public class ReHandyBotController : MonoBehaviour
         DOTween.PauseAll();
 
         // Stop timer:
+        /*
         timerLocked = true;
         timerActivePrev = timerActive;
         timerActive = false;
@@ -554,23 +566,24 @@ public class ReHandyBotController : MonoBehaviour
         ExternalConsoleLogger.Log(" ");
         ExternalConsoleLogger.Log("____________________________________________________________________");
         ExternalConsoleLogger.Log("StopExercise(): timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
+        */ 
 
         if (isMoving)
         {
             isMoving = false;
-            StopCoroutine(moveRoutine);
+            StopCoroutine(motionRoutineRadial);
         }
 
         if (isRotating)
         {
             isRotating = false;
-            StopCoroutine(rotateRoutine);
+            StopCoroutine(motionRoutineRotational);
         }
 
         SetBrakes(true, true);
-        rotateRoutine = StartCoroutine(RotateDistalRoutine(0f, ()=>
+        motionRoutineRotational = StartCoroutine(motionRoutineRotationalRHB(0f, ()=>
         {
-            moveRoutine = StartCoroutine(MoveDistalRoutine(maxPinch, () =>
+            motionRoutineRadial = StartCoroutine(motionRoutineRadialRHB(maxPinch, () =>
             {
                 for (int i = 0; i < MaxAttempts; i++)
                 {
@@ -618,13 +631,13 @@ public class ReHandyBotController : MonoBehaviour
     /// <summary>
     /// Sets ReHandyBot brakes, False = Engage, True = Disengage
     /// </summary>
-    /// <param name="unlockPinch">Horizontal Axis</param>
-    /// <param name="unlockRotation">Vertical Axis</param>
-    private void SetBrakes(bool unlockPinch, bool unlockRotation, UnityAction onComplete = null)
+    /// <param name="unlockRadial">Horizontal Axis</param>
+    /// <param name="unlockRotational">Vertical Axis</param>
+    private void SetBrakes(bool unlockRadial, bool unlockRotational, UnityAction onComplete = null)
     {
         for (int i = 0; i < MaxAttempts; i++)
         {
-            bool success = distalRobot.ControlBrakes(unlockPinch, unlockRotation);
+            bool success = distalRobot.ControlBrakes(unlockRadial, unlockRotational);
 
             if (success)
             {
@@ -636,16 +649,25 @@ public class ReHandyBotController : MonoBehaviour
         onComplete?.Invoke();
     }
 
-    private void SetTarget(byte targetIndex, float pinchValue, float rotationValue, float pinchStiffness, float rotationStiffness, float pinchDamping, float rotationDamping, float pinchGain, float rotationGain, UnityAction onComplete = null)
+    private void SetTarget(byte targetIndex, 
+        float radialValue, float rotationValue, 
+        float radialStiffness, float rotationStiffness, 
+        float radialDamping, float rotationDamping, 
+        float radialGain, float rotationGain, UnityAction onComplete = null)
     {
         if (!isExerciseStarted || isExerciseStopping) return;
-        
-        pinchValue = Mathf.Clamp(pinchValue, 0.0145f, 0.06f);
+
+        radialValue = Mathf.Clamp(radialValue, minPositionR, maxPositionR);
         rotationValue = Mathf.Clamp(rotationValue, -Mathf.PI / 2f, Mathf.PI / 2f);
 
         for (int i = 0; i < MaxAttempts; i++)
         {
-            bool success = distalRobot.HL_SetTarget(targetIndex, pinchValue, rotationValue, pinchStiffness, rotationStiffness, pinchDamping, rotationDamping, pinchGain, rotationGain);
+            bool success = distalRobot.HL_SetTarget(
+                targetIndex, 
+                radialValue, rotationValue, 
+                radialStiffness, rotationStiffness, 
+                radialDamping, rotationDamping, 
+                radialGain, rotationGain);
 
             if (success)
             {
@@ -685,13 +707,13 @@ public class ReHandyBotController : MonoBehaviour
         if (isMoving)
         {
             isMoving = false;
-            StopCoroutine(moveRoutine);
+            StopCoroutine(motionRoutineRadial);
         }
 
-        moveRoutine = StartCoroutine(MoveDistalRoutine(target, onComplete));
+        motionRoutineRadial = StartCoroutine(motionRoutineRadialRHB(target, onComplete));
     }
 
-    private IEnumerator MoveDistalRoutine(float target, UnityAction onComplete)
+    private IEnumerator motionRoutineRadialRHB(float target, UnityAction onComplete)
     {
         isMoving = true;
         SetGain(0f, 0f);
@@ -759,6 +781,7 @@ public class ReHandyBotController : MonoBehaviour
         onComplete?.Invoke();
     }
     
+    /*
     private void RotateDistal(float target, UnityAction onComplete = null)
     {
         if (!isExerciseStarted || isExerciseStopping) return;
@@ -773,8 +796,8 @@ public class ReHandyBotController : MonoBehaviour
 
         rotateRoutine = StartCoroutine(RotateDistalRoutine(target, onComplete));
     }
-
-    private IEnumerator RotateDistalRoutine(float target, UnityAction onComplete)
+    */
+    private IEnumerator motionRoutineRotationalRHB(float target, UnityAction onComplete)
     {
         isRotating = true;
         SetGain(0f, 0f);

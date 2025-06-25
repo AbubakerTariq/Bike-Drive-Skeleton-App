@@ -349,6 +349,16 @@ MonoBehaviour:
   loader: {fileID: 631658538}
   exerciseGuidelineText: {fileID: 558098702}
   loaderText: {fileID: 663783438}
+  POS_RAD_THROT_ZERO: 0.029
+  K_STIFF_RAD_THROT: 1250
+  B_DAMP_RAD_THROT: 16.5
+  DIST_RAD_THROT_FULL: 0.005
+  INPUT_THROT_MAX: 1.5
+  POS_PHI_STEER_ZERO: 0
+  K_STIFF_PHI_STEER: 0.3
+  B_DAMP_PHI_STEER: 0.029
+  INPUT_STEER_LIM: 0.05235988
+  step_count: 0
 --- !u!1 &558098702
 GameObject:
   m_ObjectHideFlags: 0
@@ -1205,6 +1215,50 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1284540251}
   m_CullTransparentMesh: 1
+--- !u!1 &1560193663
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1560193665}
+  - component: {fileID: 1560193664}
+  m_Layer: 0
+  m_Name: ConsoleLogger
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1560193664
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1560193663}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3e05485f34cdfe64faebca26cf97e68d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!4 &1560193665
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1560193663}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 7
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1909736740
 GameObject:
   m_ObjectHideFlags: 0

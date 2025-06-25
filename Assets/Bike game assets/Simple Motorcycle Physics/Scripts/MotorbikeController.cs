@@ -20,7 +20,7 @@ public class MotorbikeController : MonoBehaviour
 
     public float RADIUS_WHEEL = 0.7f;
 
-    public float STEER_SENSITIVITY = 30.0f;
+    public float STEER_SENSITIVITY = 60f; // was 30f;
     public float FACTOR_ANGLE_STEER = 25.0f;
     public float FACTOR_DT_ANGLE_STEER = 30.0f;
 
@@ -113,6 +113,8 @@ public class MotorbikeController : MonoBehaviour
     ///////////////////////////////////////////////////////////
     // Timers and counters:
     ///////////////////////////////////////////////////////////
+   
+    const int DT_INPUT_STEER_RHB_MSEC = 500; // sampling rate for RHB steer input commands 
 
     private const int DECIM_DATA_DISP_BIKE_CTRL = 50;
     int step_count_prev = 0;
@@ -168,7 +170,7 @@ public class MotorbikeController : MonoBehaviour
     /////////////////////////////////////////////////////////////
 
     private bool DISP_FIXED_UPDATE_ON = false;
-    private bool DISP_MOTOR_CONTROL_ON = false;
+    private bool DISP_MOTOR_CONTROL_ON = true;
 
     /////////////////////////////////////////////////////////////
     // METHODS:
@@ -196,6 +198,8 @@ public class MotorbikeController : MonoBehaviour
 
     void FixedUpdate()
     {
+        int DECIM_INPUT_STEER_RHB = DT_INPUT_STEER_RHB_MSEC / ReHandyBotController.instance.DT_TIMER_LOCK_MSEC;
+
         int step_count = ReHandyBotController.instance.step_count;
 
         angle_turn = transform.eulerAngles.z;
@@ -211,9 +215,9 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
         // If bike is balanced, process control inputs and update bike's kinematic state:
         ////////////////////////////////////////////////////////////////
-        
+
         if (!bike_fallen)
-        {   
+        {
             var input = new MotorbikeInput();
             float steer_rhb_raw = 0f;
 
@@ -224,48 +228,61 @@ public class MotorbikeController : MonoBehaviour
             if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) && !USE_RHB_THROTTLE)
                 input.acceleration = 1f; // this input gets modified at low speeds - see motorControl()
             else
-                input.acceleration = 0f;           
+                input.acceleration = 0f;
 
             ////////////////////////////////////////////////////////////////
             // RHB radial input - throttle:
             ////////////////////////////////////////////////////////////////
-            
+
             float pos_rad = ReHandyBotController.instance.DistalData.PositionR;
 
-            float pos_rad_zero = ReHandyBotController.instance.POS_RAD_THROT_ZERO;
+            float pos_rad_zero = ReHandyBotController.instance.POS_RADIAL_THROT_ZERO;
 
-            float dist_rad_full = ReHandyBotController.instance.DIST_RAD_THROT_FULL;
+            float dist_rad_full = ReHandyBotController.instance.DIST_RADIAL_THROT_FULL;
             float input_throt_max = ReHandyBotController.instance.INPUT_THROT_MAX;
 
             if (ReHandyBotController.instance.ExerciseActive)
                 input.throttle_rhb = Mathf.Clamp(-(pos_rad - pos_rad_zero) / dist_rad_full, 0f, input_throt_max);
             else
-                input.throttle_rhb = 0f; 
+                input.throttle_rhb = 0f;
 
             ////////////////////////////////////////////////////////////////
             // RHB rotational input - steering:
             ////////////////////////////////////////////////////////////////
-            
+
             float pos_phi = ReHandyBotController.instance.DistalData.PositionP;
 
-            /*
-            float fact_phi_steer = ReHandyBotController.instance.FACT_PHI_STEER;
-            float input_steer_max = ReHandyBotController.instance.INPUT_STEER_MAX;
+            if (ReHandyBotController.instance.ExerciseActive && step_count % DECIM_INPUT_STEER_RHB == 0) {
 
-            if (ReHandyBotController.instance.ExerciseActive)
-                steer_rhb_raw = Mathf.Clamp(fact_phi_steer*pos_phi, -input_steer_max, input_steer_max);
+                ////////////////////////////////////////////////////////////////////////////////
+                // METHOD 1: angle input with proportionality factor - may be clamped: 
+                ////////////////////////////////////////////////////////////////////////////////
+
+                /*
+                float fact_phi_steer = ReHandyBotController.instance.FACT_PHI_STEER_DEG * Mathf.PI / 180f;
+                float input_steer_max = ReHandyBotController.instance.INPUT_STEER_MAX_DEG * Mathf.PI / 180f;
+
+                steer_rhb_raw = fact_phi_steer * pos_phi;
+                // steer_rhb_raw = Mathf.Clamp(steer_rhb_raw, -input_steer_max, input_steer_max);
+                */
+
+                ////////////////////////////////////////////////////////////////////////////////
+                // METHOD 2: discrete input like with keyboard (+1, -1), but with deadband:
+                ////////////////////////////////////////////////////////////////////////////////
+
+                float input_steer_lim = 0; // ReHandyBotController.instance.INPUT_STEER_LIM;
+
+                if ( pos_phi > input_steer_lim)
+                    steer_rhb_raw = 1.0f;
+                else if (pos_phi < -input_steer_lim)
+                    steer_rhb_raw = -1.0f;
+                else
+                    steer_rhb_raw = 0f;
+            }
             else
+            {
                 steer_rhb_raw = 0f;
-            */
-
-            float input_steer_lim = ReHandyBotController.instance.INPUT_STEER_LIM;
-
-            if (pos_phi > input_steer_lim)
-                steer_rhb_raw = 1.0f;
-            else if (pos_phi < -input_steer_lim)
-                steer_rhb_raw = -1.0f;
-            else  
-                steer_rhb_raw = pos_phi / input_steer_lim;
+            }
 
             ////////////////////////////////////////////////////////////////
             // Steering input selection:
@@ -295,7 +312,7 @@ public class MotorbikeController : MonoBehaviour
             {
                 ExternalConsoleLogger.Log("    ====================================================================");
                 ExternalConsoleLogger.Log("    FixedUpdate(" + step_count +  "):");
-                ExternalConsoleLogger.Log("    steer keyboard[" + String.Format("{0:#0.00}", input.steer) + "]");
+                // ExternalConsoleLogger.Log("    steer keyboard[" + String.Format("{0:#0.00}", input.steer) + "]");
                 ExternalConsoleLogger.Log("    steer RHB raw [" + String.Format("{0:#0.00}", steer_rhb_raw) + "]");
                 ExternalConsoleLogger.Log("    throttle      [" + String.Format("{0:#0.000}", input.throttle_rhb) + 
                     "] acceleration [" + input.acceleration + "]");
@@ -392,7 +409,7 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
         // Position and velocity:
         ////////////////////////////////////////////////////////////////
-        ///
+        
         var position = thisTransform.position;
         var velocity = (position - position_prev) / dt_step;
         position_prev = position;
@@ -439,8 +456,7 @@ public class MotorbikeController : MonoBehaviour
 
             input.acceleration += Mathf.Abs(angle) * 3f * (1 - ratio_speed);
         }
-
-        if (vel_magn > SPEED_HIGH)
+        else if (vel_magn > SPEED_HIGH)
         {
             ratio_speed = vel_magn / SPEED_HIGH;
 
@@ -474,7 +490,7 @@ public class MotorbikeController : MonoBehaviour
 
         input.steer *= (1 - FACTOR_ANGLE_SQUARED_STEER * angle * angle);
 
-        input.steer = 1.0f / (velocity.sqrMagnitude + 1.0f) *
+        input.steer = 1.0f/(velocity.sqrMagnitude + 1.0f) *
             (STEER_SENSITIVITY * input.steer +
             FACTOR_ANGLE_STEER * angle +
             FACTOR_DT_ANGLE_STEER * dt_angle);
