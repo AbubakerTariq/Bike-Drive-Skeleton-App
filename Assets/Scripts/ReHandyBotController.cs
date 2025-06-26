@@ -109,8 +109,8 @@ public class ReHandyBotController : MonoBehaviour
 
     // Steering - default haptics settings:
     [HideInInspector] public float POS_PHI_STEER_ZERO = 0f;
-    private float K_STIFF_PHI_STEER = 0.075f; // was 0.15f;
-    private float B_DAMP_PHI_STEER = 0.0133f; // was 0.0185f;
+    private float K_STIFF_PHI_STEER = 0.1f; // was 0.15f;
+    private float B_DAMP_PHI_STEER = 0.015f; // was 0.0185f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Timers & data display:

@@ -8,8 +8,8 @@ public class MotorbikeController : MonoBehaviour
     // Bike control parameters - PREDEFINED VALUES:
     ////////////////////////////////////////////////////////////////////////////
     
-    private float ANGLE_STEER_FRONT_WHEEL_MAX_DEG = 45f;
-    private float TORQUE_MOTOR_MAX = 500f; // [Tooltip("Adds more speed. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system and make the bike glitch badly.")]
+    private float ANGLE_STEER_FRONT_WHEEL_MAX_DEG = 45.0f;
+    private float TORQUE_MOTOR_MAX = 600f; // 500f; // [Tooltip("Adds more speed. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system and make the bike glitch badly.")]
 
     private float FACTOR_ACCEL = 1000f; // [Tooltip("Adds more braking power. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system, but it will definitely apply hard brakes")]
     // [Range(0, 1)]
@@ -19,9 +19,6 @@ public class MotorbikeController : MonoBehaviour
     private float FACTOR_BRAKE_BACK = 400f;
 
     private float RADIUS_WHEEL = 0.7f;
-
-    // Parameters modifying input.steer:
-    private float STEER_SENSITIVITY = 60.0f; // was 30f;
 
     [HideInInspector] public float FACTOR_ANGLE_STEER = 25.0f;
     private float FACTOR_DT_ANGLE_STEER = 30.0f;
@@ -37,13 +34,16 @@ public class MotorbikeController : MonoBehaviour
     // Bike control parameters - ADJUSTABLE VALUES - CRITICAL:
     ////////////////////////////////////////////////////////////////////////////
 
+    // Parameters modifying input.steer:
+    private float STEER_SENSITIVITY = 60.0f; // 45.0f; // 30.0f;
+
     // Throttle - input geometry settings:
-    private float DIST_RADIAL_THROT_FULL_MM = 5.0f; // grippers travel distance for full throttle (mm)
+    private float DIST_RADIAL_THROT_FULL_MM = 3.0f; // was 5.0f; // grippers travel distance for full throttle (mm)
     private float INPUT_THROT_MAX = 1.3f; // this is a function of RADIAL stiffness  
     private float INPUT_THROT_THRESH = 0.6f; // minimum torque for mobility, also dependent on RADIAL stiffness  
 
     // Steering - input geometry settings:
-    private float INPUT_STEER_REF_DEG = 30.0f; // reference angle for steering response (the lower the angle the larger the response)
+    private float INPUT_STEER_REF_DEG = 25.0f; //  15.0f; // 30.0f; // reference angle for steering response (the lower the angle the larger the response)
 
     private const int DT_INPUT_STEER_RHB_MSEC = 200; // sampling rate for RHB steer input commands 
 
@@ -242,11 +242,11 @@ public class MotorbikeController : MonoBehaviour
             // RHB radial input - throttle:
             ////////////////////////////////////////////////////////////////
 
-            float pos_rad = ReHandyBotController.Instance.DistalData.PositionR;
-            float pos_rad_zero = ReHandyBotController.Instance.POS_RADIAL_THROT_ZERO;
+            float pos_radial = ReHandyBotController.Instance.DistalData.PositionR;
+            float pos_radial_zero = ReHandyBotController.Instance.POS_RADIAL_THROT_ZERO;
 
             if (ReHandyBotController.Instance.ExerciseActive)
-                input.throttle_rhb = Mathf.Clamp(-1000f / DIST_RADIAL_THROT_FULL_MM * (pos_rad - pos_rad_zero),
+                input.throttle_rhb = Mathf.Clamp(-1000f / DIST_RADIAL_THROT_FULL_MM * (pos_radial - pos_radial_zero),
                     0f, INPUT_THROT_MAX);
             else
                 input.throttle_rhb = 0f;
@@ -353,7 +353,7 @@ public class MotorbikeController : MonoBehaviour
             // Motion commands:
             ////////////////////////////////////////////////////////////////
 
-            motoControlRHB(input, step_count, USE_RHB_THROTTLE, pos_rad, pos_phi);
+            motoControlRHB(input, step_count, USE_RHB_THROTTLE, pos_radial, pos_phi);
 
             steerHelper();
             steerHandles();
@@ -412,7 +412,7 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
         // Time step:
         ////////////////////////////////////////////////////////////////
-        ///
+        
         float dt_step = Time.fixedDeltaTime;
 
         ////////////////////////////////////////////////////////////////
@@ -477,10 +477,10 @@ public class MotorbikeController : MonoBehaviour
             steer_update[1] = input.steer * ratio_speed * ratio_speed; 
             input.steer = steer_update[1]; 
                 
-            angle *= (2f - ratio_speed);
+            angle *= (2.0f - ratio_speed);
             dt_angle *= ratio_speed * ratio_speed;
 
-            input.acceleration += Mathf.Abs(angle) * 3f * (1 - ratio_speed);
+            input.acceleration += 3.0f * Mathf.Abs(angle) * (1 - ratio_speed);
         }
         else
         {
@@ -573,7 +573,7 @@ public class MotorbikeController : MonoBehaviour
         // Update steering angle (wheel colliders):
         ////////////////////////////////////////////////////////////////
 
-        if (vel_magn > 1f)
+        if (vel_magn > 1.0f)
             wheel_coll_fwd.steerAngle = Mathf.Clamp(input.steer, -1, 1) * ANGLE_STEER_FRONT_WHEEL_MAX_DEG;
         else
             wheel_coll_fwd.steerAngle = Mathf.Clamp(input.steer, -vel_magn, vel_magn);
@@ -640,10 +640,10 @@ public class MotorbikeController : MonoBehaviour
         
     private void uprightForce(bool input_force_trq_on)
     {
-        rigid_body.angularDrag -= 100 * Time.deltaTime;
-        rigid_body.angularDrag = Mathf.Clamp(rigid_body.angularDrag, 0.1f, 100);
+        rigid_body.angularDrag -= 100f * Time.deltaTime;
+        rigid_body.angularDrag = Mathf.Clamp(rigid_body.angularDrag, 0.1f, 100f);
 
-        if (vel_magn < 1 && !input_force_trq_on) // was Input.GetKey(KeyCode.W) (11.06.2025)
+        if (vel_magn < 1.0f && !input_force_trq_on) // was Input.GetKey(KeyCode.W) (11.06.2025)
         {
             // var rot = Quaternion.FromToRotation(transform.up, Vector3.up);
             // rigid_body.AddTorque(new Vector3(rot.x, rot.y, rot.z)* 10 , ForceMode.Acceleration);
@@ -737,8 +737,19 @@ public class MotorbikeController : MonoBehaviour
 
     void steerHelper()
     {
-        STEER_SENSITIVITY = Mathf.Clamp(steer_sensitivity_init - Mathf.Abs(angle_turn) * 0.9f, 10, steer_sensitivity_init);
+        ////////////////////////////////////////////////////////////////////////////////////
+        // Adjust steering sensitivity:
+        ////////////////////////////////////////////////////////////////////////////////////
+        
+        STEER_SENSITIVITY = Mathf.Clamp(steer_sensitivity_init - 0.9f * Mathf.Abs(angle_turn), 
+            10f, steer_sensitivity_init);
+
+        ////////////////////////////////////////////////////////////////////////////////////
+        // Adjust steering angle factor (TODO: what do the numbers mean?):
+        ////////////////////////////////////////////////////////////////////////////////////
+
         FACTOR_ANGLE_STEER = Mathf.Clamp(FACTOR_ANGLE_STEER, 48, 65);
+
         if (Input.anyKey)
             FACTOR_ANGLE_STEER -= 1;
         else
@@ -747,7 +758,11 @@ public class MotorbikeController : MonoBehaviour
         if (angle_turn > 42 || angle_turn < -42)
             FACTOR_ANGLE_STEER += 2;
 
+        ////////////////////////////////////////////////////////////////////////////////////
+        // Adjust torque based on key inputs: 
+        ////////////////////////////////////////////////////////////////////////////////////
 
+        /*
         if (angle_turn > 10 && Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
         {
             rigid_body.AddTorque(-transform.forward * 0.1f * angle_turn, ForceMode.Acceleration);
@@ -765,7 +780,12 @@ public class MotorbikeController : MonoBehaviour
         {
             rigid_body.AddTorque(-rigid_body.angularVelocity * 2, ForceMode.Acceleration);
         }
-        //Sets Sideways friction with speed gradations
+        */
+
+        ////////////////////////////////////////////////////////////////////////////////////
+        // Sets sideways friction with speed gradations:
+        ////////////////////////////////////////////////////////////////////////////////////
+
         if (vel_magn < 10)
             SetWheelFriction(1.5f);
         else if(vel_magn < 20 && vel_magn > 10)
