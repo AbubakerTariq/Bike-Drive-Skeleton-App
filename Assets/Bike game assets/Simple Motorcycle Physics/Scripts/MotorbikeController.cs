@@ -21,16 +21,17 @@ public class MotorbikeController : MonoBehaviour
     private float RADIUS_WHEEL = 0.7f;
 
     // Parameters modifying input.steer:
-    private float STEER_SENSITIVITY = 60f; // was 30f;
+    private float STEER_SENSITIVITY = 60.0f; // was 30f;
+
     [HideInInspector] public float FACTOR_ANGLE_STEER = 25.0f;
     private float FACTOR_DT_ANGLE_STEER = 30.0f;
     private float FACTOR_ANGLE_SQUARED_STEER = 2.3f;
-    private float FACTOR_INC_STEER = 10f;
+    private float FACTOR_INC_STEER = 10.0f;
 
     [HideInInspector] public float SPEED_LOW = 8.0f;
     [HideInInspector] public float SPEED_HIGH = 25.0f;
 
-    private float ANGLE_NONSLIP_MAX_DEG = 40; // [Tooltip("Experimental Feature : Only for controlled low speeds")]
+    private float ANGLE_NONSLIP_MAX_DEG = 40.0f; // [Tooltip("Experimental Feature : Only for controlled low speeds")]
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - ADJUSTABLE VALUES - CRITICAL:
@@ -44,7 +45,7 @@ public class MotorbikeController : MonoBehaviour
     // Steering - input geometry settings:
     private float INPUT_STEER_REF_DEG = 30.0f; // reference angle for steering response (the lower the angle the larger the response)
 
-    private const int DT_INPUT_STEER_RHB_MSEC = 400; // sampling rate for RHB steer input commands 
+    private const int DT_INPUT_STEER_RHB_MSEC = 200; // sampling rate for RHB steer input commands 
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike 'physical' parts:
@@ -525,7 +526,7 @@ public class MotorbikeController : MonoBehaviour
         steer_update[2] = input.steer * (1 - FACTOR_ANGLE_SQUARED_STEER * angle * angle); 
         input.steer = steer_update[2];
 
-        float factor_speed_steer = 1.0f / (vel_magn * vel_magn + 1.0f);  
+        float factor_speed_steer = 1f / (vel_magn * vel_magn + 1f);  
         float steer_term_input = STEER_SENSITIVITY * input.steer;
         float steer_term_angle = FACTOR_ANGLE_STEER * angle;
         float steer_term_dt_angle = FACTOR_DT_ANGLE_STEER * dt_angle;
@@ -536,7 +537,7 @@ public class MotorbikeController : MonoBehaviour
         input.steer = steer_update[3];
 
         // input.steer UPDATE 4:
-        steer_update[4] = steer_update[3]; //  Mathf.Clamp(input.steer, steer_prev - inc_steer, steer_prev + inc_steer);
+        steer_update[4] = Mathf.Clamp(input.steer, steer_prev - inc_steer, steer_prev + inc_steer);
         input.steer = steer_update[4]; 
 
         ////////////////////////////////////////////////////////////////

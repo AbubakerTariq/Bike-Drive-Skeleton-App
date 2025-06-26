@@ -97,8 +97,10 @@ public class ReHandyBotController : MonoBehaviour
     private const string PrototypeSceneName = "Prototype";
 
     ////////////////////////////////////////////////////////////////////////////
-    // RHB control settings:
+    // RHB control settings - CRITICAL:
     ////////////////////////////////////////////////////////////////////////////
+
+    // NOTE: use [RHB ctrl params - stability v5b game settings 4-axis.xlsx] to calculate damping as a function of stiffness
 
     // Throttle - default haptics settings:
     [HideInInspector] public float POS_RADIAL_THROT_ZERO = 0.029f;
@@ -107,8 +109,8 @@ public class ReHandyBotController : MonoBehaviour
 
     // Steering - default haptics settings:
     [HideInInspector] public float POS_PHI_STEER_ZERO = 0f;
-    private float K_STIFF_PHI_STEER = 0.0f; // was 0.15f;
-    private float B_DAMP_PHI_STEER = 0.0f; // was 0.0185f;
+    private float K_STIFF_PHI_STEER = 0.075f; // was 0.15f;
+    private float B_DAMP_PHI_STEER = 0.0133f; // was 0.0185f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Timers & data display:
