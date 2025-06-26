@@ -246,13 +246,13 @@ public class ReHandyBotController : MonoBehaviour
         // Console output:
         ////////////////////////////////////////////////////////////////////////////
         
-        float pos_rad = ReHandyBotController.Instance.DistalData.PositionR;
+        float pos_radial = ReHandyBotController.Instance.DistalData.PositionR;
         float pos_phi = ReHandyBotController.Instance.DistalData.PositionP;
 
         if ((step_count % DECIM_DATA_DISP_RHB_CTRL) == 0 && ExerciseActive && DISP_UPDATE_ON) {
             ExternalConsoleLogger.Log("____________________________________________________________________");
             ExternalConsoleLogger.Log("[" + step_count + "] timeElapsedValue:[" + timeElapsedValue + 
-                "]  RHB RADIAL pos [" + String.Format("{0:#0.0000}", pos_rad) + 
+                "]  RHB RADIAL pos [" + String.Format("{0:#0.0000}", pos_radial) + 
                 "]  ROTATIONAL pos [" + String.Format("{0:#0.00}", pos_phi) + 
                 "]\n");
         }

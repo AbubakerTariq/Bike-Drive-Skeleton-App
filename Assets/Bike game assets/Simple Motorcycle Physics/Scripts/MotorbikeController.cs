@@ -47,6 +47,8 @@ public class MotorbikeController : MonoBehaviour
 
     private const int DT_INPUT_STEER_RHB_MSEC = 200; // sampling rate for RHB steer input commands 
 
+    private float SCALE_POS_PHI = 1.0f; // make this > 1 to reduce the range of RHB rotation (mainly at low speeds)
+
     ////////////////////////////////////////////////////////////////////////////
     // Bike 'physical' parts:
     ////////////////////////////////////////////////////////////////////////////
@@ -255,7 +257,7 @@ public class MotorbikeController : MonoBehaviour
             // RHB rotational input - steering:
             ////////////////////////////////////////////////////////////////
 
-            float pos_phi = ReHandyBotController.Instance.DistalData.PositionP;
+            float pos_phi = SCALE_POS_PHI*ReHandyBotController.Instance.DistalData.PositionP;
 
             if (ReHandyBotController.Instance.ExerciseActive && step_count % DECIM_INPUT_STEER_RHB == 0) {
 
