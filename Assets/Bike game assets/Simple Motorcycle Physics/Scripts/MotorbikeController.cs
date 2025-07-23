@@ -35,7 +35,7 @@ public class MotorbikeController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     // Parameters modifying input.steer:
-    private float STEER_SENSITIVITY = 60.0f; // 45.0f; // 30.0f;
+    private float STEER_SENSITIVITY = 10.0f; // 45.0f; // 30.0f;
 
     // Throttle - input geometry settings:
     private float DIST_RADIAL_THROT_FULL_MM = 3.0f; // was 5.0f; // grippers travel distance for full throttle (mm)
@@ -45,7 +45,7 @@ public class MotorbikeController : MonoBehaviour
     // Steering - input geometry settings:
     private float INPUT_STEER_REF_DEG = 25.0f; //  15.0f; // 30.0f; // reference angle for steering response (the lower the angle the larger the response)
 
-    private const int DT_INPUT_STEER_RHB_MSEC = 200; // sampling rate for RHB steer input commands 
+    private const int DT_INPUT_STEER_RHB_MSEC = 50; // sampling rate for RHB steer input commands 
 
     private float SCALE_POS_PHI = 1.0f; // make this > 1 to reduce the range of RHB rotation (mainly at low speeds)
 

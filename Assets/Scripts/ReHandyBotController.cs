@@ -234,13 +234,13 @@ public class ReHandyBotController : MonoBehaviour
         // Send target command to RHB firmware:
         ////////////////////////////////////////////////////////////////////////////
 
-        byte IDX_TARG = 1;
+        //byte IDX_TARG = 1;
 
-        SetTarget(IDX_TARG,
-            POS_RADIAL_THROT_ZERO, POS_PHI_STEER_ZERO,
-            K_STIFF_RADIAL_THROT, K_STIFF_PHI_STEER,
-            B_DAMP_RADIAL_THROT, B_DAMP_PHI_STEER,
-            1.0f, 1.0f);
+        //SetTarget(IDX_TARG,
+        //    POS_RADIAL_THROT_ZERO, POS_PHI_STEER_ZERO,
+        //    K_STIFF_RADIAL_THROT, K_STIFF_PHI_STEER,
+        //    B_DAMP_RADIAL_THROT, B_DAMP_PHI_STEER,
+        //    1.0f, 1.0f);
 
         ////////////////////////////////////////////////////////////////////////////
         // Console output:
@@ -442,7 +442,15 @@ public class ReHandyBotController : MonoBehaviour
         }
         else
         {
-            StartExercise(true, true);
+            StartExercise(true, true, () =>
+            {
+                byte IDX_TARG = 1;
+                SetTarget(IDX_TARG,
+                    POS_RADIAL_THROT_ZERO, POS_PHI_STEER_ZERO,
+                    K_STIFF_RADIAL_THROT, K_STIFF_PHI_STEER,
+                    B_DAMP_RADIAL_THROT, B_DAMP_PHI_STEER,
+                    1.0f, 1.0f);
+            });
         }
     }
 
@@ -670,6 +678,7 @@ public class ReHandyBotController : MonoBehaviour
                 break;
             }
         }
+        Debug.Log("Set Targrt Called: ");
     }
 
     private void SetEmptyTarget(UnityAction onComplete = null)
