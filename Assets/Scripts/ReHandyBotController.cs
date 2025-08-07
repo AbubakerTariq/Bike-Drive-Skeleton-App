@@ -201,7 +201,7 @@ public class ReHandyBotController : MonoBehaviour
 
         if (timerLockDetected) {
 
-            if ((step_count % DECIM_DATA_DISP_RHB_CTRL) ==0 && DISP_TIMER_ACTIVITY_ON)
+            if ((step_count % DECIM_DATA_DISP_RHB_CTRL) == 0 && DISP_TIMER_ACTIVITY_ON)
             {
                 ExternalConsoleLogger.Log(" ");
                 ExternalConsoleLogger.Log("____________________________________________________________________");
@@ -678,7 +678,7 @@ public class ReHandyBotController : MonoBehaviour
                 break;
             }
         }
-        Debug.Log("Set Targrt Called: ");
+        Debug.Log("Set Target Called: ");
     }
 
     private void SetEmptyTarget(UnityAction onComplete = null)

@@ -7,8 +7,8 @@ public class MotorbikeController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - PREDEFINED VALUES:
     ////////////////////////////////////////////////////////////////////////////
-    
-    private float ANGLE_STEER_FRONT_WHEEL_MAX_DEG = 45.0f;
+
+    private float ANGLE_STEER_FRONT_WHEEL_MAX_DEG = 75f; // 45.0f; // 07.08.2025
     private float TORQUE_MOTOR_MAX = 600f; // 500f; // [Tooltip("Adds more speed. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system and make the bike glitch badly.")]
 
     private float FACTOR_ACCEL = 1000f; // [Tooltip("Adds more braking power. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system, but it will definitely apply hard brakes")]
@@ -20,15 +20,15 @@ public class MotorbikeController : MonoBehaviour
 
     private float RADIUS_WHEEL = 0.7f;
 
-    [HideInInspector] public float FACTOR_ANGLE_STEER = 25.0f;
+    [HideInInspector] public float FACTOR_ANGLE_STEER = 56.0f; // was 25.0f; // based on FACTOR_ANGLE_STEER_MIN, FACTOR_ANGLE_STEER_MAX
     private float FACTOR_DT_ANGLE_STEER = 30.0f;
     private float FACTOR_ANGLE_SQUARED_STEER = 2.3f;
-    private float FACTOR_INC_STEER = 10.0f;
+    private float FACTOR_INC_STEER = 20.0f; // 10.0f;
 
     [HideInInspector] public float SPEED_LOW = 8.0f;
     [HideInInspector] public float SPEED_HIGH = 25.0f;
 
-    private float ANGLE_NONSLIP_MAX_DEG = 40.0f; // [Tooltip("Experimental Feature : Only for controlled low speeds")]
+    private float ANGLE_NONSLIP_MAX_DEG = 50.0f; // 40.0f; // [Tooltip("Experimental Feature : Only for controlled low speeds")]
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - ADJUSTABLE VALUES - CRITICAL:
@@ -47,7 +47,7 @@ public class MotorbikeController : MonoBehaviour
 
     private const int DT_INPUT_STEER_RHB_MSEC = 50; // sampling rate for RHB steer input commands 
 
-    private float SCALE_POS_PHI = 1.0f; // make this > 1 to reduce the range of RHB rotation (mainly at low speeds)
+    private float SCALE_POS_PHI = 2.0f; // make this > 1 to reduce the range of RHB rotation (mainly at low speeds)
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike 'physical' parts:
@@ -345,6 +345,7 @@ public class MotorbikeController : MonoBehaviour
                     "Bike throttle RHB [" + String.Format("{0:#0.000}", input.throttle_rhb) + "] " +
                     "USE_RHB_THROTTLE [" + USE_RHB_THROTTLE +"]  USE_RHB_STEER [" + USE_RHB_STEER + "] " +
                     "input_force_trq_on [" + input_force_trq_on + "]");
+
                 // ExternalConsoleLogger.Log("    steer keyboard[" + String.Format("{0:#0.00}", input.steer) + "]");
                 // ExternalConsoleLogger.Log("    acceleration [" + input.acceleration + "]");
 
@@ -541,7 +542,7 @@ public class MotorbikeController : MonoBehaviour
         // input.steer UPDATE 4:
         steer_update[4] = Mathf.Clamp(input.steer, steer_prev - inc_steer, steer_prev + inc_steer);
         input.steer = steer_update[4]; 
-
+        
         ////////////////////////////////////////////////////////////////
         // Save steering value for next step:
         ////////////////////////////////////////////////////////////////
@@ -743,22 +744,30 @@ public class MotorbikeController : MonoBehaviour
         // Adjust steering sensitivity:
         ////////////////////////////////////////////////////////////////////////////////////
         
-        STEER_SENSITIVITY = Mathf.Clamp(steer_sensitivity_init - 0.9f * Mathf.Abs(angle_turn), 
-            10f, steer_sensitivity_init);
+        STEER_SENSITIVITY = Mathf.Clamp(steer_sensitivity_init - 0.9f * Mathf.Abs(angle_turn), 10f, steer_sensitivity_init);
 
         ////////////////////////////////////////////////////////////////////////////////////
         // Adjust steering angle factor (TODO: what do the numbers mean?):
         ////////////////////////////////////////////////////////////////////////////////////
+        ///
+        float FACTOR_ANGLE_STEER_MIN = 48f;
+        float FACTOR_ANGLE_STEER_MAX = 65f;
 
-        FACTOR_ANGLE_STEER = Mathf.Clamp(FACTOR_ANGLE_STEER, 48, 65);
+        float ANGLE_TURN_LOW = 42.0f;
 
+        FACTOR_ANGLE_STEER = Mathf.Clamp(FACTOR_ANGLE_STEER, 
+            FACTOR_ANGLE_STEER_MIN, FACTOR_ANGLE_STEER_MAX);
+
+        // What is the purpose of this?
+        /*
         if (Input.anyKey)
-            FACTOR_ANGLE_STEER -= 1;
+            FACTOR_ANGLE_STEER -= 1f;
         else
-            FACTOR_ANGLE_STEER += 1;
+            FACTOR_ANGLE_STEER += 1f;
+        */
 
-        if (angle_turn > 42 || angle_turn < -42)
-            FACTOR_ANGLE_STEER += 2;
+        if (angle_turn < -ANGLE_TURN_LOW || angle_turn > ANGLE_TURN_LOW)
+            FACTOR_ANGLE_STEER += 3f; // 2f;
 
         ////////////////////////////////////////////////////////////////////////////////////
         // Adjust torque based on key inputs: 
