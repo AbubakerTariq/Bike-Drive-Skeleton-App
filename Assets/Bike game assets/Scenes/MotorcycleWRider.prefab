@@ -3857,7 +3857,7 @@ GameObject:
   - component: {fileID: 7137930303441131199}
   - component: {fileID: 7137930303441131198}
   m_Layer: 0
-  m_Name: WCollider
+  m_Name: WColliderFwd
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4011,7 +4011,7 @@ GameObject:
   - component: {fileID: 7137930303468806255}
   - component: {fileID: 7137930303468806254}
   m_Layer: 0
-  m_Name: WCollider
+  m_Name: WColliderBack
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5025,33 +5025,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56717b2fd6707fa48890f733b8ade5df, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  WColForward: {fileID: 7137930303441131198}
-  WColBack: {fileID: 7137930303468806254}
+  FACTOR_ANGLE_STEER: 56
+  SPEED_M_PER_SEC_LOW: 8
+  SPEED_M_PER_SEC_HIGH: 50
+  wheel_coll_fwd: {fileID: 7137930303441131198}
+  wheel_coll_back: {fileID: 7137930303468806254}
   wheelF: {fileID: 7137930301995232032}
   wheelB: {fileID: 7137930303072810723}
   handles: {fileID: 7137930302083838957}
   RearMudGuard: {fileID: 7137930302186188136}
   RearMudGuardSusOffset: {x: 0, y: 0, z: 0}
-  preventGlitchAngle: 70
-  canArtificialStoppie: 0
-  stoppieAmount: 0.7
-  fallen: 0
-  maxSteerAngle: 45
-  maxMotorTorque: 900
-  ArtificialAcceleration: 4500
-  ArtificialBrake: 0.02
-  maxForwardBrake: 1000
-  maxBackBrake: 200
-  wheelRadius: 0.5
-  steerSensivity: 39
-  controlAngle: 50
-  controlOmega: 60
-  lowSpeed: 9
-  highSpeed: 100
   com: {x: 0, y: 1.5, z: 0}
-  currentGear: 1
-  revValue: 0
+  rpm_value: 0
+  velocity_rel_collision: {x: 0, y: 0, z: 0}
+  bike_fallen: 0
+  gear_curr: 1
+  STOPPIE_AMOUNT: 0.3
   Rider: {fileID: 7137930303220897052}
   RagdollAnimation: {fileID: 7985579707336744918, guid: a940ea4ebb45c9b45b7cf112fa49b7ae, type: 3}
   Ragdoll: {fileID: 3092097735282227737, guid: cd9e90ccf08bae74aa61d8797586998f, type: 3}
-  collisionRelativeVelocity: {x: 0, y: 0, z: 0}

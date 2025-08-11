@@ -53,19 +53,44 @@ public class ReHandyBotController : MonoBehaviour
     // Configuration values:
     ////////////////////////////////////////////////////////////////////////////
     
-    private float radialGain = 9f;
-    private float angularGain = 14f;
+    private float FORCE_GAIN_RADIAL = 9f;
+    private float FORCE_GAIN_ROT = 14f;
+
+    private float K_STIFF_RADIAL_PASSIVE = 5000f;
+    private float K_STIFF_ROT_PASSIVE = 6f; // 11.08.2025: this value is HUGE; when is it actually used??
+
+    private float B_DAMP_RADIAL_PASSIVE = 60f;
+    private float B_DAMP_ROT_PASSIVE = 0.6f;
+
+    private float POS_RADIAL_MIN = 0.0145f;
+    private float POS_RADIAL_MAX = 0.06f;
+
     private bool  stability = true;
     private bool  safety = true;
 
-    private float passiveKr = 5000f;
-    private float passiveKp = 6f;
+    ////////////////////////////////////////////////////////////////////////////
+    // RHB control settings - CRITICAL
+    // NOTE: use [RHB ctrl params - stability v5b game settings 4-axis.xlsx] to calculate damping as a function of stiffness
+    ////////////////////////////////////////////////////////////////////////////
 
-    private float passiveBr = 60f;
-    private float passiveBp = 0.6f;
+    // Throttle - default haptics settings:
+    [HideInInspector] public float POS_RADIAL_THROT_ZERO = 0.029f;
+    private float K_STIFF_RADIAL_THROT = 5000f; // 2500f;
+    private float B_DAMP_RADIAL_THROT = 45f; //21.0f;
 
-    private float minPositionR = 0.0145f;
-    private float maxPositionR = 0.06f;
+    // Steering - default haptics settings:
+    [HideInInspector] public float POS_PHI_STEER_ZERO = 0f;
+    private float K_STIFF_PHI_STEER = 0.1f; // 0.15f;
+    private float B_DAMP_PHI_STEER = 0.015f; // 0.0185f;
+
+    public float ANGLE_ROT_MAX_DEG = 20f;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Impedance for motion limits:
+    ////////////////////////////////////////////////////////////////////////////   
+
+    private float K_STIFF_ROT_LIMIT = 10f;
+    private float B_DAMP_ROT_LIMIT = 21f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Constants:
@@ -97,25 +122,9 @@ public class ReHandyBotController : MonoBehaviour
     private const string PrototypeSceneName = "Prototype";
 
     ////////////////////////////////////////////////////////////////////////////
-    // RHB control settings - CRITICAL:
-    ////////////////////////////////////////////////////////////////////////////
-
-    // NOTE: use [RHB ctrl params - stability v5b game settings 4-axis.xlsx] to calculate damping as a function of stiffness
-
-    // Throttle - default haptics settings:
-    [HideInInspector] public float POS_RADIAL_THROT_ZERO = 0.029f;
-    private float K_STIFF_RADIAL_THROT  = 2500f;
-    private float B_DAMP_RADIAL_THROT   = 21.0f;
-
-    // Steering - default haptics settings:
-    [HideInInspector] public float POS_PHI_STEER_ZERO = 0f;
-    private float K_STIFF_PHI_STEER = 0.1f; // was 0.15f;
-    private float B_DAMP_PHI_STEER = 0.015f; // was 0.0185f;
-
-    ////////////////////////////////////////////////////////////////////////////
     // Timers & data display:
     ////////////////////////////////////////////////////////////////////////////
-    
+
     private bool timerActive = false;
     private bool timerActivePrev = false;
     private bool timerLocked = false;
@@ -124,7 +133,7 @@ public class ReHandyBotController : MonoBehaviour
 
     [HideInInspector] public int DT_TIMER_LOCK_MSEC = 50; // timer lock to control time step
 
-    private const int DECIM_DATA_DISP_RHB_CTRL = 50;
+    private const int DECIM_DATA_DISP_RHB_CTRL = 10;
 
     [HideInInspector] public int step_count = 0;
 
@@ -231,29 +240,81 @@ public class ReHandyBotController : MonoBehaviour
         TimeSpan timeElapsed = TimeSpan.FromSeconds(timeElapsedValue);
 
         ////////////////////////////////////////////////////////////////////////////
-        // Send target command to RHB firmware:
+        // RHB coordinates:
+        //////////////////////////////////////////////////////////////////////////// 
+
+        float pos_radial = ReHandyBotController.Instance.DistalData.PositionR;
+        float pos_phi = ReHandyBotController.Instance.DistalData.PositionP;
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Compute limiting force for rotation angle:
+        ////////////////////////////////////////////////////////////////////////////
+        
+        float angle_rot_max = ANGLE_ROT_MAX_DEG * (float)Math.PI / 180f;
+
+        float k_stiff_radial_lim = 0f;
+        float k_stiff_rot_lim;
+
+        float b_damp_radial_lim = 0f;
+        float b_damp_rot_lim;
+
+        float pos_radial_lim = 0f;
+        float pos_rot_lim;
+
+        float switch_radial = 0f;
+        float switch_rot = 1f;
+
+        // If rotation limit exceeded, apply nonzero values to rotational siffness and damping:
+        if ((pos_phi - angle_rot_max > 0f) || (pos_phi + angle_rot_max < 0f))
+        {
+            k_stiff_rot_lim = K_STIFF_ROT_LIMIT;
+            b_damp_rot_lim = B_DAMP_ROT_LIMIT;
+        }
+        else
+        {
+            k_stiff_rot_lim = 0f;
+            b_damp_rot_lim = 0f;
+        }
+
+        if (pos_phi - angle_rot_max > 0f)
+            pos_rot_lim = angle_rot_max;
+        else if (pos_phi + angle_rot_max < 0f)
+            pos_rot_lim = -angle_rot_max;
+        else
+            pos_rot_lim = 0f;
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Send limit force commands to RHB firmware:
         ////////////////////////////////////////////////////////////////////////////
 
-        //byte IDX_TARG = 1;
+        byte IDX_TARG_LIM = 2;
 
-        //SetTarget(IDX_TARG,
-        //    POS_RADIAL_THROT_ZERO, POS_PHI_STEER_ZERO,
-        //    K_STIFF_RADIAL_THROT, K_STIFF_PHI_STEER,
-        //    B_DAMP_RADIAL_THROT, B_DAMP_PHI_STEER,
-        //    1.0f, 1.0f);
+        /*
+        SetTarget(IDX_TARG_LIM,
+            pos_radial_lim, pos_rot_lim,
+            k_stiff_radial_lim, k_stiff_rot_lim,
+            b_damp_radial_lim, b_damp_rot_lim,
+            switch_radial, switch_rot);
+        */
+
+        SetTarget(IDX_TARG_LIM,
+          pos_radial_lim, 0f,
+          k_stiff_radial_lim, K_STIFF_ROT_LIMIT,
+          b_damp_radial_lim, B_DAMP_ROT_LIMIT,
+          switch_radial, 1f);
 
         ////////////////////////////////////////////////////////////////////////////
         // Console output:
         ////////////////////////////////////////////////////////////////////////////
-        
-        float pos_radial = ReHandyBotController.Instance.DistalData.PositionR;
-        float pos_phi = ReHandyBotController.Instance.DistalData.PositionP;
 
         if ((step_count % DECIM_DATA_DISP_RHB_CTRL) == 0 && ExerciseActive && DISP_UPDATE_ON) {
             ExternalConsoleLogger.Log("____________________________________________________________________");
             ExternalConsoleLogger.Log("[" + step_count + "] timeElapsedValue:[" + timeElapsedValue + 
                 "]  RHB RADIAL pos [" + String.Format("{0:#0.0000}", pos_radial) + 
                 "]  ROTATIONAL pos [" + String.Format("{0:#0.00}", pos_phi) + 
+                "]  stiff ROT limit [" + String.Format("{0:#0.00}", k_stiff_rot_lim) + 
+                "]  damp ROT limit [" + String.Format("{0:#0.00}", b_damp_rot_lim) + 
+                "]  pos ROT limit [" + String.Format("{0:#0.00}", pos_rot_lim) + 
                 "]\n");
         }
 
@@ -267,7 +328,8 @@ public class ReHandyBotController : MonoBehaviour
         // Using an action queue to perform Unity related tasks (i.e UI changes) which are not allowed to be done from a background thread
         ////////////////////////////////////////////////////////////////////////////
         
-        if (MainThreadActionQueue.Count == 0) return;
+        if (MainThreadActionQueue.Count == 0) 
+            return;
         
         while (MainThreadActionQueue.Count > 0)
             MainThreadActionQueue.Dequeue().Invoke();
@@ -413,7 +475,7 @@ public class ReHandyBotController : MonoBehaviour
             {
                 loader.SetActive(false);
                 minPinch = DistalData.PositionR;
-                minPinch = Math.Clamp(minPinch, minPositionR, maxPositionR);
+                minPinch = Math.Clamp(minPinch, POS_RADIAL_MIN, POS_RADIAL_MAX);
 
                 for (int i = 0; i < MaxAttempts; i++)
                 {
@@ -473,7 +535,7 @@ public class ReHandyBotController : MonoBehaviour
 
         for (int i = 0; i < MaxAttempts; i++)
         {
-            distalRobot.HL_StartExercise(1, unlockRadial, unlockRotational, 0f, 0f, out bool startExerciseResponse, out bool setGainResponse, radialGain, angularGain, stability);
+            distalRobot.HL_StartExercise(1, unlockRadial, unlockRotational, 0f, 0f, out bool startExerciseResponse, out bool setGainResponse, FORCE_GAIN_RADIAL, FORCE_GAIN_ROT, stability);
 
             if (!startExerciseResponse)
             {
@@ -529,7 +591,7 @@ public class ReHandyBotController : MonoBehaviour
             onComplete?.Invoke();
 
             if (setGainResponse) break;
-            SetGain(radialGain, angularGain);
+            SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
             break;
         }
     }
@@ -660,7 +722,7 @@ public class ReHandyBotController : MonoBehaviour
     {
         if (!isExerciseStarted || isExerciseStopping) return;
 
-        radialValue = Mathf.Clamp(radialValue, minPositionR, maxPositionR);
+        radialValue = Mathf.Clamp(radialValue, POS_RADIAL_MIN, POS_RADIAL_MAX);
         rotationValue = Mathf.Clamp(rotationValue, -Mathf.PI / 2f, Mathf.PI / 2f);
 
         for (int i = 0; i < MaxAttempts; i++)
@@ -722,10 +784,10 @@ public class ReHandyBotController : MonoBehaviour
         isMoving = true;
         SetGain(0f, 0f);
 
-        float Kr = passiveKr;
-        float Kp = passiveKp;
-        float Br = passiveBr;
-        float Bp = passiveBp;
+        float Kr = K_STIFF_RADIAL_PASSIVE;
+        float Kp = K_STIFF_ROT_PASSIVE;
+        float Br = B_DAMP_RADIAL_PASSIVE;
+        float Bp = B_DAMP_ROT_PASSIVE;
         float loop_interval_ms = 1f / 200f * 1000f; //ms
 
         System.Diagnostics.Stopwatch stopwatch = new();
@@ -780,7 +842,7 @@ public class ReHandyBotController : MonoBehaviour
         }
 
         stopwatch.Stop();
-        SetGain(radialGain, angularGain);
+        SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
         isMoving = false;
         onComplete?.Invoke();
     }
@@ -806,24 +868,24 @@ public class ReHandyBotController : MonoBehaviour
         isRotating = true;
         SetGain(0f, 0f);
 
-        float Kr = passiveKr;
-        float Kp = passiveKp;
-        float Br = passiveBr;
-        float Bp = passiveBp;
+        float Kr = K_STIFF_RADIAL_PASSIVE;
+        float Kp = K_STIFF_ROT_PASSIVE;
+        float Br = B_DAMP_RADIAL_PASSIVE;
+        float Bp = B_DAMP_ROT_PASSIVE;
         float loop_interval_ms = 1f / 200f * 1000f;
 
         System.Diagnostics.Stopwatch stopwatch = new();
         stopwatch.Start();
 
-        float init_position = DistalData.PositionP;
-        float current_target = init_position;
+        float pos_phi_init = DistalData.PositionP;
+        float current_target = pos_phi_init;
         float current_time_ms = (float)stopwatch.Elapsed.TotalMilliseconds;
         float init_time_ms = current_time_ms;
         float prev_time_ms = current_time_ms;
         float speed_factor = 0.75f;
         int step = 0;
 
-        while (((init_position < target) && (current_target < target)) || ((init_position >= target) && (current_target > target)))
+        while (((pos_phi_init < target) && (current_target < target)) || ((pos_phi_init >= target) && (current_target > target)))
         {
             current_time_ms = (float)stopwatch.Elapsed.TotalMilliseconds;
 
@@ -836,10 +898,10 @@ public class ReHandyBotController : MonoBehaviour
                 }
 
                 float t = (current_time_ms - init_time_ms) / 1000f * speed_factor;
-                current_target = init_position + (target - init_position) * (10f * Mathf.Pow(t, 3f) - 15f * Mathf.Pow(t, 4f) + 6f * Mathf.Pow(t, 5f));
+                current_target = pos_phi_init + (target - pos_phi_init) * (10f * Mathf.Pow(t, 3f) - 15f * Mathf.Pow(t, 4f) + 6f * Mathf.Pow(t, 5f));
 
                 // Check if current_target is overshooting actual target
-                if (((init_position < target) && (current_target > target)) || ((init_position >= target) && (current_target < target)))
+                if (((pos_phi_init < target) && (current_target > target)) || ((pos_phi_init >= target) && (current_target < target)))
                     current_target = target;
 
                 // Set Updated Target
@@ -866,7 +928,7 @@ public class ReHandyBotController : MonoBehaviour
         }
 
         stopwatch.Stop();
-        SetGain(radialGain, angularGain);
+        SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
         isRotating = false;
         onComplete?.Invoke();
     }
