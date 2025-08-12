@@ -8,11 +8,9 @@ public class MotorbikeController : MonoBehaviour
     // Bike control parameters - PREDEFINED VALUES:
     ////////////////////////////////////////////////////////////////////////////
 
-    private float ANGLE_STEER_FRONT_WHEEL_MAX_DEG = 60f; // 75f; // 45f; // 07.08.2025
-    private float TORQUE_MOTOR_MAX = 600f; // 500f; // [Tooltip("Adds more speed. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system and make the bike glitch badly.")]
-
-    private float FACTOR_ACCEL = 2000f; // 1000f; // [Tooltip("Adds more braking power. Inaccurate from a physics standpoint. Arcade Feature. Values too high will break the realism of the system, but it will definitely apply hard brakes")]
-    // [Range(0, 1)]
+    private float ANGLE_STEER_FRONT_WHEEL_MAX_DEG = 60f; // 75f; // 45f;
+    private float TORQUE_MOTOR_MAX = 600f; // 500f; 
+    private float FACTOR_ACCEL = 2000f; // 1000f; // CRITICAL value: increases top speed but can make turning harder
 
     private float FACTOR_BRAKE = 0f;
     private float FACTOR_BRAKE_FWD = 400f;
@@ -28,7 +26,7 @@ public class MotorbikeController : MonoBehaviour
     [HideInInspector] public float SPEED_M_PER_SEC_LOW = 8.0f;
     [HideInInspector] public float SPEED_M_PER_SEC_HIGH = 25.0f;
 
-    private float ANGLE_NONSLIP_MAX_DEG = 50.0f; // 40.0f; // [Tooltip("Experimental Feature : Only for controlled low speeds")]
+    private float ANGLE_NONSLIP_MAX_DEG = 50.0f; // 40.0f;  
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - ADJUSTABLE VALUES - CRITICAL:
@@ -42,12 +40,17 @@ public class MotorbikeController : MonoBehaviour
     private float INPUT_THROT_MAX = 1.3f; // this is a function of RADIAL stiffness  
     private float INPUT_THROT_THRESH = 0.6f; // minimum torque for mobility, also dependent on RADIAL stiffness  
 
-    // Steering - input geometry settings:
+    // Steering - input settings:
     private float INPUT_STEER_REF_DEG = 25.0f; //  15.0f; // 30.0f; // reference angle for steering response (the lower the angle the larger the response)
 
     private const int DT_INPUT_STEER_RHB_MSEC = 50; // sampling rate for RHB steer input commands 
 
-    private float SCALE_POS_STEER = 2.0f; // make this > 1 to reduce the range of RHB rotation (mainly at low speeds)
+    // Steering - scaling RHB input:
+    private float SCALE_STEER_MIN = 1.0f;  
+    private float SCALE_STEER_MAX = 2.0f; // make this > 1 to reduce the actual range of RHB rotation  
+
+    private float ANG_SCALE_START = 15f * (float)Math.PI / 180f;
+    private float ANG_SCALE_END = 30f * (float)Math.PI / 180f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike 'physical' parts:
@@ -99,10 +102,10 @@ public class MotorbikeController : MonoBehaviour
     public int gear_curr = 1;
 
     ///////////////////////////////////////////////////////////
-    // "Stoppie" parameters (TODO: discard?):
+    // "Stoppie" parameters (TODO: keep or discard):
     ///////////////////////////////////////////////////////////
 
-    public float STOPPIE_AMOUNT = 0.3f;     
+    // public float STOPPIE_AMOUNT = 0.3f;     
     // [HideInInspector] public bool canArtificialStoppie = false; [Range(0.1f, 1f)]
 
     ///////////////////////////////////////////////////////////
@@ -254,14 +257,28 @@ public class MotorbikeController : MonoBehaviour
                 input.throttle_rhb = 0f;
 
             ////////////////////////////////////////////////////////////////
-            // RHB rotational input - steering:
+            // RHB rotational input - convert to (raw) steering input:
             ////////////////////////////////////////////////////////////////
 
-            float pos_steer = SCALE_POS_STEER*ReHandyBotController.Instance.DistalData.PositionP;
+            // RHB input:
+            float pos_rot = ReHandyBotController.Instance.DistalData.PositionP;
+            float pos_rot_abs = (float)Math.Abs(pos_rot);
+
+            // Scale RHB input:
+            float scale_steer;
+
+            if (pos_rot_abs < ANG_SCALE_START)
+                scale_steer = SCALE_STEER_MIN;
+            else if (pos_rot_abs > ANG_SCALE_END)
+                scale_steer = SCALE_STEER_MAX;
+            else
+                scale_steer = (SCALE_STEER_MAX - SCALE_STEER_MIN) *
+                    (pos_rot_abs - ANG_SCALE_START) / (ANG_SCALE_END - ANG_SCALE_START) + SCALE_STEER_MIN;
+
+            float pos_steer = scale_steer * pos_rot;
 
             if (ReHandyBotController.Instance.ExerciseActive && step_count % DECIM_INPUT_STEER_RHB == 0)
             {
-
                 ////////////////////////////////////////////////////////////////////////////////
                 // METHOD 1: angle input with proportionality factor - may be clamped: 
                 ////////////////////////////////////////////////////////////////////////////////
@@ -704,6 +721,7 @@ public class MotorbikeController : MonoBehaviour
             RearMudGuard.transform.rotation = Quaternion.LookRotation(transform.position - wheelB.transform.position - RearMudGuardSusOffset, transform.forward);
     }
 
+    /*
     private void CalcStoppie()
     {
         var stoppieAngle = transform.eulerAngles.x;
@@ -723,6 +741,7 @@ public class MotorbikeController : MonoBehaviour
         else if (com.z > STOPPIE_AMOUNT)
             com.z = STOPPIE_AMOUNT;
     }
+    */
 
     void steerHelper()
     {

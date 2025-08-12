@@ -1,8 +1,5 @@
 ﻿using Articares.Distal;
 using DG.Tweening;
-using UnityEngine;
-using UnityEngine.Events;
-using UnityEngine.SceneManagement;
 // using UnityEngine.UI;
 // using UnityEngine.Video;
 using System;
@@ -10,12 +7,60 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 //using System.Runtime.Remoting.Messaging;
-using System.IO;
 using TMPro;
-using static Articares.Distal.DistalComm;
+using UnityEngine;
+using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 
 public class ReHandyBotController : MonoBehaviour
 {
+    ////////////////////////////////////////////////////////////////////////////
+    // Configuration values:
+    ////////////////////////////////////////////////////////////////////////////
+
+    private float FORCE_GAIN_RADIAL = 9f;
+    private float FORCE_GAIN_ROT = 14f;
+
+    private float K_STIFF_RADIAL_PASSIVE = 5000f;
+    private float K_STIFF_ROT_PASSIVE = 6f; // 11.08.2025: this value is HUGE; what is it actually used for??
+
+    private float B_DAMP_RADIAL_PASSIVE = 60f;
+    private float B_DAMP_ROT_PASSIVE = 0.6f;
+
+    private float POS_RADIAL_MIN = 0.0145f;
+    private float POS_RADIAL_MAX = 0.06f;
+
+    private float POS_ROT_MIN = -Mathf.PI / 2f;
+    private float POS_ROT_MAX = Mathf.PI / 2f;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // RHB control settings - CRITICAL
+    // NOTE: use [RHB ctrl params - stability v5b game settings 4-axis.xlsx] to calculate damping as a function of stiffness
+    ////////////////////////////////////////////////////////////////////////////
+
+    // Throttle - default haptics settings:
+    [HideInInspector] public float POS_RADIAL_THROT_ZERO = 0.029f;
+    private float K_STIFF_RADIAL_THROT = 5000f; // 2500f;
+    private float B_DAMP_RADIAL_THROT = 45f; //21.0f;
+
+    // Steering - default haptics settings:
+    [HideInInspector] public float POS_ROT_STEER_ZERO = 0f;
+    private float K_STIFF_ROT_STEER = 0.1f; // 0.15f; 
+    private float B_DAMP_ROT_STEER = 0.015f; // 0.0185f;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Impedance for RHB motion limits:
+    ////////////////////////////////////////////////////////////////////////////   
+
+    private float K_STIFF_ROT_LIMIT = 1.2f;
+    private float B_DAMP_ROT_LIMIT = 21f;
+
+    public float ANGLE_ROT_LIM_DEG = 20f;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Loader:
+    ////////////////////////////////////////////////////////////////////////////
+
     [Space] [Header("UI")]
     [SerializeField] private GameObject loader;
     [SerializeField] private GameObject exerciseGuidelineText;
@@ -42,55 +87,15 @@ public class ReHandyBotController : MonoBehaviour
     public bool ExerciseActive => isExerciseStarted;
 
     ////////////////////////////////////////////////////////////////////////////
-    // New exercise related variables:
+    // Exercise-related variables:
     ////////////////////////////////////////////////////////////////////////////
-    
+
+    private bool stability = true;
+    private bool safety = true;
+
     private bool isSystemStarted = false;
     private bool isExerciseStarted = false;
     private bool isExerciseStopping = false;
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Configuration values:
-    ////////////////////////////////////////////////////////////////////////////
-    
-    private float FORCE_GAIN_RADIAL = 9f;
-    private float FORCE_GAIN_ROT = 14f;
-
-    private float K_STIFF_RADIAL_PASSIVE = 5000f;
-    private float K_STIFF_ROT_PASSIVE = 6f; // 11.08.2025: this value is HUGE; when is it actually used??
-
-    private float B_DAMP_RADIAL_PASSIVE = 60f;
-    private float B_DAMP_ROT_PASSIVE = 0.6f;
-
-    private float POS_RADIAL_MIN = 0.0145f;
-    private float POS_RADIAL_MAX = 0.06f;
-
-    private bool  stability = true;
-    private bool  safety = true;
-
-    ////////////////////////////////////////////////////////////////////////////
-    // RHB control settings - CRITICAL
-    // NOTE: use [RHB ctrl params - stability v5b game settings 4-axis.xlsx] to calculate damping as a function of stiffness
-    ////////////////////////////////////////////////////////////////////////////
-
-    // Throttle - default haptics settings:
-    [HideInInspector] public float POS_RADIAL_THROT_ZERO = 0.029f;
-    private float K_STIFF_RADIAL_THROT = 5000f; // 2500f;
-    private float B_DAMP_RADIAL_THROT = 45f; //21.0f;
-
-    // Steering - default haptics settings:
-    [HideInInspector] public float POS_PHI_STEER_ZERO = 0f;
-    private float K_STIFF_PHI_STEER = 0.1f; // 0.15f;
-    private float B_DAMP_PHI_STEER = 0.015f; // 0.0185f;
-
-    public float ANGLE_ROT_MAX_DEG = 20f;
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Impedance for motion limits:
-    ////////////////////////////////////////////////////////////////////////////   
-
-    private float K_STIFF_ROT_LIMIT = 10f;
-    private float B_DAMP_ROT_LIMIT = 21f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Constants:
@@ -141,7 +146,7 @@ public class ReHandyBotController : MonoBehaviour
     // Methods section:
     ////////////////////////////////////////////////////////////////////////////
     
-    private bool DISP_TIMER_ACTIVITY_ON = false;
+    private bool DISP_TIMER_ACTIVITY_ON = true;
     private bool DISP_UPDATE_ON = true;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -168,6 +173,9 @@ public class ReHandyBotController : MonoBehaviour
 
     private void Start()
     {
+        // Reset Ethernet port to prevent those frequent connection delays:
+        System.Diagnostics.Process.Start("ethernet_reset.bat");
+
         // Start is only called once as this is a singleton object so we will only connect once at the beginning
         ConnectRHB();
     }
@@ -250,7 +258,7 @@ public class ReHandyBotController : MonoBehaviour
         // Compute limiting force for rotation angle:
         ////////////////////////////////////////////////////////////////////////////
         
-        float angle_rot_max = ANGLE_ROT_MAX_DEG * (float)Math.PI / 180f;
+        float angle_rot_lim = ANGLE_ROT_LIM_DEG * (float)Math.PI / 180f;
 
         float k_stiff_radial_lim = 0f;
         float k_stiff_rot_lim;
@@ -262,10 +270,10 @@ public class ReHandyBotController : MonoBehaviour
         float pos_rot_lim;
 
         float switch_radial = 0f;
-        float switch_rot = 1f;
+        float switch_rot = 1.0f;
 
         // If rotation limit exceeded, apply nonzero values to rotational siffness and damping:
-        if ((pos_phi - angle_rot_max > 0f) || (pos_phi + angle_rot_max < 0f))
+        if ((pos_phi - angle_rot_lim > 0f) || (pos_phi + angle_rot_lim < 0f))
         {
             k_stiff_rot_lim = K_STIFF_ROT_LIMIT;
             b_damp_rot_lim = B_DAMP_ROT_LIMIT;
@@ -276,32 +284,46 @@ public class ReHandyBotController : MonoBehaviour
             b_damp_rot_lim = 0f;
         }
 
-        if (pos_phi - angle_rot_max > 0f)
-            pos_rot_lim = angle_rot_max;
-        else if (pos_phi + angle_rot_max < 0f)
-            pos_rot_lim = -angle_rot_max;
+        if (pos_phi - angle_rot_lim > 0f)
+            pos_rot_lim = angle_rot_lim;
+        else if (pos_phi + angle_rot_lim < 0f)
+            pos_rot_lim = -angle_rot_lim;
         else
             pos_rot_lim = 0f;
 
         ////////////////////////////////////////////////////////////////////////////
         // Send limit force commands to RHB firmware:
         ////////////////////////////////////////////////////////////////////////////
+        
+        /*
+        TargetParams targ_lim;
+        
+        Index;
+        R;
+        P;
+        KR;
+        KP;
+        BR;
+        BP;
+        AlphaR;
+        AlphaP;
+        */
 
-        byte IDX_TARG_LIM = 2;
+        byte IDX_TARG_LIM = 2;        
+
+        SetTarget(IDX_TARG_LIM,
+            0f, 0f,
+            0f, K_STIFF_ROT_LIMIT,
+            0f, B_DAMP_ROT_LIMIT,
+            0f, 1.0f);
 
         /*
         SetTarget(IDX_TARG_LIM,
             pos_radial_lim, pos_rot_lim,
             k_stiff_radial_lim, k_stiff_rot_lim,
             b_damp_radial_lim, b_damp_rot_lim,
-            switch_radial, switch_rot);
+            switch_radial, switch_rot);  
         */
-
-        SetTarget(IDX_TARG_LIM,
-          pos_radial_lim, 0f,
-          k_stiff_radial_lim, K_STIFF_ROT_LIMIT,
-          b_damp_radial_lim, B_DAMP_ROT_LIMIT,
-          switch_radial, 1f);
 
         ////////////////////////////////////////////////////////////////////////////
         // Console output:
@@ -504,14 +526,27 @@ public class ReHandyBotController : MonoBehaviour
         }
         else
         {
+            // StartExercise(true, true);
+            
             StartExercise(true, true, () =>
             {
-                byte IDX_TARG = 1;
-                SetTarget(IDX_TARG,
-                    POS_RADIAL_THROT_ZERO, POS_PHI_STEER_ZERO,
-                    K_STIFF_RADIAL_THROT, K_STIFF_PHI_STEER,
-                    B_DAMP_RADIAL_THROT, B_DAMP_PHI_STEER,
+                byte IDX_TARG_STEER = 1;
+
+                SetTarget(IDX_TARG_STEER,
+                    POS_RADIAL_THROT_ZERO, POS_ROT_STEER_ZERO,
+                    K_STIFF_RADIAL_THROT, K_STIFF_ROT_STEER,
+                    B_DAMP_RADIAL_THROT, B_DAMP_ROT_STEER,
                     1.0f, 1.0f);
+
+                /*
+                byte IDX_TARG_LIM = 2;
+
+                SetTarget(IDX_TARG_LIM,
+                  0f, 0f,
+                  0f, K_STIFF_ROT_LIMIT,
+                  0f, B_DAMP_ROT_LIMIT,
+                  0f, 1.0f);
+                */
             });
         }
     }
@@ -520,9 +555,9 @@ public class ReHandyBotController : MonoBehaviour
     {
         // bool timer_started = false;
 
+
         if (isExerciseStarted)
         {
-
             SetBrakes(unlockRadial, unlockRotational);
             SetEmptyTarget();
             onComplete?.Invoke();
@@ -723,7 +758,7 @@ public class ReHandyBotController : MonoBehaviour
         if (!isExerciseStarted || isExerciseStopping) return;
 
         radialValue = Mathf.Clamp(radialValue, POS_RADIAL_MIN, POS_RADIAL_MAX);
-        rotationValue = Mathf.Clamp(rotationValue, -Mathf.PI / 2f, Mathf.PI / 2f);
+        rotationValue = Mathf.Clamp(rotationValue, POS_ROT_MIN, POS_ROT_MAX);
 
         for (int i = 0; i < MaxAttempts; i++)
         {
