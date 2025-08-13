@@ -211,7 +211,7 @@ public class MotorbikeController : MonoBehaviour
 
     void FixedUpdate()
     {
-        int DECIM_INPUT_STEER_RHB = DT_INPUT_STEER_RHB_MSEC / ReHandyBotController.Instance.DT_TIMER_LOCK_MSEC;
+        int DECIM_INPUT_STEER_RHB = DT_INPUT_STEER_RHB_MSEC / ReHandyBotController.DT_STEP_MSEC;
 
         int step_count = ReHandyBotController.Instance.step_count;
 

@@ -58,6 +58,19 @@ public class ReHandyBotController : MonoBehaviour
     public float ANGLE_ROT_LIM_DEG = 20f;
 
     ////////////////////////////////////////////////////////////////////////////
+    // Loop time step (CRITICAL):
+    ////////////////////////////////////////////////////////////////////////////
+
+    [HideInInspector] public const int DT_STEP_MSEC = 50; // use for timer lock to control time step
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Command time step:
+    ////////////////////////////////////////////////////////////////////////////
+
+    public const int DT_SET_TARGET_CMD_MSEC = 1000;
+    private int DECIM_SET_TARGET_CMD = DT_SET_TARGET_CMD_MSEC / DT_STEP_MSEC;
+
+    ////////////////////////////////////////////////////////////////////////////
     // Loader:
     ////////////////////////////////////////////////////////////////////////////
 
@@ -127,27 +140,27 @@ public class ReHandyBotController : MonoBehaviour
     private const string PrototypeSceneName = "Prototype";
 
     ////////////////////////////////////////////////////////////////////////////
-    // Timers & data display:
+    // Loop timers:
     ////////////////////////////////////////////////////////////////////////////
 
     private bool timerActive = false;
     private bool timerActivePrev = false;
     private bool timerLocked = false;
     private bool timerLockDetected = false;
+
     private float timeElapsedValue = 0f;
-
-    [HideInInspector] public int DT_TIMER_LOCK_MSEC = 50; // timer lock to control time step
-
-    private const int DECIM_DATA_DISP_RHB_CTRL = 10;
 
     [HideInInspector] public int step_count = 0;
 
     ////////////////////////////////////////////////////////////////////////////
-    // Methods section:
+    // Data display:
     ////////////////////////////////////////////////////////////////////////////
+
+    public const int DT_DATA_DISP_RHB_CTRL_MSEC = 1000;
+    private int DECIM_DATA_DISP_RHB_CTRL = DT_DATA_DISP_RHB_CTRL_MSEC / DT_STEP_MSEC;
     
     private bool DISP_TIMER_ACTIVITY_ON = true;
-    private bool DISP_UPDATE_ON = true;
+    private bool DISP_UPDATE_ON = false;
 
     ////////////////////////////////////////////////////////////////////////////
     // Methods section:
@@ -201,44 +214,25 @@ public class ReHandyBotController : MonoBehaviour
             Calibrate(OnCalibrate);
 
         ////////////////////////////////////////////////////////////////////////////
-        // Time elapsed display:
+        // Thread sleep & time elapsed computation:
         ////////////////////////////////////////////////////////////////////////////    
 
-        /*
+        // Conditional thread sleep:
+        timerLocked = true;
+
         while (timerLocked)
         {
-            System.Threading.Thread.Sleep(T_TIMER_LOCK_MSEC);
-            timerLockDetected = true;
-        }
-        */
-
-        // HACK: make thread sleep always:
-        System.Threading.Thread.Sleep(DT_TIMER_LOCK_MSEC);
-        timerLockDetected = true;
-
-        if (timerLockDetected) {
-
-            if ((step_count % DECIM_DATA_DISP_RHB_CTRL) == 0 && DISP_TIMER_ACTIVITY_ON)
-            {
-                ExternalConsoleLogger.Log(" ");
-                ExternalConsoleLogger.Log("____________________________________________________________________");
-                ExternalConsoleLogger.Log("Update(" + step_count +"): timerLockDetected = [" + timerLockDetected + "], timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
-            }
-
-            timerLockDetected = false;
+            System.Threading.Thread.Sleep(DT_STEP_MSEC);
+            timerLocked = false;
         }
 
         if (timerActive)
         {
             // Restart timer:
             if (timerActivePrev != timerActive)
-            {
                 timeElapsedValue = 0f;
-            }
             else
-            {
                 timeElapsedValue += Time.deltaTime;
-            }
         }
 
         // Record timer state for next step:
@@ -246,6 +240,13 @@ public class ReHandyBotController : MonoBehaviour
 
         // Time elapsed computation:
         TimeSpan timeElapsed = TimeSpan.FromSeconds(timeElapsedValue);
+
+        // Time elapsed dispay:
+        string timeElapsedText = String.Format("{0:#00}", timeElapsed.Minutes) + ":" + String.Format("{0:#00}", timeElapsed.Seconds);
+
+        // Display section:
+        if ((step_count % DECIM_DATA_DISP_RHB_CTRL) == 0 && DISP_TIMER_ACTIVITY_ON)
+            ExternalConsoleLogger.Log("Update(" + step_count + "): time elapsed [" + timeElapsedText + "]\n");
 
         ////////////////////////////////////////////////////////////////////////////
         // RHB coordinates:
@@ -292,12 +293,12 @@ public class ReHandyBotController : MonoBehaviour
             pos_rot_lim = 0f;
 
         ////////////////////////////////////////////////////////////////////////////
-        // Send limit force commands to RHB firmware:
+        // Target indices and parameters:
         ////////////////////////////////////////////////////////////////////////////
-        
+
         /*
-        TargetParams targ_lim;
-        
+        TargetParams
+
         Index;
         R;
         P;
@@ -309,24 +310,35 @@ public class ReHandyBotController : MonoBehaviour
         AlphaP;
         */
 
-        byte IDX_TARG_LIM = 2;        
-
-        SetTarget(IDX_TARG_LIM,
-            0f, 0f,
-            0f, K_STIFF_ROT_LIMIT,
-            0f, B_DAMP_ROT_LIMIT,
-            0f, 1.0f);
-
-        /*
-        SetTarget(IDX_TARG_LIM,
-            pos_radial_lim, pos_rot_lim,
-            k_stiff_radial_lim, k_stiff_rot_lim,
-            b_damp_radial_lim, b_damp_rot_lim,
-            switch_radial, switch_rot);  
-        */
+        byte IDX_TARG_LIM = 2;
 
         ////////////////////////////////////////////////////////////////////////////
-        // Console output:
+        // Send limit force commands to RHB firmware:
+        ////////////////////////////////////////////////////////////////////////////
+
+        if (ExerciseActive && (step_count % DECIM_SET_TARGET_CMD) == 0)
+        {
+            SetTarget(IDX_TARG_LIM,
+                0f, 0f,
+                0f, K_STIFF_ROT_LIMIT,
+                0f, B_DAMP_ROT_LIMIT,
+                0f, 1.0f);
+
+            /*
+            SetTarget(IDX_TARG_LIM,
+                pos_radial_lim, pos_rot_lim,
+                k_stiff_radial_lim, k_stiff_rot_lim,
+                b_damp_radial_lim, b_damp_rot_lim,
+                switch_radial, switch_rot);  
+            */
+
+            // Display section:
+            ExternalConsoleLogger.Log("____________________________________________________________________");
+            ExternalConsoleLogger.Log("[" + step_count + "] SetTarget() sent\n");
+        }
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Display section: 
         ////////////////////////////////////////////////////////////////////////////
 
         if ((step_count % DECIM_DATA_DISP_RHB_CTRL) == 0 && ExerciseActive && DISP_UPDATE_ON) {
@@ -349,10 +361,7 @@ public class ReHandyBotController : MonoBehaviour
         ////////////////////////////////////////////////////////////////////////////
         // Using an action queue to perform Unity related tasks (i.e UI changes) which are not allowed to be done from a background thread
         ////////////////////////////////////////////////////////////////////////////
-        
-        if (MainThreadActionQueue.Count == 0) 
-            return;
-        
+    
         while (MainThreadActionQueue.Count > 0)
             MainThreadActionQueue.Dequeue().Invoke();
     }
@@ -537,16 +546,6 @@ public class ReHandyBotController : MonoBehaviour
                     K_STIFF_RADIAL_THROT, K_STIFF_ROT_STEER,
                     B_DAMP_RADIAL_THROT, B_DAMP_ROT_STEER,
                     1.0f, 1.0f);
-
-                /*
-                byte IDX_TARG_LIM = 2;
-
-                SetTarget(IDX_TARG_LIM,
-                  0f, 0f,
-                  0f, K_STIFF_ROT_LIMIT,
-                  0f, B_DAMP_ROT_LIMIT,
-                  0f, 1.0f);
-                */
             });
         }
     }
@@ -603,29 +602,24 @@ public class ReHandyBotController : MonoBehaviour
             SetEmptyTarget();
 
             // Start timer:
-            /*
-            if (!timer_started)
-            {
-                timerLocked = true;
-                timerActivePrev = timerActive;
-                timerActive = true;
-                System.Threading.Thread.Sleep(T_TIMER_LOCK_MSEC);
-                timerLocked = false;
+            timerLocked = true;
+            timerActivePrev = timerActive;
+            timerActive = true;
+            System.Threading.Thread.Sleep(DT_STEP_MSEC);
+            timerLocked = false;
 
-                ExternalConsoleLogger.Log(" ");
-                ExternalConsoleLogger.Log("____________________________________________________________________");
-                ExternalConsoleLogger.Log("StartExercise(): timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
-
-                timer_started = true;
-            }
-            */
+            ExternalConsoleLogger.Log(" ");
+            ExternalConsoleLogger.Log("____________________________________________________________________");
+            ExternalConsoleLogger.Log("StartExercise(): timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
  
             if (isCalibrated)
                 OnExerciseStart?.Invoke();
             
             onComplete?.Invoke();
 
-            if (setGainResponse) break;
+            if (setGainResponse) 
+                break;
+
             SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
             break;
         }
@@ -644,9 +638,7 @@ public class ReHandyBotController : MonoBehaviour
         }
 
         if (isExerciseStopping)
-        {
             return;
-        }
 
         isExerciseStopping = true;
         loaderText.text = "Stopping Exercise...";
@@ -655,18 +647,15 @@ public class ReHandyBotController : MonoBehaviour
         DOTween.PauseAll();
 
         // Stop timer:
-        /*
         timerLocked = true;
         timerActivePrev = timerActive;
         timerActive = false;
-        System.Threading.Thread.Sleep(T_TIMER_LOCK_MSEC);
-        timerLocked = false;
+        System.Threading.Thread.Sleep(DT_STEP_MSEC);
         timerLocked = false;
 
         ExternalConsoleLogger.Log(" ");
         ExternalConsoleLogger.Log("____________________________________________________________________");
         ExternalConsoleLogger.Log("StopExercise(): timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
-        */ 
 
         if (isMoving)
         {
