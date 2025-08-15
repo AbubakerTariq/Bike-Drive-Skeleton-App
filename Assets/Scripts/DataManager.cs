@@ -10,6 +10,12 @@ public class DataManager : MonoBehaviour
     private static DataManager instance;
 
     /////////////////////////////////////////////////////////////////////////
+    // Data logging step interval:
+    /////////////////////////////////////////////////////////////////////////
+    
+    const double DT_DATA_LOG_MSEC = 50f;
+
+    /////////////////////////////////////////////////////////////////////////
     // Data storage vars:
     /////////////////////////////////////////////////////////////////////////
 
@@ -31,11 +37,12 @@ public class DataManager : MonoBehaviour
     private float t_step_prev = 0f;
     private float t_step_ref;
 
+    /////////////////////////////////////////////////////////////////////////
     // Thread and timer to help save the data in the data file:
-    const double DATA_TIMER_INTERVAL_MSEC = 50f;
-
-    private System.Timers.Timer dataTimer;
-    private Thread timerThread;
+    /////////////////////////////////////////////////////////////////////////
+    
+    private System.Timers.Timer timerData;
+    private Thread threadTimerData;
 
     private readonly object fileLock = new object();
 
@@ -109,22 +116,22 @@ public class DataManager : MonoBehaviour
     {
         StopDataRecording();
 
-        timerThread = new Thread(() =>
+        threadTimerData = new Thread(() =>
         {
             // dataTimer = new(1f);
-            dataTimer = new System.Timers.Timer(DATA_TIMER_INTERVAL_MSEC);
-            dataTimer.Elapsed += SaveDataOnTimerElapsed;
-            dataTimer.AutoReset = true;
-            dataTimer.Start();
+            timerData = new System.Timers.Timer(DT_DATA_LOG_MSEC);
+            timerData.Elapsed += SaveDataOnTimerElapsed;
+            timerData.AutoReset = true;
+            timerData.Start();
         });
-        timerThread.Start();
+        threadTimerData.Start();
     }
 
     private void StopDataRecording()
     {
-        timerThread?.Abort();
-        dataTimer?.Stop();
-        dataTimer?.Dispose();
+        threadTimerData?.Abort();
+        timerData?.Stop();
+        timerData?.Dispose();
     }
 
     private void SaveDataOnTimerElapsed(object sender, ElapsedEventArgs e)
