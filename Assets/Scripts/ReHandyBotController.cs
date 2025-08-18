@@ -16,17 +16,36 @@ using System.Timers;
 public class ReHandyBotController : MonoBehaviour
 {
     ////////////////////////////////////////////////////////////////////////////
+    // Real-time steps (CRITICAL):
+    ////////////////////////////////////////////////////////////////////////////
+
+    // Application time step:
+    public const int DT_STEP_APP_MSEC = 50;  
+    // public const int DECIM_STEP_CTRL = 10; // removed 18.08.2025
+
+    // Set Target command time step:
+    public const int DT_STEP_SET_TARG_MSEC = 1000;
+    // public const int DECIM_STEP_SET_TARG = 200; // removed 18.08.2025
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Object instances:
+    ////////////////////////////////////////////////////////////////////////////
+
+    public static ReHandyBotController instance;
+    private DistalComm distalRobot = new(); // Distal Control Library object
+
+    ////////////////////////////////////////////////////////////////////////////
     // Configuration values:
     ////////////////////////////////////////////////////////////////////////////
 
     private float FORCE_GAIN_RADIAL = 9f;
     private float FORCE_GAIN_ROT = 14f;
 
-    private float K_STIFF_RADIAL_PASSIVE = 5000f;
-    private float K_STIFF_ROT_PASSIVE = 6f; // 11.08.2025: this value is HUGE; what is it actually used for??
+    private float K_STIFF_RADIAL_WALL = 5000f;
+    private float K_STIFF_ROT_WALL = 1.2f;
 
-    private float B_DAMP_RADIAL_PASSIVE = 60f;
-    private float B_DAMP_ROT_PASSIVE = 0.6f;
+    private float B_DAMP_RADIAL_WALL = 30f;
+    private float B_DAMP_ROT_WALL = 0.092f;
 
     private float POS_RADIAL_MIN = 0.0145f;
     private float POS_RADIAL_MAX = 0.06f;
@@ -53,25 +72,10 @@ public class ReHandyBotController : MonoBehaviour
     // Impedance for RHB motion limits:
     ////////////////////////////////////////////////////////////////////////////   
 
-    private float K_STIFF_ROT_LIMIT = 1.2f;
-    private float B_DAMP_ROT_LIMIT = 21f;
+    private float K_STIFF_ROT_LIMIT = 0; // 1.2f;
+    private float B_DAMP_ROT_LIMIT = 0; // 21f;
 
     public float ANGLE_ROT_LIM_DEG = 20f;
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Loop time step (CRITICAL):
-    ////////////////////////////////////////////////////////////////////////////
-
-    [HideInInspector] public const int DT_STEP_MSEC = 50; // use for timer lock to control time step
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Set target command time step:
-    ////////////////////////////////////////////////////////////////////////////
-
-    // public const int DT_SET_TARGET_CMD_MSEC = 1000;
-    // private int DECIM_SET_TARGET_CMD = DT_SET_TARGET_CMD_MSEC / DT_STEP_MSEC;
-
-    private const double DT_SET_TARG_CMD_MSEC = 1000f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Target indices:
@@ -88,18 +92,6 @@ public class ReHandyBotController : MonoBehaviour
     [SerializeField] private GameObject loader;
     [SerializeField] private GameObject exerciseGuidelineText;
     [SerializeField] private TMP_Text loaderText;
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Script instance:
-    ////////////////////////////////////////////////////////////////////////////
-    
-    public static ReHandyBotController Instance;
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Control library reference:
-    ////////////////////////////////////////////////////////////////////////////
-    
-    private DistalComm distalRobot = new();
 
     ////////////////////////////////////////////////////////////////////////////
     // RHB info related variables:
@@ -137,8 +129,8 @@ public class ReHandyBotController : MonoBehaviour
     private Coroutine motionRoutineRotational;
     private bool isMoving = false;
     private bool isRotating = false;
-    private float minPinch = 0.0145f;
-    private float maxPinch = 0.03f;
+    private float minPinch;  
+    // private float maxPinch;
     private Thread connectionThread;
     private Tween connectionTween;
     private bool isCalibrated = false;
@@ -173,10 +165,10 @@ public class ReHandyBotController : MonoBehaviour
     // Data display:
     ////////////////////////////////////////////////////////////////////////////
 
-    public const int DT_DATA_DISP_RHB_CTRL_MSEC = 1000;
-    private int DECIM_DATA_DISP_RHB_CTRL = DT_DATA_DISP_RHB_CTRL_MSEC / DT_STEP_MSEC;
-    
-    private bool DISP_TIMER_ACTIVITY_ON = true;
+    private int DECIM_STEP_DISP_DATA = 200;
+    private int DT_DISP_DATA_MSEC;
+
+    // private bool DISP_TIMER_ACTIVITY_ON = true;
     private bool DISP_UPDATE_ON = false;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -188,20 +180,25 @@ public class ReHandyBotController : MonoBehaviour
     private void Awake()
     {
         // Singleton logic
-        if (Instance != null && Instance != this)
+        if (instance != null && instance != this)
         {
             Destroy(gameObject);
             return;
         }
 
-        Instance = this;
+        instance = this;
         DontDestroyOnLoad(gameObject);
 
         // Set log level so that the logs are stored in Nlog file
         distalRobot.SetLogLevel(DistalComm.DistalLogLevel.Info);
-    }
 
-    private void Start()
+        // Set up time steps: 
+        // DT_STEP_CTRL_MSEC     = DECIM_STEP_CTRL       * DataManager.DT_STEP_DATA_FBK_MSEC;  // removed 18.08.2025
+        // DT_STEP_SET_TARG_MSEC = DECIM_STEP_SET_TARG   * DataManager.DT_STEP_DATA_FBK_MSEC;  // removed 18.08.2025
+        DT_DISP_DATA_MSEC     = DECIM_STEP_DISP_DATA * DataManager.DT_STEP_DATA_FBK_MSEC;
+}
+
+private void Start()
     {
         // Reset Ethernet port to prevent those frequent connection delays:
         System.Diagnostics.Process.Start("ethernet_reset.bat");
@@ -219,10 +216,8 @@ public class ReHandyBotController : MonoBehaviour
         // State check:
         ////////////////////////////////////////////////////////////////////////////
 
-        // If robot is calibrated and user presses Enter
-        // Exercise state will be toggled
-        // The exercise will start if it isn't started already
-        // The exercise will stop if it is already started
+        // If robot is calibrated and user presses Enter, exercise state will be toggled
+        // The exercise will start if it hasn't started already.  
         if (isCalibrated && Input.GetKeyDown(KeyCode.Return))
             ToggleExerciseState();
 
@@ -238,7 +233,6 @@ public class ReHandyBotController : MonoBehaviour
         ////////////////////////////////////////////////////////////////////////////    
         
         /*
-
         // Conditional thread sleep:
         timerLocked = true;
 
@@ -302,7 +296,7 @@ public class ReHandyBotController : MonoBehaviour
         if (RHBConnected) distalRobot.CloseConnection();
 
         distalRobot = null;
-        Instance = null;
+        instance = null;
     }
     #endregion
 
@@ -463,7 +457,7 @@ public class ReHandyBotController : MonoBehaviour
             {
                
 
-                SetTarget(IDX_TARG_STEER,
+                SetTargetValidated(IDX_TARG_STEER,
                     POS_RADIAL_THROT_ZERO, POS_ROT_STEER_ZERO,
                     K_STIFF_RADIAL_THROT, K_STIFF_ROT_STEER,
                     B_DAMP_RADIAL_THROT, B_DAMP_ROT_STEER,
@@ -475,22 +469,19 @@ public class ReHandyBotController : MonoBehaviour
     private void StartExercise(bool unlockRadial, bool unlockRotational, UnityAction onComplete = null)
     {
         // bool timer_started = false;
+        bool success_set_targ_empty;
 
         if (isExerciseStarted)
         {
             SetBrakes(unlockRadial, unlockRotational);
 
-            // Display section:
-            ExternalConsoleLogger.Log(" ");
-            ExternalConsoleLogger.Log("____________________________________________________________________");
-            ExternalConsoleLogger.Log("StartExercise(): calling  SetEmptyTarget() \n");
+            success_set_targ_empty = HL_SetTargetEmpty(); // was SetTargetValidatedEmpty();
 
-            SetEmptyTarget();
             onComplete?.Invoke();
             
             if (isCalibrated) 
                 OnExerciseStart?.Invoke();
-            
+
             return;
         }
 
@@ -501,38 +492,34 @@ public class ReHandyBotController : MonoBehaviour
             if (!startExerciseResponse)
             {
                 if (!distalRobot.LastErrorMessage.Contains("Timeout while waiting for StartResumeExercise response"))
-                {
                     continue;
-                }
 
-                int failureCount = 0;
-                while (failureCount < MaxAttempts)
+                // Removed HL_SetTargetEmpty() loop routine (15.08.2025):
+                /*
+                int fail_set_targ_count = 0;
+                while (fail_set_targ_count < MaxAttempts)
                 {
-                    if (!distalRobot.HL_SetTarget(IDX_TARG_STEER, 0.0145f, 0f, 0f, 0f, 0f, 0f, 0f, 0f))
-                    {
-                        failureCount++;
-                    }
+                    if (!HL_SetTargetEmpty())
+                        fail_set_targ_count++;
                     else
                     {
-                        failureCount = 0;
+                        fail_set_targ_count = 0;
                         break;
                     }
                 }
 
-                if (failureCount >= MaxAttempts)
-                {
+                if (fail_set_targ_count >= MaxAttempts)
                     continue;
-                }
+                */
             }
 
             isExerciseStarted = true;
-            // SetEmptyTarget();
 
             // Start timer:
             timerLocked = true;
             timerActivePrev = timerActive;
             timerActive = true;
-            System.Threading.Thread.Sleep(DT_STEP_MSEC);
+            System.Threading.Thread.Sleep(DT_STEP_APP_MSEC);
             timerLocked = false;
 
             // Display section:
@@ -555,8 +542,6 @@ public class ReHandyBotController : MonoBehaviour
 
     private void StopExercise(UnityAction onComplete = null)
     {
-        // bool timer_stopped = false;
-
         if (!isExerciseStarted)
         {
             SetBrakes(false, false);
@@ -578,7 +563,7 @@ public class ReHandyBotController : MonoBehaviour
         timerLocked = true;
         timerActivePrev = timerActive;
         timerActive = false;
-        System.Threading.Thread.Sleep(DT_STEP_MSEC);
+        System.Threading.Thread.Sleep(DT_STEP_APP_MSEC);
         timerLocked = false;
 
         // Display section:
@@ -599,40 +584,21 @@ public class ReHandyBotController : MonoBehaviour
         }
 
         SetBrakes(true, true);
+        
         motionRoutineRotational = StartCoroutine(motionRoutineRotationalRHB(0f, ()=>
         {
-            motionRoutineRadial = StartCoroutine(motionRoutineRadialRHB(maxPinch, () =>
+            motionRoutineRadial = StartCoroutine(motionRoutineRadialRHB(POS_RADIAL_MIN, () =>
             {
                 for (int i = 0; i < MaxAttempts; i++)
                 {
                     if (distalRobot.StopExercise())
-                    {
                         break;
-                    }
 
                     if (distalRobot.LastErrorMessage.Contains("Timeout while waiting for StopExercise response"))
-                    {
                         continue;
-                    }
-
-                    int failureCount = 0;
-                    while (failureCount < MaxAttempts)
-                    {
-                        if (!distalRobot.HL_SetTarget(IDX_TARG_STEER, 0.0145f, 0f, 0f, 0f, 0f, 0f, 0f, 0f))
-                        {
-                            break;
-                        }
-                        else
-                        {
-                            failureCount++;
-                        }
-                    }
-
-                    if (failureCount >= MaxAttempts)
-                    {
-                        break;
-                    }
                 }
+
+                HL_SetTargetEmpty();
 
                 isExerciseStarted = false;
                 isExerciseStopping = false;
@@ -667,7 +633,7 @@ public class ReHandyBotController : MonoBehaviour
         onComplete?.Invoke();
     }
 
-    private bool SetTarget(byte targetIndex, 
+    private bool SetTargetValidated(byte targetIndex, 
         float radialValue, float rotationValue, 
         float radialStiffness, float rotationStiffness, 
         float radialDamping, float rotationDamping, 
@@ -700,10 +666,17 @@ public class ReHandyBotController : MonoBehaviour
 
         return success;
     }
-
-    private void SetEmptyTarget(UnityAction onComplete = null)
+    
+    /*
+    private bool SetTargetValidatedEmpty(UnityAction onComplete = null)
     {
-        SetTarget(IDX_TARG_STEER, 0.0145f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, onComplete);
+        return SetTargetValidated(IDX_TARG_STEER, POS_RADIAL_MIN, 0f, 0f, 0f, 0f, 0f, 0f, 0f, onComplete);
+    }
+    */
+
+    private bool HL_SetTargetEmpty(UnityAction onComplete = null)
+    {
+        return distalRobot.HL_SetTarget(IDX_TARG_STEER, POS_RADIAL_MIN, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
     }
 
     private void SetGain(float radialGain, float angularGain)
@@ -721,12 +694,12 @@ public class ReHandyBotController : MonoBehaviour
             if (distalRobot.SetOffsetForces(radialOffsetForce, angularOffsetForce)) break;
         }
     }
-    
+
     private void MoveDistal(float target, UnityAction onComplete = null)
     {
         if (!isExerciseStarted || isExerciseStopping) return;
 
-        target = Mathf.Clamp(target, 0.0145f, 0.06f);
+        target = Mathf.Clamp(target, POS_RADIAL_MIN, POS_RADIAL_MAX);
 
         if (isMoving)
         {
@@ -742,11 +715,11 @@ public class ReHandyBotController : MonoBehaviour
         isMoving = true;
         SetGain(0f, 0f);
 
-        float Kr = K_STIFF_RADIAL_PASSIVE;
-        float Kp = K_STIFF_ROT_PASSIVE;
-        float Br = B_DAMP_RADIAL_PASSIVE;
-        float Bp = B_DAMP_ROT_PASSIVE;
-        float loop_interval_ms = 1f / 200f * 1000f; //ms
+        float Kr = K_STIFF_RADIAL_WALL;
+        float Kp = K_STIFF_ROT_WALL;
+        float Br = B_DAMP_RADIAL_WALL;
+        float Bp = B_DAMP_ROT_WALL;
+        float dt_interval_msec = DataManager.DT_STEP_DATA_FBK_MSEC;
 
         System.Diagnostics.Stopwatch stopwatch = new();
         stopwatch.Start();
@@ -757,13 +730,12 @@ public class ReHandyBotController : MonoBehaviour
         float init_time_ms = current_time_ms;
         float prev_time_ms = current_time_ms;
         float speed_factor = 1f;
-        int step = 0;
 
         while (((init_position < target) && (current_target < target)) || ((init_position >= target) && (current_target > target)))
         {
             current_time_ms = (float)stopwatch.Elapsed.TotalMilliseconds;
 
-            if ((current_time_ms - prev_time_ms) >= loop_interval_ms)
+            if ((current_time_ms - prev_time_ms) >= dt_interval_msec)
             {
                 if (prev_time_ms == 0)
                 {
@@ -778,17 +750,23 @@ public class ReHandyBotController : MonoBehaviour
                 if (((init_position < target) && (current_target > target)) || ((init_position >= target) && (current_target < target)))
                     current_target = target;
 
-                // Set Updated Target
-                DistalComm.Log.Info("MoveDistal() - step " + ++step);
-                current_target = Mathf.Clamp(current_target, 0.0145f, 0.06f);
+                // Set Updated Target:
+                current_target = Mathf.Clamp(current_target, POS_RADIAL_MIN, POS_RADIAL_MAX);
+
+                distalRobot.HL_SetTarget(IDX_TARG_STEER, current_target, 0, Kr, Kp, Br, Bp, 1, 1);
+
+                // Removed SetTargetValidated() routine (15.08.2025):
+                /*
                 if (isExerciseStopping)
                 {
                     distalRobot.HL_SetTarget(IDX_TARG_STEER, current_target, 0, Kr, Kp, Br, Bp, 1, 1);
                 }
                 else
                 {
-                    SetTarget(IDX_TARG_STEER, current_target, 0, Kr, Kp, Br, Bp, 1, 1);
+                    SetTargetValidated(IDX_TARG_STEER, current_target, 0, Kr, Kp, Br, Bp, 1, 1);
                 }
+                */
+
                 prev_time_ms = current_time_ms;
             }
             yield return null;
@@ -796,7 +774,8 @@ public class ReHandyBotController : MonoBehaviour
 
         if (!isExerciseStopping)
         {
-            SetTarget(IDX_TARG_STEER, target, 0, Kr, 0, Br, 0, 1, 1);
+            // SetTargetValidated(IDX_TARG_STEER, target, 0, Kr, 0, Br, 0, 1, 1);
+            distalRobot.HL_SetTarget(IDX_TARG_STEER, target, 0, Kr, 0, Br, 0, 1, 1);
         }
 
         stopwatch.Stop();
@@ -804,34 +783,17 @@ public class ReHandyBotController : MonoBehaviour
         isMoving = false;
         onComplete?.Invoke();
     }
-    
-    /*
-    private void RotateDistal(float target, UnityAction onComplete = null)
-    {
-        if (!isExerciseStarted || isExerciseStopping) return;
-
-        target = Mathf.Clamp(target, -Mathf.PI / 2f, Mathf.PI / 2f);
-
-        if (isRotating)
-        {
-            isRotating = false;
-            StopCoroutine(rotateRoutine); 
-        }
-
-        rotateRoutine = StartCoroutine(RotateDistalRoutine(target, onComplete));
-    }
-    */
 
     private IEnumerator motionRoutineRotationalRHB(float target, UnityAction onComplete)
     {
         isRotating = true;
         SetGain(0f, 0f);
 
-        float Kr = K_STIFF_RADIAL_PASSIVE;
-        float Kp = K_STIFF_ROT_PASSIVE;
-        float Br = B_DAMP_RADIAL_PASSIVE;
-        float Bp = B_DAMP_ROT_PASSIVE;
-        float loop_interval_ms = 1f / 200f * 1000f;
+        float Kr = K_STIFF_RADIAL_WALL;
+        float Kp = K_STIFF_ROT_WALL;
+        float Br = B_DAMP_RADIAL_WALL;
+        float Bp = B_DAMP_ROT_WALL;
+        float loop_interval_ms = DataManager.DT_STEP_DATA_FBK_MSEC;
 
         System.Diagnostics.Stopwatch stopwatch = new();
         stopwatch.Start();
@@ -842,7 +804,6 @@ public class ReHandyBotController : MonoBehaviour
         float init_time_ms = current_time_ms;
         float prev_time_ms = current_time_ms;
         float speed_factor = 0.75f;
-        int step = 0;
 
         while (((pos_phi_init < target) && (current_target < target)) || ((pos_phi_init >= target) && (current_target > target)))
         {
@@ -865,15 +826,20 @@ public class ReHandyBotController : MonoBehaviour
 
                 // Set Updated Target
                 current_target = Mathf.Clamp(current_target, -Mathf.PI / 2f, Mathf.PI / 2f);
-                DistalComm.Log.Info("RotateDistal() - step " + ++step);
+
+                distalRobot.HL_SetTarget(IDX_TARG_STEER, DistalData.PositionR, current_target, Kr, Kp, Br, Bp, 1, 1);
+
+                // Removed SetTargetValidated() routine (15.08.2025):
+                /*
                 if (isExerciseStopping)
                 {
                     distalRobot.HL_SetTarget(IDX_TARG_STEER, DistalData.PositionR, current_target, Kr, Kp, Br, Bp, 1, 1);
                 }
                 else
                 {
-                    SetTarget(IDX_TARG_STEER, DistalData.PositionR, current_target, Kr, Kp, Br, Bp, 1, 1);
+                    SetTargetValidated(IDX_TARG_STEER, DistalData.PositionR, current_target, Kr, Kp, Br, Bp, 1, 1);
                 }
+                */
 
                 prev_time_ms = current_time_ms;
             }
@@ -881,9 +847,10 @@ public class ReHandyBotController : MonoBehaviour
             yield return null;
         }
 
-        if (!isExerciseStopping)
+        if (!isExerciseStopping) 
         {
-            SetTarget(IDX_TARG_STEER, DistalData.PositionR, target, Kr, Kp, Br, Bp, 1, 1);
+            // SetTargetValidated(IDX_TARG_STEER, DistalData.PositionR, target, Kr, Kp, Br, Bp, 1, 1);
+            distalRobot.HL_SetTarget(IDX_TARG_STEER, DistalData.PositionR, target, Kr, Kp, Br, Bp, 1, 1);
         }
 
         stopwatch.Stop();
@@ -896,15 +863,16 @@ public class ReHandyBotController : MonoBehaviour
     #region Set Target functions
     private void SetupSetTargetEvents()
     {
-        ReHandyBotController.Instance.OnExerciseStart += StartSetTargetEvents;
-        ReHandyBotController.Instance.OnExerciseStop += StopSetTargetEvents;
+        ReHandyBotController.instance.OnExerciseStart += StartSetTargetEvents;
+        ReHandyBotController.instance.OnExerciseStop += StopSetTargetEvents;
     }
 
     // This is for usage for SetOffsetForces command, currently being called with dummy values
     private void SetOffsetForces()
     {
-        ReHandyBotController.Instance.SetOffsetForces(0f, 0f);
+        ReHandyBotController.instance.SetOffsetForces(0f, 0f);
     }
+
     private void Destroy()
     {
         StopSetTargetEvents();
@@ -916,8 +884,8 @@ public class ReHandyBotController : MonoBehaviour
 
         threadTimerSetTarget = new Thread(() =>
         {
-            timerSetTarget = new System.Timers.Timer(DT_SET_TARG_CMD_MSEC);
-            timerSetTarget.Elapsed += sendCmdSetTarget;
+            timerSetTarget = new System.Timers.Timer(DT_STEP_SET_TARG_MSEC);
+            timerSetTarget.Elapsed += SendCmdSetTarget;
             timerSetTarget.AutoReset = true;
             timerSetTarget.Start();
         });
@@ -931,14 +899,14 @@ public class ReHandyBotController : MonoBehaviour
         timerSetTarget?.Dispose();
     }
 
-    private void sendCmdSetTarget(object sender, ElapsedEventArgs e)
+    private void SendCmdSetTarget(object sender, ElapsedEventArgs e)
     {
         ////////////////////////////////////////////////////////////////////////////
         // RHB coordinates:
         //////////////////////////////////////////////////////////////////////////// 
 
-        float pos_radial = ReHandyBotController.Instance.DistalData.PositionR;
-        float pos_phi = ReHandyBotController.Instance.DistalData.PositionP;
+        float pos_radial = ReHandyBotController.instance.DistalData.PositionR;
+        float pos_phi = ReHandyBotController.instance.DistalData.PositionP;
 
         ////////////////////////////////////////////////////////////////////////////
         // Compute limiting force for rotation angle:
@@ -952,7 +920,7 @@ public class ReHandyBotController : MonoBehaviour
         float b_damp_radial_lim = 0f;
         float b_damp_rot_lim;
 
-        float pos_radial_lim = 0f;
+        float pos_radial_lim = POS_RADIAL_MIN;
         float pos_rot_lim;
 
         float switch_radial = 0f;
@@ -999,12 +967,12 @@ public class ReHandyBotController : MonoBehaviour
 
         if (ExerciseActive)
         {
-            success_set_target = SetTarget( // distalRobot.HL_SetTarget(
-                IDX_TARG_LIM,
-                0f, 0f,
+            success_set_target = distalRobot.HL_SetTarget(
+                IDX_TARG_STEER, // IDX_TARG_LIM,
+                POS_RADIAL_MIN, 0f,
                 0f, K_STIFF_ROT_LIMIT,
                 0f, B_DAMP_ROT_LIMIT,
-                0f, 1.0f);
+                0f, 0f);
 
             /*
             SetTarget(IDX_TARG_LIM,
@@ -1016,14 +984,14 @@ public class ReHandyBotController : MonoBehaviour
 
             // Display section:
             ExternalConsoleLogger.Log("____________________________________________________________________");
-            ExternalConsoleLogger.Log("[" + step_count + "] HL_SetTarget() sent - success [" + success_set_target + "]\n");
+            ExternalConsoleLogger.Log("HL_SetTarget() sent - success [" + success_set_target + "]\n");
         }
 
         ////////////////////////////////////////////////////////////////////////////
         // Display section: 
         ////////////////////////////////////////////////////////////////////////////
 
-        if ((step_count % DECIM_DATA_DISP_RHB_CTRL) == 0 && ExerciseActive && DISP_UPDATE_ON)
+        if (ExerciseActive && DISP_UPDATE_ON)
         {
             ExternalConsoleLogger.Log("____________________________________________________________________");
             ExternalConsoleLogger.Log("[" + step_count + "] timeElapsedValue:[" + timeElapsedValue +

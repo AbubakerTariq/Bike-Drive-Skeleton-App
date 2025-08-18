@@ -7,13 +7,14 @@ using Articares.Distal;
 
 public class DataManager : MonoBehaviour
 {
-    private static DataManager instance;
+    public static DataManager instance;
 
     /////////////////////////////////////////////////////////////////////////
-    // Data logging step interval:
+    // Data feedback step interval ():
     /////////////////////////////////////////////////////////////////////////
-    
-    const double DT_DATA_LOG_MSEC = 50f;
+
+    public static int DT_STEP_DATA_FBK_MSEC = 5; // CRITICAL: this must match the data feedback interval in RHB firmware
+    private const int DECIM_DATA_LOG = 10;
 
     /////////////////////////////////////////////////////////////////////////
     // Data storage vars:
@@ -30,8 +31,7 @@ public class DataManager : MonoBehaviour
     /////////////////////////////////////////////////////////////////////////
     // Time step vars:
     /////////////////////////////////////////////////////////////////////////   
-
-    private const int DECIM_DATA_COUNT = 1;
+    
     private int data_count = 0;
 
     private float t_step_prev = 0f;
@@ -92,14 +92,14 @@ public class DataManager : MonoBehaviour
 
     private void SetupRecordingEvents()
     {
-        ReHandyBotController.Instance.OnExerciseStart += StartDataRecording;
-        ReHandyBotController.Instance.OnExerciseStop += StopDataRecording;
+        ReHandyBotController.instance.OnExerciseStart += StartDataRecording;
+        ReHandyBotController.instance.OnExerciseStop += StopDataRecording;
     }
 
     // This is for usage for SetOffsetForces command, currently being called with dummy values
     private void SetOffsetForces()
     {
-        ReHandyBotController.Instance.SetOffsetForces(0f, 0f);
+        ReHandyBotController.instance.SetOffsetForces(0f, 0f);
     }
 
     private void Destroy()
@@ -119,7 +119,7 @@ public class DataManager : MonoBehaviour
         threadTimerData = new Thread(() =>
         {
             // dataTimer = new(1f);
-            timerData = new System.Timers.Timer(DT_DATA_LOG_MSEC);
+            timerData = new System.Timers.Timer(DT_STEP_DATA_FBK_MSEC);
             timerData.Elapsed += SaveDataOnTimerElapsed;
             timerData.AutoReset = true;
             timerData.Start();
@@ -137,9 +137,9 @@ public class DataManager : MonoBehaviour
     private void SaveDataOnTimerElapsed(object sender, ElapsedEventArgs e)
     {
         // Modified counter (13.08.2025):
-        if (data_count % DECIM_DATA_COUNT == 0)
+        if (data_count % DECIM_DATA_LOG == 0)
         {
-            DistalComm.ExerciseData DistalData = ReHandyBotController.Instance.DistalData;
+            DistalComm.ExerciseData DistalData = ReHandyBotController.instance.DistalData;
             SaveDataEntry(DistalData, 0f, 0f, 0f, 0f, 0f);
         }
 
