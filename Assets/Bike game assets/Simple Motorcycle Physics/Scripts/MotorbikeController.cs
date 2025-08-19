@@ -255,7 +255,7 @@ public class MotorbikeController : MonoBehaviour
             ////////////////////////////////////////////////////////////////
 
             float pos_throttle = ReHandyBotController.instance.DistalData.PositionR;
-            float pos_throttle_zero = ReHandyBotController.instance.POS_RADIAL_THROT_ZERO;
+            float pos_throttle_zero = ReHandyBotController.instance.POS_RADIAL_BASE_THROT;
 
             if (ReHandyBotController.instance.ExerciseActive)
                 input.throttle_rhb = Mathf.Clamp(-1000f / DIST_RADIAL_THROT_FULL_MM * (pos_throttle - pos_throttle_zero),

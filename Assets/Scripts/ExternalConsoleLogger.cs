@@ -1,9 +1,7 @@
-// using Articares.Distal;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using UnityEngine;
-// using static Articares.Distal.DistalComm;
 
 public class ExternalConsoleLogger : MonoBehaviour
 {

@@ -20,12 +20,22 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     // Application time step:
-    public const int DT_STEP_APP_MSEC = 50;  
-    // public const int DECIM_STEP_CTRL = 10; // removed 18.08.2025
+    public const int DT_STEP_APP_MSEC = 50;
 
-    // Set Target command time step:
-    public const int DT_STEP_SET_TARG_MSEC = 1000;
-    // public const int DECIM_STEP_SET_TARG = 200; // removed 18.08.2025
+    // Set Target command time step (TODO: keep or discard - together with StartSetTargetEvents() ):
+    public const int DT_STEP_SET_TARG_MSEC = 50;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // SetExercise() parameters (CRITICAL):
+    //////////////////////////////////////////////////////////////////////////// 
+
+    public const int NUM_TARGETS = 1;
+
+    float OFFS_FORCE_RADIAL_INIT = 0f;
+    float OFFS_TORQUE_ROT_INIT = 0f;
+
+    private bool SAFETY_SET_TARG = false;
+    private bool STABILITY_SET_TARG = true;
 
     ////////////////////////////////////////////////////////////////////////////
     // Object instances:
@@ -58,30 +68,30 @@ public class ReHandyBotController : MonoBehaviour
     // NOTE: use [RHB ctrl params - stability v5b game settings 4-axis.xlsx] to calculate damping as a function of stiffness
     ////////////////////////////////////////////////////////////////////////////
 
-    // Throttle - default haptics settings:
-    [HideInInspector] public float POS_RADIAL_THROT_ZERO = 0.029f;
-    private float K_STIFF_RADIAL_THROT = 5000f; // 2500f;
-    private float B_DAMP_RADIAL_THROT = 45f; //21.0f;
+    // Throttle - BASELINE haptics settings:
+    [HideInInspector] public float POS_RADIAL_BASE_THROT = 0.029f;
+    private float K_STIFF_RADIAL_BASE_THROT = 5000f; // 2500f;
+    private float B_DAMP_RADIAL_BASE_THROT = 45f; //21.0f;
 
-    // Steering - default haptics settings:
-    [HideInInspector] public float POS_ROT_STEER_ZERO = 0f;
-    private float K_STIFF_ROT_STEER = 0.1f; // 0.15f; 
-    private float B_DAMP_ROT_STEER = 0.015f; // 0.0185f;
+    // Steering - BASELINE haptics settings:
+    [HideInInspector] public float POS_ROT_BASE_STEER = 0f;
+    private float K_STIFF_ROT_BASE_STEER = 0.1f; // 0.15f; 
+    private float B_DAMP_ROT_BASE_STEER = 0.015f; // 0.0185f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Impedance for RHB motion limits:
     ////////////////////////////////////////////////////////////////////////////   
 
-    private float K_STIFF_ROT_LIMIT = 0; // 1.2f;
-    private float B_DAMP_ROT_LIMIT = 0; // 21f;
+    private float K_STIFF_ROT_LIMIT = 0.3f;
+    private float B_DAMP_ROT_LIMIT = 0f; // is the minimum stability value enough?
 
-    public float ANGLE_ROT_LIM_DEG = 20f;
+    public float ANGLE_ROT_LIM_DEG = 45f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Target indices:
     ////////////////////////////////////////////////////////////////////////////
 
-    private byte IDX_TARG_STEER = 1;
+    private byte IDX_TARG_BASE = 1;
     private byte IDX_TARG_LIM = 2;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -104,9 +114,6 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Exercise-related variables:
     ////////////////////////////////////////////////////////////////////////////
-
-    private bool stability = true;
-    private bool safety = true;
 
     private bool isSystemStarted = false;
     private bool isExerciseStarted = false;
@@ -165,11 +172,8 @@ public class ReHandyBotController : MonoBehaviour
     // Data display:
     ////////////////////////////////////////////////////////////////////////////
 
-    private int DECIM_STEP_DISP_DATA = 200;
-    private int DT_DISP_DATA_MSEC;
-
+    private int DT_DISP_DATA_MSEC = 1000;
     // private bool DISP_TIMER_ACTIVITY_ON = true;
-    private bool DISP_UPDATE_ON = false;
 
     ////////////////////////////////////////////////////////////////////////////
     // Methods section:
@@ -191,11 +195,6 @@ public class ReHandyBotController : MonoBehaviour
 
         // Set log level so that the logs are stored in Nlog file
         distalRobot.SetLogLevel(DistalComm.DistalLogLevel.Info);
-
-        // Set up time steps: 
-        // DT_STEP_CTRL_MSEC     = DECIM_STEP_CTRL       * DataManager.DT_STEP_DATA_FBK_MSEC;  // removed 18.08.2025
-        // DT_STEP_SET_TARG_MSEC = DECIM_STEP_SET_TARG   * DataManager.DT_STEP_DATA_FBK_MSEC;  // removed 18.08.2025
-        DT_DISP_DATA_MSEC     = DECIM_STEP_DISP_DATA * DataManager.DT_STEP_DATA_FBK_MSEC;
 }
 
 private void Start()
@@ -206,8 +205,8 @@ private void Start()
         // Start is only called once as this is a singleton object so we will only connect once at the beginning
         ConnectRHB();    
         
-        // Setup Set Target events process:
-        SetupSetTargetEvents();
+        // Setup Set Target events process (TODO: keep or discard):
+        // SetupSetTargetEvents();
     }
 
     private void Update()
@@ -232,13 +231,12 @@ private void Start()
         // Thread sleep & time elapsed computation:
         ////////////////////////////////////////////////////////////////////////////    
         
-        /*
         // Conditional thread sleep:
         timerLocked = true;
 
         while (timerLocked)
         {
-            System.Threading.Thread.Sleep(DT_STEP_MSEC);
+            System.Threading.Thread.Sleep(DT_STEP_APP_MSEC);
             timerLocked = false;
         }
 
@@ -257,17 +255,28 @@ private void Start()
         // Time elapsed computation:
         TimeSpan timeElapsed = TimeSpan.FromSeconds(timeElapsedValue);
 
-        // Time elapsed dispay:
+        ////////////////////////////////////////////////////////////////////////////
+        // Command steer angle limits:
+        ////////////////////////////////////////////////////////////////////////////
+        
+        CmdSetTargetSteerLimit();
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Display section:
+        ////////////////////////////////////////////////////////////////////////////
+
+        // Time elapsed display:
         string timeElapsedText = String.Format("{0:#00}", timeElapsed.Minutes) + ":" + String.Format("{0:#00}", timeElapsed.Seconds);
 
-        // Display section:
-        if ((step_count % DECIM_DATA_DISP_RHB_CTRL) == 0 && DISP_TIMER_ACTIVITY_ON)
+        /*
+        if ((step_count % DT_DISP_DATA_MSEC / DT_STEP_APP_MSEC) == 0 && DISP_TIMER_ACTIVITY_ON)
             ExternalConsoleLogger.Log("Update(" + step_count + "): time elapsed [" + timeElapsedText + "]\n");
+        */
 
         ////////////////////////////////////////////////////////////////////////////
         // Update step counter:
         ////////////////////////////////////////////////////////////////////////////
-        
+
         step_count++;
 
         ////////////////////////////////////////////////////////////////////////////
@@ -276,7 +285,6 @@ private void Start()
     
         // while (MainThreadActionQueue.Count > 0)
         //    MainThreadActionQueue.Dequeue().Invoke();
-        */
     }
 
     private void OnApplicationQuit()
@@ -379,7 +387,7 @@ private void Start()
     {
         if (isSystemStarted)
         {
-            distalRobot.SetSafety(safety);
+            distalRobot.SetSafety(SAFETY_SET_TARG);
             onComplete?.Invoke();
             return;
         }
@@ -390,7 +398,7 @@ private void Start()
 
             if (success)
             {
-                distalRobot.SetSafety(safety);
+                distalRobot.SetSafety(SAFETY_SET_TARG);
                 isSystemStarted = true;
                 onComplete?.Invoke();
                 break;
@@ -446,21 +454,18 @@ private void Start()
     private void ToggleExerciseState()
     {
         if (isExerciseStarted)
-        {
             StopExercise();
-        }
         else
         {
             // StartExercise(true, true);
             
             StartExercise(true, true, () =>
-            {
-               
-
-                SetTargetValidated(IDX_TARG_STEER,
-                    POS_RADIAL_THROT_ZERO, POS_ROT_STEER_ZERO,
-                    K_STIFF_RADIAL_THROT, K_STIFF_ROT_STEER,
-                    B_DAMP_RADIAL_THROT, B_DAMP_ROT_STEER,
+            {               
+                // Set up baseline haptics: 
+                SetTargetValidated(IDX_TARG_BASE,
+                    POS_RADIAL_BASE_THROT, POS_ROT_BASE_STEER,
+                    K_STIFF_RADIAL_BASE_THROT, K_STIFF_ROT_BASE_STEER,
+                    B_DAMP_RADIAL_BASE_THROT, B_DAMP_ROT_BASE_STEER,
                     1.0f, 1.0f);
             });
         }
@@ -487,7 +492,11 @@ private void Start()
 
         for (int i = 0; i < MaxAttempts; i++)
         {
-            distalRobot.HL_StartExercise(1, unlockRadial, unlockRotational, 0f, 0f, out bool startExerciseResponse, out bool setGainResponse, FORCE_GAIN_RADIAL, FORCE_GAIN_ROT, stability);
+            distalRobot.HL_StartExercise(
+                NUM_TARGETS, unlockRadial, unlockRotational, 
+                OFFS_FORCE_RADIAL_INIT, OFFS_TORQUE_ROT_INIT,                
+                out bool startExerciseResponse, out bool setGainResponse, 
+                FORCE_GAIN_RADIAL, FORCE_GAIN_ROT, STABILITY_SET_TARG);
 
             if (!startExerciseResponse)
             {
@@ -676,7 +685,7 @@ private void Start()
 
     private bool HL_SetTargetEmpty(UnityAction onComplete = null)
     {
-        return distalRobot.HL_SetTarget(IDX_TARG_STEER, POS_RADIAL_MIN, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
+        return distalRobot.HL_SetTarget(IDX_TARG_BASE, POS_RADIAL_MIN, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
     }
 
     private void SetGain(float radialGain, float angularGain)
@@ -753,7 +762,7 @@ private void Start()
                 // Set Updated Target:
                 current_target = Mathf.Clamp(current_target, POS_RADIAL_MIN, POS_RADIAL_MAX);
 
-                distalRobot.HL_SetTarget(IDX_TARG_STEER, current_target, 0, Kr, Kp, Br, Bp, 1, 1);
+                distalRobot.HL_SetTarget(IDX_TARG_BASE, current_target, 0, Kr, Kp, Br, Bp, 1, 1);
 
                 // Removed SetTargetValidated() routine (15.08.2025):
                 /*
@@ -775,7 +784,7 @@ private void Start()
         if (!isExerciseStopping)
         {
             // SetTargetValidated(IDX_TARG_STEER, target, 0, Kr, 0, Br, 0, 1, 1);
-            distalRobot.HL_SetTarget(IDX_TARG_STEER, target, 0, Kr, 0, Br, 0, 1, 1);
+            distalRobot.HL_SetTarget(IDX_TARG_BASE, target, 0, Kr, 0, Br, 0, 1, 1);
         }
 
         stopwatch.Stop();
@@ -827,7 +836,7 @@ private void Start()
                 // Set Updated Target
                 current_target = Mathf.Clamp(current_target, -Mathf.PI / 2f, Mathf.PI / 2f);
 
-                distalRobot.HL_SetTarget(IDX_TARG_STEER, DistalData.PositionR, current_target, Kr, Kp, Br, Bp, 1, 1);
+                distalRobot.HL_SetTarget(IDX_TARG_BASE, DistalData.PositionR, current_target, Kr, Kp, Br, Bp, 1, 1);
 
                 // Removed SetTargetValidated() routine (15.08.2025):
                 /*
@@ -850,7 +859,7 @@ private void Start()
         if (!isExerciseStopping) 
         {
             // SetTargetValidated(IDX_TARG_STEER, DistalData.PositionR, target, Kr, Kp, Br, Bp, 1, 1);
-            distalRobot.HL_SetTarget(IDX_TARG_STEER, DistalData.PositionR, target, Kr, Kp, Br, Bp, 1, 1);
+            distalRobot.HL_SetTarget(IDX_TARG_BASE, DistalData.PositionR, target, Kr, Kp, Br, Bp, 1, 1);
         }
 
         stopwatch.Stop();
@@ -901,6 +910,11 @@ private void Start()
 
     private void SendCmdSetTarget(object sender, ElapsedEventArgs e)
     {
+        CmdSetTargetSteerLimit();
+    }
+
+    private void CmdSetTargetSteerLimit()
+    {
         ////////////////////////////////////////////////////////////////////////////
         // RHB coordinates:
         //////////////////////////////////////////////////////////////////////////// 
@@ -909,33 +923,41 @@ private void Start()
         float pos_phi = ReHandyBotController.instance.DistalData.PositionP;
 
         ////////////////////////////////////////////////////////////////////////////
-        // Compute limiting force for rotation angle:
+        // Impedance parameters for rotation angle limit:
         ////////////////////////////////////////////////////////////////////////////
+        
+        // RADIAL parameters:
+        /*
+        float pos_radial_lim = POS_RADIAL_MIN;
+        float k_stiff_radial_lim = 0f;
+        float b_damp_radial_lim = 0f;
+        */
 
+        float gain_radial = 1.0f;
+
+        // ROTATIONAL parameters:
         float angle_rot_lim = ANGLE_ROT_LIM_DEG * (float)Math.PI / 180f;
 
-        float k_stiff_radial_lim = 0f;
-        float k_stiff_rot_lim;
-
-        float b_damp_radial_lim = 0f;
-        float b_damp_rot_lim;
-
-        float pos_radial_lim = POS_RADIAL_MIN;
         float pos_rot_lim;
+        float k_rot_lim;
+        float b_rot_lim;
 
-        float switch_radial = 0f;
-        float switch_rot = 1.0f;
+        float gain_rot = 1.0f;
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Compute impedance parameters:
+        ////////////////////////////////////////////////////////////////////////////
 
         // If rotation limit exceeded, apply nonzero values to rotational siffness and damping:
         if ((pos_phi - angle_rot_lim > 0f) || (pos_phi + angle_rot_lim < 0f))
         {
-            k_stiff_rot_lim = K_STIFF_ROT_LIMIT;
-            b_damp_rot_lim = B_DAMP_ROT_LIMIT;
+            k_rot_lim = K_STIFF_ROT_LIMIT;
+            b_rot_lim = B_DAMP_ROT_LIMIT;
         }
         else
         {
-            k_stiff_rot_lim = 0f;
-            b_damp_rot_lim = 0f;
+            k_rot_lim = 0f;
+            b_rot_lim = 0f;
         }
 
         if (pos_phi - angle_rot_lim > 0f)
@@ -949,67 +971,57 @@ private void Start()
         // Send limit force commands to RHB firmware:
         ////////////////////////////////////////////////////////////////////////////
 
-        /*
-        TargetParams
-
-        Index;
-        R;
-        P;
-        KR;
-        KP;
-        BR;
-        BP;
-        AlphaR;
-        AlphaP;
-        */
-
         bool success_set_target;
 
         if (ExerciseActive)
         {
-            success_set_target = distalRobot.HL_SetTarget(
-                IDX_TARG_STEER, // IDX_TARG_LIM,
-                POS_RADIAL_MIN, 0f,
-                0f, K_STIFF_ROT_LIMIT,
-                0f, B_DAMP_ROT_LIMIT,
-                0f, 0f);
+            // success_set_target = HL_SetTargetEmpty();
 
-            /*
-            SetTarget(IDX_TARG_LIM,
-                pos_radial_lim, pos_rot_lim,
-                k_stiff_radial_lim, k_stiff_rot_lim,
-                b_damp_radial_lim, b_damp_rot_lim,
-                switch_radial, switch_rot);  
-            */
-
-            // Display section:
-            ExternalConsoleLogger.Log("____________________________________________________________________");
-            ExternalConsoleLogger.Log("HL_SetTarget() sent - success [" + success_set_target + "]\n");
+            success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
+                POS_RADIAL_BASE_THROT, pos_rot_lim,
+                K_STIFF_RADIAL_BASE_THROT, k_rot_lim,
+                B_DAMP_RADIAL_BASE_THROT, b_rot_lim,
+                gain_radial, gain_rot);  
         }
+        else
+            success_set_target = false;
 
         ////////////////////////////////////////////////////////////////////////////
         // Display section: 
         ////////////////////////////////////////////////////////////////////////////
 
-        if (ExerciseActive && DISP_UPDATE_ON)
+        bool DISP_SET_TARG_ON = true;
+        int DT_STEP_DISP_MSEC  = 1000;
+
+        if (ExerciseActive && step_count % (DT_STEP_DISP_MSEC / DT_STEP_APP_MSEC) == 0 && DISP_SET_TARG_ON)
         {
-            ExternalConsoleLogger.Log("____________________________________________________________________");
-            ExternalConsoleLogger.Log("[" + step_count + "] timeElapsedValue:[" + timeElapsedValue +
-                "]  RHB RADIAL pos [" + String.Format("{0:#0.0000}", pos_radial) +
-                "]  ROTATIONAL pos [" + String.Format("{0:#0.00}", pos_phi) +
-                "]  stiff ROT limit [" + String.Format("{0:#0.00}", k_stiff_rot_lim) +
-                "]  damp ROT limit [" + String.Format("{0:#0.00}", b_damp_rot_lim) +
-                "]  pos ROT limit [" + String.Format("{0:#0.00}", pos_rot_lim) +
-                "]\n");
+            string str_timer = "[" + step_count + "]  time elapsed:[" + timeElapsedValue + "]  HL_SetTarget(): ";
+
+            if (success_set_target)
+                ExternalConsoleLogger.Log(str_timer + "success");
+            else
+                ExternalConsoleLogger.Log(str_timer + "FAIL");
+
+            ExternalConsoleLogger.Log(
+                "pos:   RAD [" + String.Format("{0:#0.0000}", pos_radial) +              "]  ROT [" + String.Format("{0:#0.00}", pos_phi)   + 
+                    "] (limit [" + String.Format("{0:#0.00}", pos_rot_lim) + "]) \n" +
+                "stiff: RAD [" + String.Format("{0:#0.00}", K_STIFF_RADIAL_BASE_THROT) + "]  ROT [" + String.Format("{0:#0.00}", k_rot_lim) + "] \n" +
+                "damp:  RAD [" + String.Format("{0:#0.00}", B_DAMP_RADIAL_BASE_THROT)  + "]  ROT [" + String.Format("{0:#0.00}", b_rot_lim) + "] \n");
         }
     }
     #endregion
 
-    #region Misc functions
+    /*
+     TargetParams
 
-    private float Remap(float value, float from1, float to1, float from2, float to2)
-    {
-        return (value - from1) / (to1 - from1) * (to2 - from2) + from2;
-    }
-    #endregion
+     Index;
+     R;
+     P;
+     KR;
+     KP;
+     BR;
+     BP;
+     AlphaR;
+     AlphaP;
+     */
 }
