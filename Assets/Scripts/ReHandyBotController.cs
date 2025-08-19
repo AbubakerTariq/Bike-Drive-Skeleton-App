@@ -20,10 +20,10 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     // Application time step:
-    public const int DT_STEP_APP_MSEC = 50;
+    public const int DT_STEP_APP_MSEC = 25;
 
     // Set Target command time step (TODO: keep or discard - together with StartSetTargetEvents() ):
-    public const int DT_STEP_SET_TARG_MSEC = 50;
+    public const int DT_STEP_SET_TARG_MSEC = 25;
 
     ////////////////////////////////////////////////////////////////////////////
     // SetExercise() parameters (CRITICAL):
@@ -38,11 +38,24 @@ public class ReHandyBotController : MonoBehaviour
     private bool STABILITY_SET_TARG = true;
 
     ////////////////////////////////////////////////////////////////////////////
+    // Target indices:
+    ////////////////////////////////////////////////////////////////////////////
+
+    private byte IDX_TARG_BASE = 1;
+    private byte IDX_TARG_LIM = 2;
+
+    ////////////////////////////////////////////////////////////////////////////
     // Object instances:
     ////////////////////////////////////////////////////////////////////////////
 
     public static ReHandyBotController instance;
     private DistalComm distalRobot = new(); // Distal Control Library object
+
+    // Track:
+    Track track = Track.Instance;
+
+    // Bike:
+    MotorbikeController bike = MotorbikeController.Instance;
 
     ////////////////////////////////////////////////////////////////////////////
     // Configuration values:
@@ -51,10 +64,10 @@ public class ReHandyBotController : MonoBehaviour
     private float FORCE_GAIN_RADIAL = 9f;
     private float FORCE_GAIN_ROT = 14f;
 
-    private float K_STIFF_RADIAL_WALL = 5000f;
-    private float K_STIFF_ROT_WALL = 1.2f;
+    private float K_STIFF_RADIAL_WALL = 2500f; // use with zero feedback gain
+    private float B_DAMP_RADIAL_WALL = 40f;
 
-    private float B_DAMP_RADIAL_WALL = 30f;
+    private float K_STIFF_ROT_WALL = 1.2f; // use with zero feedback gain
     private float B_DAMP_ROT_WALL = 0.092f;
 
     private float POS_RADIAL_MIN = 0.0145f;
@@ -70,8 +83,8 @@ public class ReHandyBotController : MonoBehaviour
 
     // Throttle - BASELINE haptics settings:
     [HideInInspector] public float POS_RADIAL_BASE_THROT = 0.029f;
-    private float K_STIFF_RADIAL_BASE_THROT = 5000f; // 2500f;
-    private float B_DAMP_RADIAL_BASE_THROT = 45f; //21.0f;
+    private float K_STIFF_RADIAL_BASE_THROT = 2500f;
+    private float B_DAMP_RADIAL_BASE_THROT = 21.0f;
 
     // Steering - BASELINE haptics settings:
     [HideInInspector] public float POS_ROT_BASE_STEER = 0f;
@@ -88,13 +101,6 @@ public class ReHandyBotController : MonoBehaviour
     public float ANGLE_ROT_LIM_DEG = 45f;
 
     ////////////////////////////////////////////////////////////////////////////
-    // Target indices:
-    ////////////////////////////////////////////////////////////////////////////
-
-    private byte IDX_TARG_BASE = 1;
-    private byte IDX_TARG_LIM = 2;
-
-    ////////////////////////////////////////////////////////////////////////////
     // Loader:
     ////////////////////////////////////////////////////////////////////////////
 
@@ -106,7 +112,7 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // RHB info related variables:
     ////////////////////////////////////////////////////////////////////////////
-    
+
     private bool RHBConnected => distalRobot.is_device_connected;
     public DistalComm.ExerciseData DistalData => distalRobot.DistalData;
     public bool ExerciseActive => isExerciseStarted;
@@ -122,24 +128,29 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Constants:
     ////////////////////////////////////////////////////////////////////////////
-    
+
     private const int MaxAttempts = 10;
     private const string ServerIP = "192.168.102.1";
     private const int ServerPort = 3002;
 
     ////////////////////////////////////////////////////////////////////////////
-    // Misc:
+    // Misc. variables:
     ////////////////////////////////////////////////////////////////////////////
-    
+
     private Queue<Action> MainThreadActionQueue = new();
+
     private Coroutine motionRoutineRadial;
     private Coroutine motionRoutineRotational;
+
     private bool isMoving = false;
     private bool isRotating = false;
-    private float minPinch;  
+
+    private float minPinch;
     // private float maxPinch;
+
     private Thread connectionThread;
     private Tween connectionTween;
+
     private bool isCalibrated = false;
     private bool allowCalibration = false;
 
@@ -159,7 +170,7 @@ public class ReHandyBotController : MonoBehaviour
 
     private float timeElapsedValue = 0f;
 
-    [HideInInspector] public int step_count = 0;
+    public int step_count = 0;
 
     ////////////////////////////////////////////////////////////////////////////
     // Thread and timer dor SetTarget process:
@@ -173,7 +184,7 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     private int DT_DISP_DATA_MSEC = 1000;
-    // private bool DISP_TIMER_ACTIVITY_ON = true;
+    private bool DISP_TIMER_ACTIVITY_ON = true;
 
     ////////////////////////////////////////////////////////////////////////////
     // Methods section:
@@ -195,16 +206,16 @@ public class ReHandyBotController : MonoBehaviour
 
         // Set log level so that the logs are stored in Nlog file
         distalRobot.SetLogLevel(DistalComm.DistalLogLevel.Info);
-}
+    }
 
-private void Start()
+    private void Start()
     {
         // Reset Ethernet port to prevent those frequent connection delays:
         System.Diagnostics.Process.Start("ethernet_reset.bat");
 
         // Start is only called once as this is a singleton object so we will only connect once at the beginning
-        ConnectRHB();    
-        
+        ConnectRHB();
+
         // Setup Set Target events process (TODO: keep or discard):
         // SetupSetTargetEvents();
     }
@@ -230,7 +241,7 @@ private void Start()
         ////////////////////////////////////////////////////////////////////////////
         // Thread sleep & time elapsed computation:
         ////////////////////////////////////////////////////////////////////////////    
-        
+
         // Conditional thread sleep:
         timerLocked = true;
 
@@ -258,9 +269,27 @@ private void Start()
         ////////////////////////////////////////////////////////////////////////////
         // Command steer angle limits:
         ////////////////////////////////////////////////////////////////////////////
-        
+
         CmdSetTargetSteerLimit();
 
+        ////////////////////////////////////////////////////////////////////////////
+        // Extract data from bike and track objects:
+        ////////////////////////////////////////////////////////////////////////////
+
+        Vector3 pos_bike = new Vector3(1.0f, 2.0f, 3.0f); ; // = bike.GetBikePosition();
+        // Vector3 vect_dir_bike = bike.GetBikeDirectionVector();
+        // Vector3 dt_pos_bike = bike.GetBikeVelocityVector();
+
+        /*
+        track.GetClosestPointOnCenterLine(pos_bike);
+        track.GetCurvatureAtPosition(pos_bike); 
+        track.GetTangentAtPosition(pos_bike); 
+        track.GetTangentAngleAtPosition(pos_bike); 
+        track.GetDistanceAtPosition(pos_bike);  
+        
+        track.GetTrackLength();
+        */
+    
         ////////////////////////////////////////////////////////////////////////////
         // Display section:
         ////////////////////////////////////////////////////////////////////////////
@@ -268,10 +297,9 @@ private void Start()
         // Time elapsed display:
         string timeElapsedText = String.Format("{0:#00}", timeElapsed.Minutes) + ":" + String.Format("{0:#00}", timeElapsed.Seconds);
 
-        /*
-        if ((step_count % DT_DISP_DATA_MSEC / DT_STEP_APP_MSEC) == 0 && DISP_TIMER_ACTIVITY_ON)
-            ExternalConsoleLogger.Log("Update(" + step_count + "): time elapsed [" + timeElapsedText + "]\n");
-        */
+        if (step_count % (DT_DISP_DATA_MSEC / DT_STEP_APP_MSEC) == 0 && DISP_TIMER_ACTIVITY_ON)
+            ExternalConsoleLogger.Log("Update(" + step_count + "): t [" + timeElapsedText + "]  " +
+                "pos_bike [" + pos_bike + "] \n");
 
         ////////////////////////////////////////////////////////////////////////////
         // Update step counter:
@@ -282,9 +310,9 @@ private void Start()
         ////////////////////////////////////////////////////////////////////////////
         // Using an action queue to perform Unity related tasks (i.e UI changes) which are not allowed to be done from a background thread
         ////////////////////////////////////////////////////////////////////////////
-    
-        // while (MainThreadActionQueue.Count > 0)
-        //    MainThreadActionQueue.Dequeue().Invoke();
+
+        while (MainThreadActionQueue.Count > 0)
+            MainThreadActionQueue.Dequeue().Invoke();
     }
 
     private void OnApplicationQuit()
@@ -298,7 +326,7 @@ private void Start()
 
         if (distalRobot == null || !RHBConnected)
             return;
-        
+
         if (isExerciseStarted) distalRobot.StopExercise();
         if (isSystemStarted) distalRobot.StopSystem();
         if (RHBConnected) distalRobot.CloseConnection();
@@ -328,7 +356,7 @@ private void Start()
             MainThreadActionQueue.Enqueue(() =>
             {
                 connectionTween.Kill();
-                
+
                 if (success)
                 {
                     loader.SetActive(false);
@@ -349,7 +377,7 @@ private void Start()
         {
             StartSystem(OnConnect);
             return;
-        } 
+        }
         ConnectRHB();
     }
 
@@ -457,16 +485,10 @@ private void Start()
             StopExercise();
         else
         {
-            // StartExercise(true, true);
-            
+            // TODO: find out why calling StartExercise() a second time fails:
             StartExercise(true, true, () =>
-            {               
-                // Set up baseline haptics: 
-                SetTargetValidated(IDX_TARG_BASE,
-                    POS_RADIAL_BASE_THROT, POS_ROT_BASE_STEER,
-                    K_STIFF_RADIAL_BASE_THROT, K_STIFF_ROT_BASE_STEER,
-                    B_DAMP_RADIAL_BASE_THROT, B_DAMP_ROT_BASE_STEER,
-                    1.0f, 1.0f);
+            {
+                MotionRoutineRadialRHBBaseline();
             });
         }
     }
@@ -480,11 +502,11 @@ private void Start()
         {
             SetBrakes(unlockRadial, unlockRotational);
 
-            success_set_targ_empty = HL_SetTargetEmpty(); // was SetTargetValidatedEmpty();
+            success_set_targ_empty = HL_SetTargetEmpty();
 
             onComplete?.Invoke();
-            
-            if (isCalibrated) 
+
+            if (isCalibrated)
                 OnExerciseStart?.Invoke();
 
             return;
@@ -493,9 +515,9 @@ private void Start()
         for (int i = 0; i < MaxAttempts; i++)
         {
             distalRobot.HL_StartExercise(
-                NUM_TARGETS, unlockRadial, unlockRotational, 
-                OFFS_FORCE_RADIAL_INIT, OFFS_TORQUE_ROT_INIT,                
-                out bool startExerciseResponse, out bool setGainResponse, 
+                NUM_TARGETS, unlockRadial, unlockRotational,
+                OFFS_FORCE_RADIAL_INIT, OFFS_TORQUE_ROT_INIT,
+                out bool startExerciseResponse, out bool setGainResponse,
                 FORCE_GAIN_RADIAL, FORCE_GAIN_ROT, STABILITY_SET_TARG);
 
             if (!startExerciseResponse)
@@ -535,13 +557,13 @@ private void Start()
             ExternalConsoleLogger.Log(" ");
             ExternalConsoleLogger.Log("____________________________________________________________________");
             ExternalConsoleLogger.Log("StartExercise(): timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
- 
+
             if (isCalibrated)
                 OnExerciseStart?.Invoke();
-            
+
             onComplete?.Invoke();
 
-            if (setGainResponse) 
+            if (setGainResponse)
                 break;
 
             SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
@@ -593,10 +615,23 @@ private void Start()
         }
 
         SetBrakes(true, true);
-        
-        motionRoutineRotational = StartCoroutine(motionRoutineRotationalRHB(0f, ()=>
+
+        // Move RHB end effector to 'home' position (with minimum radial position);
+        MotionRoutineRHBSimple(POS_RADIAL_MIN);
+
+        isExerciseStarted = false;
+        isExerciseStopping = false;
+        SetBrakes(false, false);
+        OnExerciseStop?.Invoke();
+        onComplete?.Invoke();
+        loader.SetActive(false);
+        Time.timeScale = 1f;
+        DOTween.PlayAll();
+
+        /*
+        motionRoutineRotational = StartCoroutine(MotionRoutineRotationalRHB(0f, () =>
         {
-            motionRoutineRadial = StartCoroutine(motionRoutineRadialRHB(POS_RADIAL_MIN, () =>
+            motionRoutineRadial = StartCoroutine(MotionRoutineRadialRHB(POS_RADIAL_MIN, () =>
             {
                 for (int i = 0; i < MaxAttempts; i++)
                 {
@@ -607,7 +642,7 @@ private void Start()
                         continue;
                 }
 
-                HL_SetTargetEmpty();
+                // HL_SetTargetEmpty();
 
                 isExerciseStarted = false;
                 isExerciseStopping = false;
@@ -619,6 +654,7 @@ private void Start()
                 DOTween.PlayAll();
             }));
         }));
+        */
     }
 
     /// <summary>
@@ -642,10 +678,10 @@ private void Start()
         onComplete?.Invoke();
     }
 
-    private bool SetTargetValidated(byte targetIndex, 
-        float radialValue, float rotationValue, 
-        float radialStiffness, float rotationStiffness, 
-        float radialDamping, float rotationDamping, 
+    private bool SetTargetValidated(byte targetIndex,
+        float radialValue, float rotationValue,
+        float radialStiffness, float rotationStiffness,
+        float radialDamping, float rotationDamping,
         float radialGain, float rotationGain, UnityAction onComplete = null)
     {
         const bool CHECK_EXERCISE_STATE = false;
@@ -660,10 +696,10 @@ private void Start()
         for (int i = 0; i < MaxAttempts; i++)
         {
             success = distalRobot.HL_SetTarget(
-                targetIndex, 
-                radialValue, rotationValue, 
-                radialStiffness, rotationStiffness, 
-                radialDamping, rotationDamping, 
+                targetIndex,
+                radialValue, rotationValue,
+                radialStiffness, rotationStiffness,
+                radialDamping, rotationDamping,
                 radialGain, rotationGain);
 
             if (success)
@@ -675,60 +711,35 @@ private void Start()
 
         return success;
     }
-    
-    /*
-    private bool SetTargetValidatedEmpty(UnityAction onComplete = null)
-    {
-        return SetTargetValidated(IDX_TARG_STEER, POS_RADIAL_MIN, 0f, 0f, 0f, 0f, 0f, 0f, 0f, onComplete);
-    }
-    */
 
     private bool HL_SetTargetEmpty(UnityAction onComplete = null)
     {
-        return distalRobot.HL_SetTarget(IDX_TARG_BASE, POS_RADIAL_MIN, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
+        return distalRobot.HL_SetTarget(
+            IDX_TARG_BASE,
+            POS_RADIAL_MIN, 0f,
+            0f, 0f,
+            0f, 0f,
+            0f, 0f);
     }
 
     private void SetGain(float radialGain, float angularGain)
     {
         for (int i = 0; i < MaxAttempts; i++)
-        {
-            if (distalRobot.SetGain(radialGain, angularGain)) break;
-        }
+            if (distalRobot.SetGain(radialGain, angularGain)) 
+                break;
     }
 
     public void SetOffsetForces(float radialOffsetForce, float angularOffsetForce)
     {
         for (int i = 0; i < MaxAttempts; i++)
-        {
-            if (distalRobot.SetOffsetForces(radialOffsetForce, angularOffsetForce)) break;
-        }
+            if (distalRobot.SetOffsetForces(radialOffsetForce, angularOffsetForce)) 
+                break;
     }
 
-    private void MoveDistal(float target, UnityAction onComplete = null)
-    {
-        if (!isExerciseStarted || isExerciseStopping) return;
-
-        target = Mathf.Clamp(target, POS_RADIAL_MIN, POS_RADIAL_MAX);
-
-        if (isMoving)
-        {
-            isMoving = false;
-            StopCoroutine(motionRoutineRadial);
-        }
-
-        motionRoutineRadial = StartCoroutine(motionRoutineRadialRHB(target, onComplete));
-    }
-
-    private IEnumerator motionRoutineRadialRHB(float target, UnityAction onComplete)
+    private IEnumerator MotionRoutineRadialRHB(float target, UnityAction onComplete)
     {
         isMoving = true;
         SetGain(0f, 0f);
-
-        float Kr = K_STIFF_RADIAL_WALL;
-        float Kp = K_STIFF_ROT_WALL;
-        float Br = B_DAMP_RADIAL_WALL;
-        float Bp = B_DAMP_ROT_WALL;
-        float dt_interval_msec = DataManager.DT_STEP_DATA_FBK_MSEC;
 
         System.Diagnostics.Stopwatch stopwatch = new();
         stopwatch.Start();
@@ -740,11 +751,11 @@ private void Start()
         float prev_time_ms = current_time_ms;
         float speed_factor = 1f;
 
-        while (((init_position < target) && (current_target < target)) || ((init_position >= target) && (current_target > target)))
+        while ((init_position < target && current_target < target) || (init_position >= target && current_target > target))
         {
             current_time_ms = (float)stopwatch.Elapsed.TotalMilliseconds;
 
-            if ((current_time_ms - prev_time_ms) >= dt_interval_msec)
+            if ((current_time_ms - prev_time_ms) >= DT_STEP_APP_MSEC)
             {
                 if (prev_time_ms == 0)
                 {
@@ -762,47 +773,36 @@ private void Start()
                 // Set Updated Target:
                 current_target = Mathf.Clamp(current_target, POS_RADIAL_MIN, POS_RADIAL_MAX);
 
-                distalRobot.HL_SetTarget(IDX_TARG_BASE, current_target, 0, Kr, Kp, Br, Bp, 1, 1);
-
-                // Removed SetTargetValidated() routine (15.08.2025):
-                /*
-                if (isExerciseStopping)
-                {
-                    distalRobot.HL_SetTarget(IDX_TARG_STEER, current_target, 0, Kr, Kp, Br, Bp, 1, 1);
-                }
-                else
-                {
-                    SetTargetValidated(IDX_TARG_STEER, current_target, 0, Kr, Kp, Br, Bp, 1, 1);
-                }
-                */
+                distalRobot.HL_SetTarget(
+                    IDX_TARG_BASE, 
+                    current_target, 0f, 
+                    K_STIFF_RADIAL_WALL, K_STIFF_ROT_WALL, 
+                    B_DAMP_RADIAL_WALL, B_DAMP_ROT_WALL, 
+                    1f, 1f);
 
                 prev_time_ms = current_time_ms;
             }
             yield return null;
-        }
+        } // end while
 
         if (!isExerciseStopping)
-        {
-            // SetTargetValidated(IDX_TARG_STEER, target, 0, Kr, 0, Br, 0, 1, 1);
-            distalRobot.HL_SetTarget(IDX_TARG_BASE, target, 0, Kr, 0, Br, 0, 1, 1);
-        }
+            distalRobot.HL_SetTarget(
+                IDX_TARG_BASE, 
+                target, 0f, 
+                K_STIFF_RADIAL_WALL, 0f, 
+                B_DAMP_RADIAL_WALL, 0f, 
+                1f, 1f);
 
         stopwatch.Stop();
-        SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
+        // SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
         isMoving = false;
         onComplete?.Invoke();
     }
 
-    private IEnumerator motionRoutineRotationalRHB(float target, UnityAction onComplete)
+    private IEnumerator MotionRoutineRotationalRHB(float target, UnityAction onComplete)
     {
         isRotating = true;
         SetGain(0f, 0f);
-
-        float Kr = K_STIFF_RADIAL_WALL;
-        float Kp = K_STIFF_ROT_WALL;
-        float Br = B_DAMP_RADIAL_WALL;
-        float Bp = B_DAMP_ROT_WALL;
-        float loop_interval_ms = DataManager.DT_STEP_DATA_FBK_MSEC;
 
         System.Diagnostics.Stopwatch stopwatch = new();
         stopwatch.Start();
@@ -818,7 +818,7 @@ private void Start()
         {
             current_time_ms = (float)stopwatch.Elapsed.TotalMilliseconds;
 
-            if ((current_time_ms - prev_time_ms) >= loop_interval_ms)
+            if ((current_time_ms - prev_time_ms) >= DT_STEP_APP_MSEC)
             {
                 if (prev_time_ms == 0)
                 {
@@ -836,19 +836,12 @@ private void Start()
                 // Set Updated Target
                 current_target = Mathf.Clamp(current_target, -Mathf.PI / 2f, Mathf.PI / 2f);
 
-                distalRobot.HL_SetTarget(IDX_TARG_BASE, DistalData.PositionR, current_target, Kr, Kp, Br, Bp, 1, 1);
-
-                // Removed SetTargetValidated() routine (15.08.2025):
-                /*
-                if (isExerciseStopping)
-                {
-                    distalRobot.HL_SetTarget(IDX_TARG_STEER, DistalData.PositionR, current_target, Kr, Kp, Br, Bp, 1, 1);
-                }
-                else
-                {
-                    SetTargetValidated(IDX_TARG_STEER, DistalData.PositionR, current_target, Kr, Kp, Br, Bp, 1, 1);
-                }
-                */
+                distalRobot.HL_SetTarget(
+                    IDX_TARG_BASE, 
+                    DistalData.PositionR, current_target,
+                    K_STIFF_RADIAL_WALL, K_STIFF_ROT_WALL,
+                    B_DAMP_RADIAL_WALL, B_DAMP_ROT_WALL,
+                    1, 1);
 
                 prev_time_ms = current_time_ms;
             }
@@ -857,24 +850,66 @@ private void Start()
         }
 
         if (!isExerciseStopping) 
-        {
-            // SetTargetValidated(IDX_TARG_STEER, DistalData.PositionR, target, Kr, Kp, Br, Bp, 1, 1);
-            distalRobot.HL_SetTarget(IDX_TARG_BASE, DistalData.PositionR, target, Kr, Kp, Br, Bp, 1, 1);
-        }
+            distalRobot.HL_SetTarget(
+                IDX_TARG_BASE, 
+                DistalData.PositionR, target,
+                K_STIFF_RADIAL_WALL, K_STIFF_ROT_WALL,
+                B_DAMP_RADIAL_WALL, B_DAMP_ROT_WALL,
+                1, 1);
 
         stopwatch.Stop();
-        SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
+        // SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
         isRotating = false;
         onComplete?.Invoke();
     }
-    #endregion
 
-    #region Set Target functions
-    private void SetupSetTargetEvents()
+    private void MotionRoutineRHBSimple(float pos_rad_targ)
     {
-        ReHandyBotController.instance.OnExerciseStart += StartSetTargetEvents;
-        ReHandyBotController.instance.OnExerciseStop += StopSetTargetEvents;
+        const int DT_MOTION_R_MSEC = 2000;
+        const int N_STEPS_MOTION_R = 80;
+
+        // Set up baseline haptics: 
+        float gain_var = 0f;
+
+        for (int i = 0; i <= N_STEPS_MOTION_R; i++)
+        {
+            // Note use of baseline impedance:
+            distalRobot.HL_SetTarget(
+                IDX_TARG_BASE,
+                pos_rad_targ, 0f,
+                K_STIFF_RADIAL_WALL, K_STIFF_ROT_WALL,
+                B_DAMP_RADIAL_WALL, B_DAMP_ROT_WALL,
+                gain_var, gain_var);
+
+            Thread.Sleep(DT_MOTION_R_MSEC / N_STEPS_MOTION_R);
+
+            gain_var += 1f / N_STEPS_MOTION_R;
+        }
     }
+
+    private void MotionRoutineRadialRHBBaseline()
+    {
+        const int DT_MOTION_BASE_MSEC = 1000;
+        const int N_STEPS_MOTION_BASE = 40;
+
+        float gain_var = 0f;
+
+        for (int i = 0; i <= N_STEPS_MOTION_BASE; i++)
+        {
+            // Note use of baseline impedance:
+            distalRobot.HL_SetTarget(
+                IDX_TARG_BASE,
+                POS_RADIAL_BASE_THROT, POS_ROT_BASE_STEER,
+                K_STIFF_RADIAL_BASE_THROT, K_STIFF_ROT_BASE_STEER,
+                B_DAMP_RADIAL_BASE_THROT, B_DAMP_ROT_BASE_STEER,
+                gain_var, 1f);
+
+            Thread.Sleep(DT_MOTION_BASE_MSEC / N_STEPS_MOTION_BASE);
+
+            gain_var += 1f / N_STEPS_MOTION_BASE;
+        }
+    }
+    #endregion
 
     // This is for usage for SetOffsetForces command, currently being called with dummy values
     private void SetOffsetForces()
@@ -885,6 +920,13 @@ private void Start()
     private void Destroy()
     {
         StopSetTargetEvents();
+    }
+    
+    #region Set Target functions
+    private void SetupSetTargetEvents()
+    {
+        ReHandyBotController.instance.OnExerciseStart += StartSetTargetEvents;
+        ReHandyBotController.instance.OnExerciseStop += StopSetTargetEvents;
     }
 
     private void StartSetTargetEvents()
@@ -991,9 +1033,9 @@ private void Start()
         ////////////////////////////////////////////////////////////////////////////
 
         bool DISP_SET_TARG_ON = true;
-        int DT_STEP_DISP_MSEC  = 1000;
+        int DT_DISP_MSEC  = 1000;
 
-        if (ExerciseActive && step_count % (DT_STEP_DISP_MSEC / DT_STEP_APP_MSEC) == 0 && DISP_SET_TARG_ON)
+        if (ExerciseActive && step_count % (DT_DISP_MSEC / DT_STEP_APP_MSEC) == 0 && DISP_SET_TARG_ON)
         {
             string str_timer = "[" + step_count + "]  time elapsed:[" + timeElapsedValue + "]  HL_SetTarget(): ";
 

@@ -8,8 +8,8 @@ public class MotorbikeController : MonoBehaviour
     // Real-time bike steering step (CRITICAL):
     ////////////////////////////////////////////////////////////////////////////
     
-    public const int DT_STEP_INPUT_STEER_BIKE_MSEC = 50; // sampling rate for RHB steer input commands 
-    public const int DT_STEP_CTRL_BIKE_MSEC = 50;
+    public const int DT_STEP_INPUT_STEER_BIKE_MSEC = 25; // sampling rate for RHB steer input commands 
+    // public const int DT_STEP_CTRL_BIKE_MSEC = 50; // removed 19.08.2025
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - PREDEFINED VALUES:
@@ -218,7 +218,7 @@ public class MotorbikeController : MonoBehaviour
 
     void FixedUpdate()
     {
-        int DECIM_INPUT_STEER_BIKE = DT_STEP_INPUT_STEER_BIKE_MSEC / DT_STEP_CTRL_BIKE_MSEC;
+        // int DECIM_INPUT_STEER_BIKE = DT_STEP_INPUT_STEER_BIKE_MSEC / DT_STEP_CTRL_BIKE_MSEC;
 
         int step_count = ReHandyBotController.instance.step_count;
 
@@ -284,7 +284,7 @@ public class MotorbikeController : MonoBehaviour
 
             float pos_steer = scale_steer * pos_rot;
 
-            if (ReHandyBotController.instance.ExerciseActive && step_count % DECIM_INPUT_STEER_BIKE == 0)
+            if (ReHandyBotController.instance.ExerciseActive) // removed && step_count % DECIM_INPUT_STEER_BIKE == 0 (19.08.2025)
             {
                 ////////////////////////////////////////////////////////////////////////////////
                 // METHOD 1: angle input with proportionality factor - may be clamped: 
@@ -728,28 +728,6 @@ public class MotorbikeController : MonoBehaviour
             RearMudGuard.transform.rotation = Quaternion.LookRotation(transform.position - wheelB.transform.position - RearMudGuardSusOffset, transform.forward);
     }
 
-    /*
-    private void CalcStoppie()
-    {
-        var stoppieAngle = transform.eulerAngles.x;
-        if (transform.eulerAngles.x > 180)
-            stoppieAngle = transform.eulerAngles.x - 360;
-        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.Space))
-            com.z += (vel_magn * Time.deltaTime) / 5;
-        else
-            com.z -= Time.deltaTime * 100;
-        if (com.z < 0 || stoppieAngle > 5 + vel_magn)
-        {
-            com.z = 0;
-            if (stoppieAngle > 50)
-                com.z -= stoppieAngle / 10;
-        }
-
-        else if (com.z > STOPPIE_AMOUNT)
-            com.z = STOPPIE_AMOUNT;
-    }
-    */
-
     void steerHelper()
     {
         ////////////////////////////////////////////////////////////////////////////////////
@@ -770,7 +748,7 @@ public class MotorbikeController : MonoBehaviour
         FACTOR_ANGLE_STEER = Mathf.Clamp(FACTOR_ANGLE_STEER, 
             FACTOR_ANGLE_STEER_MIN, FACTOR_ANGLE_STEER_MAX);
 
-        // Removed 07.08.2025: function is unclear; seems to reduce maneuverability
+        // Removed 07.08.2025: purpose is unclear; it seems to reduce maneuverability
         /*
         if (Input.anyKey)
             FACTOR_ANGLE_STEER -= 1f;
