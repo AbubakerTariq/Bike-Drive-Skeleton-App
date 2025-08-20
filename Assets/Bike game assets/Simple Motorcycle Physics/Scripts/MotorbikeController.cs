@@ -50,8 +50,6 @@ public class MotorbikeController : MonoBehaviour
     // Steering - input settings:
     private float INPUT_STEER_REF_DEG = 25.0f; //  15.0f; // 30.0f; // reference angle for steering response (the lower the angle the larger the response)
 
-
-
     // Steering - scaling RHB input:
     private float SCALE_STEER_MIN = 1.0f;  
     private float SCALE_STEER_MAX = 2.0f; // make this > 1 to reduce the actual range of RHB rotation  

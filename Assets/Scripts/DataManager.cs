@@ -93,18 +93,6 @@ public class DataManager : MonoBehaviour
         string dataFileName = DATA_FILENAME_DEF + DateTimeStamp() + FILE_EXT;
         dataFilePath = DATA_FILE_DIR + dataFileName;
 
-        /*
-        pos_bike
-        vect_dir_bike
-        dt_pos_bike
-
-        pos_ctrline_near
-        vect_ctrline_tang
-        curv_ctrline_near
-        ang_ctrline_tang
-        dist_ctrline_near
-        */
-
         // The headings to be set up in the data file
         // Removed "Date Time" (13.08.2025)
         string[] headers = new[] { 
@@ -144,8 +132,6 @@ public class DataManager : MonoBehaviour
             ExternalConsoleLogger.Log("SetupDataFile(): created file [" + dataFileName + "]\n");
         }
     }
-
-
 
     private void SaveDataEntry(DistalComm.ExerciseData distal_data, BikeData bike_data, TrackData track_data)
     {
