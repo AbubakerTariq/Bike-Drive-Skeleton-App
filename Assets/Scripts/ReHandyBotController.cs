@@ -6,12 +6,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
+using System.Timers;
 //using System.Runtime.Remoting.Messaging;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.SceneManagement;
-using System.Timers;
 
 public class ReHandyBotController : MonoBehaviour
 {
@@ -51,11 +51,11 @@ public class ReHandyBotController : MonoBehaviour
     public static ReHandyBotController instance;
     private DistalComm distalRobot = new(); // Distal Control Library object
 
-    // Track:
-    Track track = Track.Instance;
+    // Track object:
+    Track track;
 
-    // Bike:
-    MotorbikeController bike = MotorbikeController.Instance;
+    // Bike object:
+    MotorbikeController bike;
 
     ////////////////////////////////////////////////////////////////////////////
     // Configuration values:
@@ -99,6 +99,27 @@ public class ReHandyBotController : MonoBehaviour
     private float B_DAMP_ROT_LIMIT = 0f; // is the minimum stability value enough?
 
     public float ANGLE_ROT_LIM_DEG = 45f;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Data structures from bike and track objects:
+    ////////////////////////////////////////////////////////////////////////////
+
+    static Vector3 NULL_VECTOR3 = new Vector3(0f, 0f, 0f);
+    const float NULL_VALUE = 0f;
+ 
+    Vector3 pos_bike = NULL_VECTOR3;
+    Vector3 vect_dir_bike = NULL_VECTOR3;
+    Vector3 dt_pos_bike = NULL_VECTOR3;
+ 
+    Vector3 pos_ctrline_near = NULL_VECTOR3;
+    Vector3 vect_ctrline_tang = NULL_VECTOR3;
+    float curv_ctrline_near = NULL_VALUE;
+    float ang_ctrline_tang = NULL_VALUE;
+    float dist_ctrline_near = NULL_VALUE; 
+
+    // public struct BikeData
+   
+    // public struct TrackData;
 
     ////////////////////////////////////////////////////////////////////////////
     // Loader:
@@ -183,7 +204,7 @@ public class ReHandyBotController : MonoBehaviour
     // Data display:
     ////////////////////////////////////////////////////////////////////////////
 
-    private int DT_DISP_DATA_MSEC = 1000;
+    private int DT_DISP_DATA_MSEC = 2000;
     private bool DISP_TIMER_ACTIVITY_ON = true;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -219,6 +240,27 @@ public class ReHandyBotController : MonoBehaviour
         // Setup Set Target events process (TODO: keep or discard):
         // SetupSetTargetEvents();
     }
+
+    private void OnApplicationQuit()
+    {
+        // Stop Set target events:
+        StopSetTargetEvents();
+
+        // Stop all RHB related processes when the application is closed
+        connectionThread?.Abort();
+        connectionTween?.Kill();
+
+        if (distalRobot == null || !RHBConnected)
+            return;
+
+        if (isExerciseStarted) distalRobot.StopExercise();
+        if (isSystemStarted) distalRobot.StopSystem();
+        if (RHBConnected) distalRobot.CloseConnection();
+
+        distalRobot = null;
+        instance = null;
+    }
+    #endregion
 
     private void Update()
     {
@@ -264,7 +306,7 @@ public class ReHandyBotController : MonoBehaviour
         timerActivePrev = timerActive;
 
         // Time elapsed computation:
-        TimeSpan timeElapsed = TimeSpan.FromSeconds(timeElapsedValue);
+        TimeSpan timeElapsedSpan = TimeSpan.FromSeconds(timeElapsedValue);
 
         ////////////////////////////////////////////////////////////////////////////
         // Command steer angle limits:
@@ -276,30 +318,47 @@ public class ReHandyBotController : MonoBehaviour
         // Extract data from bike and track objects:
         ////////////////////////////////////////////////////////////////////////////
 
-        Vector3 pos_bike = new Vector3(1.0f, 2.0f, 3.0f); ; // = bike.GetBikePosition();
-        // Vector3 vect_dir_bike = bike.GetBikeDirectionVector();
-        // Vector3 dt_pos_bike = bike.GetBikeVelocityVector();
+        if (ExerciseActive && MotorbikeController.Instance != null && Track.Instance != null)
+        {
+            bike = MotorbikeController.Instance;
 
-        /*
-        track.GetClosestPointOnCenterLine(pos_bike);
-        track.GetCurvatureAtPosition(pos_bike); 
-        track.GetTangentAtPosition(pos_bike); 
-        track.GetTangentAngleAtPosition(pos_bike); 
-        track.GetDistanceAtPosition(pos_bike);  
-        
-        track.GetTrackLength();
-        */
+            pos_bike = bike.GetBikePosition();
+            vect_dir_bike = bike.GetBikeDirectionVector();
+            dt_pos_bike = bike.GetBikeVelocityVector();
+
+            track = Track.Instance;
+
+            pos_ctrline_near = track.GetClosestPointOnCenterLine(pos_bike);
+            vect_ctrline_tang = track.GetTangentAtPosition(pos_bike);
+
+            curv_ctrline_near = track.GetCurvatureAtPosition(pos_bike);
+            ang_ctrline_tang = (float)Math.PI / 180f * track.GetTangentAngleAtPosition(pos_bike);
+            dist_ctrline_near = track.GetDistanceAtPosition(pos_bike);  
+
+            // track.GetTrackLength();
+        }
     
         ////////////////////////////////////////////////////////////////////////////
         // Display section:
         ////////////////////////////////////////////////////////////////////////////
 
         // Time elapsed display:
-        string timeElapsedText = String.Format("{0:#00}", timeElapsed.Minutes) + ":" + String.Format("{0:#00}", timeElapsed.Seconds);
+        string timeElapsedText = String.Format("{0:#00}", timeElapsedSpan.Minutes) + ":" + String.Format("{0:#00}", timeElapsedSpan.Seconds);
 
         if (step_count % (DT_DISP_DATA_MSEC / DT_STEP_APP_MSEC) == 0 && DISP_TIMER_ACTIVITY_ON)
-            ExternalConsoleLogger.Log("Update(" + step_count + "): t [" + timeElapsedText + "]  " +
-                "pos_bike [" + pos_bike + "] \n");
+        {
+            ExternalConsoleLogger.Log("Update(" + step_count + ") t [" + String.Format("{0:#0.000}", timeElapsedValue) + "]:");
+            ExternalConsoleLogger.Log("   pos bike " + pos_bike      );
+            ExternalConsoleLogger.Log("   dir bike " + vect_dir_bike );
+            ExternalConsoleLogger.Log("   vel bike " + dt_pos_bike   );
+            ExternalConsoleLogger.Log(" ");
+            ExternalConsoleLogger.Log("   pos near  " + pos_ctrline_near  );
+            ExternalConsoleLogger.Log("   vect tang " + vect_ctrline_tang );
+            ExternalConsoleLogger.Log("   curvature [" + String.Format("{0:#0.000}", curv_ctrline_near) + "]");
+            ExternalConsoleLogger.Log("   ang tang  [" + String.Format("{0:#0.00}", ang_ctrline_tang)   + "]");
+            ExternalConsoleLogger.Log("   d ctrline [" + String.Format("{0:#0.00}", dist_ctrline_near)   + "]");
+            ExternalConsoleLogger.Log(" ");
+        }
 
         ////////////////////////////////////////////////////////////////////////////
         // Update step counter:
@@ -315,24 +374,102 @@ public class ReHandyBotController : MonoBehaviour
             MainThreadActionQueue.Dequeue().Invoke();
     }
 
-    private void OnApplicationQuit()
+    #region Exercise tasks
+    private void CmdSetTargetSteerLimit()
     {
-        // Stop Set target events:
-        StopSetTargetEvents();
+        ////////////////////////////////////////////////////////////////////////////
+        // RHB coordinates:
+        //////////////////////////////////////////////////////////////////////////// 
 
-        // Stop all RHB related processes when the application is closed
-        connectionThread?.Abort();
-        connectionTween?.Kill();
+        float pos_radial = ReHandyBotController.instance.DistalData.PositionR;
+        float pos_phi = ReHandyBotController.instance.DistalData.PositionP;
 
-        if (distalRobot == null || !RHBConnected)
-            return;
+        ////////////////////////////////////////////////////////////////////////////
+        // Impedance parameters for rotation angle limit:
+        ////////////////////////////////////////////////////////////////////////////
 
-        if (isExerciseStarted) distalRobot.StopExercise();
-        if (isSystemStarted) distalRobot.StopSystem();
-        if (RHBConnected) distalRobot.CloseConnection();
+        // RADIAL parameters:
+        /*
+        float pos_radial_lim = POS_RADIAL_MIN;
+        float k_stiff_radial_lim = 0f;
+        float b_damp_radial_lim = 0f;
+        */
 
-        distalRobot = null;
-        instance = null;
+        float gain_radial = 1.0f;
+
+        // ROTATIONAL parameters:
+        float ANGLE_ROT_LIM = ANGLE_ROT_LIM_DEG * (float)Math.PI / 180f;
+
+        float pos_rot_lim;
+        float k_rot_lim;
+        float b_rot_lim;
+
+        float gain_rot = 1.0f;
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Compute impedance parameters:
+        ////////////////////////////////////////////////////////////////////////////
+
+        // If rotation limit exceeded, apply nonzero values to rotational siffness and damping:
+        if ((pos_phi - ANGLE_ROT_LIM > 0f) || (pos_phi + ANGLE_ROT_LIM < 0f))
+        {
+            k_rot_lim = K_STIFF_ROT_LIMIT;
+            b_rot_lim = B_DAMP_ROT_LIMIT;
+        }
+        else
+        {
+            k_rot_lim = 0f;
+            b_rot_lim = 0f;
+        }
+
+        if (pos_phi - ANGLE_ROT_LIM > 0f)
+            pos_rot_lim = ANGLE_ROT_LIM;
+        else if (pos_phi + ANGLE_ROT_LIM < 0f)
+            pos_rot_lim = -ANGLE_ROT_LIM;
+        else
+            pos_rot_lim = 0f;
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Send limit force commands to RHB firmware:
+        ////////////////////////////////////////////////////////////////////////////
+
+        bool success_set_target;
+
+        if (ExerciseActive)
+        {
+            // success_set_target = HL_SetTargetEmpty();
+
+            success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
+                POS_RADIAL_BASE_THROT, pos_rot_lim,
+                K_STIFF_RADIAL_BASE_THROT, k_rot_lim,
+                B_DAMP_RADIAL_BASE_THROT, b_rot_lim,
+                gain_radial, gain_rot);
+        }
+        else
+            success_set_target = false;
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Display section: 
+        ////////////////////////////////////////////////////////////////////////////
+
+        bool DISP_SET_TARG_ON = true;
+
+        if (ExerciseActive && step_count % (DT_DISP_DATA_MSEC / DT_STEP_APP_MSEC) == 0 && DISP_SET_TARG_ON)
+        {
+            string str_timer = "[" + step_count + "]  t [" + String.Format("{0:#0.000}", timeElapsedValue) + "]  HL_SetTarget(): ";
+
+            ExternalConsoleLogger.Log("____________________________________________________________________");
+            if (success_set_target)
+                ExternalConsoleLogger.Log(str_timer + "success");
+            else
+                ExternalConsoleLogger.Log(str_timer + "FAIL");
+
+            ExternalConsoleLogger.Log(
+                "pos:   RAD [" + String.Format("{0:#0.000}", pos_radial) + "]  ROT [" + String.Format("{0:#0.00}", pos_phi) +
+                    "] (limit [" + String.Format("{0:#0.00}", ANGLE_ROT_LIM) + "]) \n" +
+                "stiff: RAD [" + String.Format("{0:#0.0}", K_STIFF_RADIAL_BASE_THROT) + "]  ROT [" + String.Format("{0:#0.000}", k_rot_lim) + "] \n" +
+                "damp:  RAD [" + String.Format("{0:#0.0}", B_DAMP_RADIAL_BASE_THROT) + "]  ROT [" + String.Format("{0:#0.000}", b_rot_lim) + "] \n");
+        }
     }
     #endregion
 
@@ -936,7 +1073,7 @@ public class ReHandyBotController : MonoBehaviour
         threadTimerSetTarget = new Thread(() =>
         {
             timerSetTarget = new System.Timers.Timer(DT_STEP_SET_TARG_MSEC);
-            timerSetTarget.Elapsed += SendCmdSetTarget;
+            timerSetTarget.Elapsed += SendCmdSetTargetSteerLimit;
             timerSetTarget.AutoReset = true;
             timerSetTarget.Start();
         });
@@ -950,120 +1087,11 @@ public class ReHandyBotController : MonoBehaviour
         timerSetTarget?.Dispose();
     }
 
-    private void SendCmdSetTarget(object sender, ElapsedEventArgs e)
+    private void SendCmdSetTargetSteerLimit(object sender, ElapsedEventArgs e)
     {
         CmdSetTargetSteerLimit();
     }
 
-    private void CmdSetTargetSteerLimit()
-    {
-        ////////////////////////////////////////////////////////////////////////////
-        // RHB coordinates:
-        //////////////////////////////////////////////////////////////////////////// 
-
-        float pos_radial = ReHandyBotController.instance.DistalData.PositionR;
-        float pos_phi = ReHandyBotController.instance.DistalData.PositionP;
-
-        ////////////////////////////////////////////////////////////////////////////
-        // Impedance parameters for rotation angle limit:
-        ////////////////////////////////////////////////////////////////////////////
-        
-        // RADIAL parameters:
-        /*
-        float pos_radial_lim = POS_RADIAL_MIN;
-        float k_stiff_radial_lim = 0f;
-        float b_damp_radial_lim = 0f;
-        */
-
-        float gain_radial = 1.0f;
-
-        // ROTATIONAL parameters:
-        float angle_rot_lim = ANGLE_ROT_LIM_DEG * (float)Math.PI / 180f;
-
-        float pos_rot_lim;
-        float k_rot_lim;
-        float b_rot_lim;
-
-        float gain_rot = 1.0f;
-
-        ////////////////////////////////////////////////////////////////////////////
-        // Compute impedance parameters:
-        ////////////////////////////////////////////////////////////////////////////
-
-        // If rotation limit exceeded, apply nonzero values to rotational siffness and damping:
-        if ((pos_phi - angle_rot_lim > 0f) || (pos_phi + angle_rot_lim < 0f))
-        {
-            k_rot_lim = K_STIFF_ROT_LIMIT;
-            b_rot_lim = B_DAMP_ROT_LIMIT;
-        }
-        else
-        {
-            k_rot_lim = 0f;
-            b_rot_lim = 0f;
-        }
-
-        if (pos_phi - angle_rot_lim > 0f)
-            pos_rot_lim = angle_rot_lim;
-        else if (pos_phi + angle_rot_lim < 0f)
-            pos_rot_lim = -angle_rot_lim;
-        else
-            pos_rot_lim = 0f;
-
-        ////////////////////////////////////////////////////////////////////////////
-        // Send limit force commands to RHB firmware:
-        ////////////////////////////////////////////////////////////////////////////
-
-        bool success_set_target;
-
-        if (ExerciseActive)
-        {
-            // success_set_target = HL_SetTargetEmpty();
-
-            success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
-                POS_RADIAL_BASE_THROT, pos_rot_lim,
-                K_STIFF_RADIAL_BASE_THROT, k_rot_lim,
-                B_DAMP_RADIAL_BASE_THROT, b_rot_lim,
-                gain_radial, gain_rot);  
-        }
-        else
-            success_set_target = false;
-
-        ////////////////////////////////////////////////////////////////////////////
-        // Display section: 
-        ////////////////////////////////////////////////////////////////////////////
-
-        bool DISP_SET_TARG_ON = true;
-        int DT_DISP_MSEC  = 1000;
-
-        if (ExerciseActive && step_count % (DT_DISP_MSEC / DT_STEP_APP_MSEC) == 0 && DISP_SET_TARG_ON)
-        {
-            string str_timer = "[" + step_count + "]  time elapsed:[" + timeElapsedValue + "]  HL_SetTarget(): ";
-
-            if (success_set_target)
-                ExternalConsoleLogger.Log(str_timer + "success");
-            else
-                ExternalConsoleLogger.Log(str_timer + "FAIL");
-
-            ExternalConsoleLogger.Log(
-                "pos:   RAD [" + String.Format("{0:#0.0000}", pos_radial) +              "]  ROT [" + String.Format("{0:#0.00}", pos_phi)   + 
-                    "] (limit [" + String.Format("{0:#0.00}", pos_rot_lim) + "]) \n" +
-                "stiff: RAD [" + String.Format("{0:#0.00}", K_STIFF_RADIAL_BASE_THROT) + "]  ROT [" + String.Format("{0:#0.00}", k_rot_lim) + "] \n" +
-                "damp:  RAD [" + String.Format("{0:#0.00}", B_DAMP_RADIAL_BASE_THROT)  + "]  ROT [" + String.Format("{0:#0.00}", b_rot_lim) + "] \n");
-        }
-    }
+   
     #endregion
-
-    /*
-     TargetParams
-
-     Index;
-     R;
-     P;
-     KR;
-     KP;
-     BR;
-     BP;
-     AlphaR;
-     AlphaP;
-     */
 }

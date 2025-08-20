@@ -74,10 +74,36 @@ public class DataManager : MonoBehaviour
         string dataFileName = DATA_FILENAME_DEF + DateTimeStamp() + FILE_EXT;
         dataFilePath = DATA_FILE_DIR + dataFileName;
 
+        /*
+        pos_bike
+        vect_dir_bike
+        dt_pos_bike
+
+        pos_ctrline_near
+        vect_ctrline_tang
+        curv_ctrline_near
+        ang_ctrline_tang
+        dist_ctrline_near
+        */
+
         // The headings to be set up in the data file
         // Removed "Date Time" (13.08.2025)
-        string[] headers = new[] { "t sec", "dt sec", "pos radial", "vel radial", "pos rot", "vel rot", 
-            "pos x", "pos z", "angle dir", "vel magn", "angle tilt" };
+        string[] headers = new[] { 
+            "t sec", 
+            "dt sec", 
+            "pos radial", 
+            "vel radial", 
+            "pos rot", 
+            "vel rot", 
+            "pos x", 
+            "pos z", 
+            "angle dir", 
+            "vel magn", 
+            "angle tilt",
+            "curv ctrline near",
+            "ang ctrline tang",
+            "dist ctrline near"
+        };
 
         if (!File.Exists(dataFilePath))
         {
@@ -139,8 +165,7 @@ public class DataManager : MonoBehaviour
         // Modified counter (13.08.2025):
         if (data_count % DECIM_DATA_LOG == 0)
         {
-            DistalComm.ExerciseData DistalData = ReHandyBotController.instance.DistalData;
-            SaveDataEntry(DistalData, 0f, 0f, 0f, 0f, 0f);
+            SaveDataEntry(ReHandyBotController.instance.DistalData, 0f, 0f, 0f, 0f, 0f);
         }
 
         data_count++;
@@ -181,8 +206,7 @@ public class DataManager : MonoBehaviour
 
         try
         {
-            // "t sec", "dt sec", "pos radial", "vel radial", "pos rot", "vel rot", "pos x", "pos z", "angle dir", "vel magn", "angle tilt" };
-            string output = 
+            string output =
                 t_step_str + "," +
                 dt_step_str + "," +
                 $"{DistalData.PositionR}," +
@@ -194,6 +218,10 @@ public class DataManager : MonoBehaviour
                 $"{directionAngle}," +
                 $"{speed}," +
                 $"{tiltAngle}";
+                // $"{curv_ctrline_near}," +
+                // $"{ang_ctrline_tang}," +
+                // $"{dist_ctrline_near},";
+               
             lock (fileLock)
             {
                 File.AppendAllText(dataFilePath, $"{output}\n");
