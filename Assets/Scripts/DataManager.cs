@@ -7,13 +7,14 @@ using Articares.Distal;
 
 public class DataManager : MonoBehaviour
 {
-    private static DataManager instance;
+    public static DataManager instance;
 
     /////////////////////////////////////////////////////////////////////////
-    // Data logging step interval:
+    // Data feedback step interval ():
     /////////////////////////////////////////////////////////////////////////
-    
-    const double DT_DATA_LOG_MSEC = 50f;
+
+    public static int DT_STEP_DATA_FBK_MSEC = 5; // CRITICAL: this must match the data feedback interval in RHB firmware
+    private const int DECIM_DATA_LOG = 10;
 
     /////////////////////////////////////////////////////////////////////////
     // Data storage vars:
@@ -30,8 +31,7 @@ public class DataManager : MonoBehaviour
     /////////////////////////////////////////////////////////////////////////
     // Time step vars:
     /////////////////////////////////////////////////////////////////////////   
-
-    private const int DECIM_DATA_COUNT = 1;
+    
     private int data_count = 0;
 
     private float t_step_prev = 0f;
@@ -45,6 +45,25 @@ public class DataManager : MonoBehaviour
     private Thread threadTimerData;
 
     private readonly object fileLock = new object();
+
+    /////////////////////////////////////////////////////////////////////////
+    // Data structures:
+    /////////////////////////////////////////////////////////////////////////
+    private struct BikeData
+    {
+        public Vector3 pos_bike;
+        public Vector3 vect_dir_bike;
+        public Vector3 dt_pos_bike;
+    }
+
+    private struct TrackData
+    {
+        public Vector3 pos_ctrline_near;
+        public Vector3 vect_ctrline_tang;
+        public float curv_ctrline_near;
+        public float ang_ctrline_tang;
+        public float dist_ctrline_near;
+    }
 
     /////////////////////////////////////////////////////////////////////////
     // Methods:
@@ -76,8 +95,32 @@ public class DataManager : MonoBehaviour
 
         // The headings to be set up in the data file
         // Removed "Date Time" (13.08.2025)
-        string[] headers = new[] { "t sec", "dt sec", "pos radial", "vel radial", "pos rot", "vel rot", 
-            "pos x", "pos z", "angle dir", "vel magn", "angle tilt" };
+        string[] headers = new[] { 
+            "t sec", 
+            "dt sec", 
+
+            "pos radial",
+            "dt pos radial",
+
+            "pos rot",
+            "dt pos rot",
+
+            "pos bike x",
+            "pos bike z",
+            "vect dir bike x",
+            "vect dir bike z",
+            "dt pos bike x",
+            "dt pos bike z",
+
+            "pos ctrline near x",
+            "pos ctrline near z",
+            "vect ctrline tang x",
+            "vect ctrline tang z",
+
+            "curv ctrline near",
+            "ang ctrline tang",
+            "dist ctrline near"
+        };
 
         if (!File.Exists(dataFilePath))
         {
@@ -90,16 +133,92 @@ public class DataManager : MonoBehaviour
         }
     }
 
+    private void SaveDataEntry(DistalComm.ExerciseData distal_data, BikeData bike_data, TrackData track_data)
+    {
+        // string datetime = DateTime.UtcNow.ToLocalTime().ToString("MMM-dd-yyyy HH:mm:ss.fff tt \"GMT\"zzz");
+
+        /////////////////////////////////////////////////////////////////////////
+        // Compute time step:
+        /////////////////////////////////////////////////////////////////////////
+        ///
+        const float MSEC_PER_SEC = 1000f;
+
+        float t_step;
+        float dt_step;
+
+        if (data_count == 0)
+        {
+            t_step_ref = distal_data.UptimeMs / MSEC_PER_SEC;
+            t_step = 0f;
+            dt_step = 0f;
+        }
+        else
+        {
+            t_step = distal_data.UptimeMs / MSEC_PER_SEC - t_step_ref;
+            dt_step = t_step - t_step_prev;
+        }
+
+        string t_step_str = t_step.ToString("F3");
+        string dt_step_str = dt_step.ToString("F3");
+
+        /////////////////////////////////////////////////////////////////////////
+        // Save data step to file:
+        /////////////////////////////////////////////////////////////////////////
+
+        try
+        {
+            string output =
+                t_step_str + "," +
+                dt_step_str + "," +
+                $"{distal_data.PositionR}," +
+                $"{distal_data.VelocityR}," +
+
+                $"{distal_data.PositionP}," +
+                $"{distal_data.VelocityP}," +
+
+                $"{bike_data.pos_bike.x}," +
+                $"{bike_data.pos_bike.z}," +
+                $"{bike_data.vect_dir_bike.x}," +
+                $"{bike_data.vect_dir_bike.z}," +
+                $"{bike_data.dt_pos_bike.x}," +
+                $"{bike_data.dt_pos_bike.z}," +
+
+                $"{track_data.pos_ctrline_near.x}," +
+                $"{track_data.pos_ctrline_near.z}," +
+                $"{track_data.vect_ctrline_tang.x}," +
+                $"{track_data.vect_ctrline_tang.z}," +
+
+                $"{track_data.curv_ctrline_near}," +
+                $"{track_data.ang_ctrline_tang}," +
+                $"{track_data.dist_ctrline_near},";
+
+            lock (fileLock)
+            {
+                File.AppendAllText(dataFilePath, $"{output}\n");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Error saving data: {ex.Message}");
+        }
+
+        /////////////////////////////////////////////////////////////////////////
+        // Save time step for next iteration:
+        /////////////////////////////////////////////////////////////////////////
+
+        t_step_prev = t_step;
+    }
+
     private void SetupRecordingEvents()
     {
-        ReHandyBotController.Instance.OnExerciseStart += StartDataRecording;
-        ReHandyBotController.Instance.OnExerciseStop += StopDataRecording;
+        ReHandyBotController.instance.OnExerciseStart += StartDataRecording;
+        ReHandyBotController.instance.OnExerciseStop += StopDataRecording;
     }
 
     // This is for usage for SetOffsetForces command, currently being called with dummy values
     private void SetOffsetForces()
     {
-        ReHandyBotController.Instance.SetOffsetForces(0f, 0f);
+        ReHandyBotController.instance.SetOffsetForces(0f, 0f);
     }
 
     private void Destroy()
@@ -119,7 +238,7 @@ public class DataManager : MonoBehaviour
         threadTimerData = new Thread(() =>
         {
             // dataTimer = new(1f);
-            timerData = new System.Timers.Timer(DT_DATA_LOG_MSEC);
+            timerData = new System.Timers.Timer(DT_STEP_DATA_FBK_MSEC);
             timerData.Elapsed += SaveDataOnTimerElapsed;
             timerData.AutoReset = true;
             timerData.Start();
@@ -136,79 +255,26 @@ public class DataManager : MonoBehaviour
 
     private void SaveDataOnTimerElapsed(object sender, ElapsedEventArgs e)
     {
+        BikeData bike_data;
+        TrackData track_data;
+
         // Modified counter (13.08.2025):
-        if (data_count % DECIM_DATA_COUNT == 0)
+        if (data_count % DECIM_DATA_LOG == 0)
         {
-            DistalComm.ExerciseData DistalData = ReHandyBotController.Instance.DistalData;
-            SaveDataEntry(DistalData, 0f, 0f, 0f, 0f, 0f);
+            bike_data.pos_bike = ReHandyBotController.instance.pos_bike;
+            bike_data.vect_dir_bike = ReHandyBotController.instance.vect_dir_bike;
+            bike_data.dt_pos_bike = ReHandyBotController.instance.dt_pos_bike;
+
+            track_data.pos_ctrline_near = ReHandyBotController.instance.pos_ctrline_near;
+            track_data.vect_ctrline_tang = ReHandyBotController.instance.vect_ctrline_tang;
+            track_data.curv_ctrline_near = ReHandyBotController.instance.curv_ctrline_near;
+            track_data.ang_ctrline_tang = ReHandyBotController.instance.ang_ctrline_tang;
+            track_data.dist_ctrline_near = ReHandyBotController.instance.dist_ctrline_near;
+
+            SaveDataEntry(ReHandyBotController.instance.DistalData, bike_data, track_data);
         }
 
         data_count++;
-    }
-
-    private void SaveDataEntry( DistalComm.ExerciseData DistalData, 
-        float cartesianPositionX, float cartesianPositionZ, float directionAngle, float speed, float tiltAngle)
-    {
-        // string datetime = DateTime.UtcNow.ToLocalTime().ToString("MMM-dd-yyyy HH:mm:ss.fff tt \"GMT\"zzz");
-
-        /////////////////////////////////////////////////////////////////////////
-        // Compute time step:
-        /////////////////////////////////////////////////////////////////////////
-        ///
-        const float MSEC_PER_SEC = 1000f;
-       
-        float t_step;
-        float dt_step;
-
-        if (data_count == 0)
-        {
-            t_step_ref = DistalData.UptimeMs / MSEC_PER_SEC;
-            t_step = 0f;
-            dt_step = 0f;
-        }
-        else
-        {
-            t_step = DistalData.UptimeMs / MSEC_PER_SEC - t_step_ref;
-            dt_step = t_step - t_step_prev;
-        }
-
-        string t_step_str = t_step.ToString("F3");
-        string dt_step_str = dt_step.ToString("F3");
-
-        /////////////////////////////////////////////////////////////////////////
-        // Save data step to file:
-        /////////////////////////////////////////////////////////////////////////
-
-        try
-        {
-            // "t sec", "dt sec", "pos radial", "vel radial", "pos rot", "vel rot", "pos x", "pos z", "angle dir", "vel magn", "angle tilt" };
-            string output = 
-                t_step_str + "," +
-                dt_step_str + "," +
-                $"{DistalData.PositionR}," +
-                $"{DistalData.VelocityR}," +
-                $"{DistalData.PositionP}," +
-                $"{DistalData.VelocityP}," +
-                $"{cartesianPositionX}," +
-                $"{cartesianPositionZ}," +
-                $"{directionAngle}," +
-                $"{speed}," +
-                $"{tiltAngle}";
-            lock (fileLock)
-            {
-                File.AppendAllText(dataFilePath, $"{output}\n");
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"Error saving data: {ex.Message}");
-        }
-
-        /////////////////////////////////////////////////////////////////////////
-        // Save time step for next iteration:
-        /////////////////////////////////////////////////////////////////////////
-        
-        t_step_prev = t_step;
     }
 
     public string DateTimeStamp()
