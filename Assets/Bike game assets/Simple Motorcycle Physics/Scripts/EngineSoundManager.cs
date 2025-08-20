@@ -5,68 +5,71 @@ using UnityEngine;
 public class EngineSoundManager : MonoBehaviour
 {
     public float MasterVolume; //in dB
-    AudioSource audioSource, audioSource2, audioSourceWind;
+    [SerializeField] AudioSource audioSource, audioSource2, audioSourceWind;
     public AudioClip[] Samples;
-    MotorbikeController motorbikeController;
+    [SerializeField] MotorbikeController motorbikeController;
+    [SerializeField] Rigidbody r_body;
+
     public AnimationCurve EngineRpm, CrossFade, CrossFade2, EngineReleaseRpm;
-    int changed;
-    float prevPitch, prevPitch2, prevVol, prevVol2;
+    [SerializeField] int changed;
+    [SerializeField] float prevPitch, prevPitch2, prevVol, prevVol2;
     public bool revLimiter;
     [Range(0, 1)]
     public float revValue;
     public float EngineFlow = 1;
-
+    bool isAccelerated = false;
     void Start()
     {
-        audioSource = GetComponents<AudioSource>()[0];
-        audioSource2 = GetComponents<AudioSource>()[1];
-        audioSourceWind = GetComponents<AudioSource>()[2];
+        //audioSource = GetComponents<AudioSource>()[0];
+        //audioSource2 = GetComponents<AudioSource>()[1];
+        //audioSourceWind = GetComponents<AudioSource>()[2];
         ChangeGearSound(0);
-        motorbikeController = FindObjectOfType<MotorbikeController>();
-
+        //motorbikeController = FindObjectOfType<MotorbikeController>();
     }
     void Update()
     {
-        
-        if(revLimiter)
-        {if (motorbikeController.rpm_value > 0.8f && Input.GetKey(KeyCode.W))
+        if (revLimiter)
         {
-            revValue += Time.deltaTime * Random.Range(1, 4);
-            revValue %= 1;
-            if (revValue > 0.1f && revValue < 0.2f)
-                revValue = 0.85f;
+            if (motorbikeController.rpm_value > 0.8f)// && Input.GetKey(KeyCode.W))
+            {
+                revValue += Time.deltaTime * Random.Range(1, 4);
+                revValue %= 1;
+                if (revValue > 0.1f && revValue < 0.2f)
+                    revValue = 0.85f;
+            }
+            else
+                revValue = motorbikeController.rpm_value;
         }
-        else
-            revValue = motorbikeController.rpm_value;}
         else
         {
             revValue = motorbikeController.rpm_value;
         }
 
-
-
         if (changed != motorbikeController.gear_curr)
         {
             changed = motorbikeController.gear_curr;
-        if (Input.GetKey(KeyCode.W)||motorbikeController.gear_curr == 0)
-            ChangeGearSound(motorbikeController.gear_curr);
+            if (Input.GetKey(KeyCode.W) || motorbikeController.gear_curr == 0)
+                ChangeGearSound(motorbikeController.gear_curr);
+
+
+            //if (Input.GetKey(KeyCode.W) || motorbikeController.gear_curr == 1)
+            //    ChangeGearSound(motorbikeController.gear_curr);
         }
 
-        
-
-        if (Input.GetKey(KeyCode.W))
+        if (Input.GetKey(KeyCode.W) || ReHandyBotController.Instance.DistalData.PositionR < 0.028)
         {
-            audioSource.pitch = (EngineRpm.Evaluate(revValue) + 1) - motorbikeController.gear_curr / (Samples.Length-1);
-            audioSource2.pitch = (EngineRpm.Evaluate(revValue) + 1) - motorbikeController.gear_curr / (Samples.Length-1);
+            audioSource.pitch = (EngineRpm.Evaluate(revValue) + 1) - motorbikeController.gear_curr / (Samples.Length - 1);
+            audioSource2.pitch = (EngineRpm.Evaluate(revValue) + 1) - motorbikeController.gear_curr / (Samples.Length - 1);
             audioSource.volume = CrossFade.Evaluate(revValue);
             audioSource2.volume = CrossFade2.Evaluate(revValue);
+            audioSource.volume = Mathf.Clamp(audioSource.volume, 0f, 0.35f);
+            audioSource2.volume = Mathf.Clamp(audioSource2.volume, 0f, 0.35f);
         }
         else
         {
-            audioSource.pitch = (EngineReleaseRpm.Evaluate(revValue) + 1) - motorbikeController.gear_curr / (Samples.Length-1);
-            audioSource2.pitch = (EngineReleaseRpm.Evaluate(revValue) + 1) - motorbikeController.gear_curr / (Samples.Length-1);
+            audioSource.pitch = (EngineReleaseRpm.Evaluate(revValue) + 1) - motorbikeController.gear_curr / (Samples.Length - 1);
+            audioSource2.pitch = (EngineReleaseRpm.Evaluate(revValue) + 1) - motorbikeController.gear_curr / (Samples.Length - 1);
         }
-
         audioSource.pitch = Mathf.Lerp(prevPitch, audioSource.pitch, Time.deltaTime * EngineFlow);
         prevPitch = audioSource.pitch;
 
@@ -82,6 +85,7 @@ public class EngineSoundManager : MonoBehaviour
 
         //Wind
         audioSourceWind.volume = motorbikeController.GetComponent<Rigidbody>().velocity.magnitude / motorbikeController.SPEED_M_PER_SEC_HIGH + MasterVolume / 10;
+        audioSourceWind.volume = Mathf.Clamp(audioSourceWind.volume, 0f, 0.35f);
     }
 
     void ChangeGearSound(int gear)

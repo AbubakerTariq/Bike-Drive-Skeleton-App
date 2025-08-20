@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class MotorbikeController : MonoBehaviour
 {
@@ -185,6 +186,11 @@ public class MotorbikeController : MonoBehaviour
     private bool DISP_FIXED_UPDATE_ON = false;
     private bool DISP_MOTOR_CONTROL_ON = false;
 
+    //////////////////////////////////////////////////////////////
+    /// Speed of bike
+    //////////////////////////////////////////////////////////////
+    [SerializeField] public Text SpeedTxt;
+
     /////////////////////////////////////////////////////////////
     // METHODS:
     /////////////////////////////////////////////////////////////
@@ -211,6 +217,8 @@ public class MotorbikeController : MonoBehaviour
 
     void FixedUpdate()
     {
+        SpeedTxt.text = ConvertSpeedMStoKMH(rigid_body.velocity.magnitude).ToString("F0");// rigid_body.velocity.magnitude shows speed meters per second (m/s)
+
         int DECIM_INPUT_STEER_RHB = DT_INPUT_STEER_RHB_MSEC / ReHandyBotController.DT_STEP_MSEC;
 
         int step_count = ReHandyBotController.Instance.step_count;
@@ -856,5 +864,9 @@ public class MotorbikeController : MonoBehaviour
     public Vector3 GetBikeVelocityVector()
     {
         return rigid_body.velocity;
+    }
+    public float ConvertSpeedMStoKMH(float speed)
+    {
+        return Mathf.Clamp(speed * 3.6f, 0, 90);
     }
 }

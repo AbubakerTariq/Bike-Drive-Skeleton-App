@@ -10,6 +10,7 @@ TagManager:
   - TrackedLimb
   - Ragdoll Animation
   - Ragdoll
+  - Waypoints
   layers:
   - Default
   - TransparentFX

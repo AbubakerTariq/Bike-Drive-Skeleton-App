@@ -18,7 +18,7 @@ public class Track : MonoBehaviour
         Instance = this;
     }
 
-    private void Start()
+    private void OnEnable()
     {
         // Set up the list of way points to use later for the rest of the calculations
         SetupWaypointList();
@@ -28,6 +28,10 @@ public class Track : MonoBehaviour
 
         // Set up the center line visual
         SetupCenterLineVisual();
+    }
+    private void Start()
+    {
+
     }
 
     private void SetupWaypointList()
