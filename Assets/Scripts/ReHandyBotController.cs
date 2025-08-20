@@ -107,15 +107,15 @@ public class ReHandyBotController : MonoBehaviour
     static Vector3 NULL_VECTOR3 = new Vector3(0f, 0f, 0f);
     const float NULL_VALUE = 0f;
  
-    Vector3 pos_bike = NULL_VECTOR3;
-    Vector3 vect_dir_bike = NULL_VECTOR3;
-    Vector3 dt_pos_bike = NULL_VECTOR3;
- 
-    Vector3 pos_ctrline_near = NULL_VECTOR3;
-    Vector3 vect_ctrline_tang = NULL_VECTOR3;
-    float curv_ctrline_near = NULL_VALUE;
-    float ang_ctrline_tang = NULL_VALUE;
-    float dist_ctrline_near = NULL_VALUE; 
+    public Vector3 pos_bike = NULL_VECTOR3;
+    public Vector3 vect_dir_bike = NULL_VECTOR3;
+    public Vector3 dt_pos_bike = NULL_VECTOR3;
+
+    public Vector3 pos_ctrline_near = NULL_VECTOR3;
+    public Vector3 vect_ctrline_tang = NULL_VECTOR3;
+    public float curv_ctrline_near = NULL_VALUE;
+    public float ang_ctrline_tang = NULL_VALUE;
+    public float dist_ctrline_near = NULL_VALUE; 
 
     // public struct BikeData
    
