@@ -1,0 +1,301 @@
+fileFormatVersion: 2
+guid: 15eedde483bd9044c9e3a3fff735abc7
+ModelImporter:
+  serializedVersion: 21300
+  internalIDToNameTable: []
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Atlas_01
+    second: {fileID: 2100000, guid: e3988b1d4fffce34785021208e30deb0, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Atlas_02
+    second: {fileID: 2100000, guid: c41aecd6cfda6d540b75c6eb403df7b2, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Audience
+    second: {fileID: 2100000, guid: 50796c87209c9ca4b8b79802090850e1, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Crane
+    second: {fileID: 2100000, guid: a8e41cd9d1f57b34ba0ef48ee2073868, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Flags
+    second: {fileID: 2100000, guid: d7feb6a2362ec844e93dd30a91c655cf, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Grass_02
+    second: {fileID: 2100000, guid: 2611103207882a747af1c9d7919c86e2, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Grass_14
+    second: {fileID: 2100000, guid: aaa354b0e6c27f24ba2d7aa7e05912ba, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Grass_15
+    second: {fileID: 2100000, guid: 40767eb9864d05240a046a467c2a3171, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Metal
+    second: {fileID: 2100000, guid: 6e2f9bea7445fc84087087181593a219, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Road_02
+    second: {fileID: 2100000, guid: 80d4ee421d094724c83d8af3a3fbc5f6, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Road_04
+    second: {fileID: 2100000, guid: 041e34343c7ca814f99b74a7493aac75, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ScreenTexture
+    second: {fileID: 2100000, guid: 97abe09cd5eec314e80e487a582c2218, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: SideTrack_A
+    second: {fileID: 2100000, guid: 9e95b71ef6ae9e047ac14c900c1c853c, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Stone
+    second: {fileID: 2100000, guid: dbcaac46053e0b7469fc402ed732009e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: TrackSide_A
+    second: {fileID: 2100000, guid: bedb273618e45eb4baaac6bb785e3082, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Trackside
+    second: {fileID: 2100000, guid: 3e0d0acf4ad31fc4691e364c85fd88bd, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Trackside_02
+    second: {fileID: 2100000, guid: 0b5e7fecc24589c43928b492384dcc23, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Trackside_03
+    second: {fileID: 2100000, guid: a91d3411471fedf4c9fbc293544d8e14, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Trees_01
+    second: {fileID: 2100000, guid: a1fec7d2c5562db4e9a485a10b0a44dc, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Wall_01
+    second: {fileID: 2100000, guid: 8ec4c53b87ec2ba44bd33fb48ed4d149, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: strip
+    second: {fileID: 2100000, guid: 95feb6789750af543a313db42aab5512, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: wins
+    second: {fileID: 2100000, guid: d7ee188fd07759646a781e901d231099, type: 2}
+  - first:
+      type: UnityEngine:RenderTexture
+      assembly: UnityEngine.CoreModule
+      name: ScreenRender
+    second: {fileID: 8400000, guid: 94bfa2c4e929b9a4ea9d4c8c263d216c, type: 2}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Atlas-01
+    second: {fileID: 2800000, guid: 606f5425d080e24489493456de52893b, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Atlas-02
+    second: {fileID: 2800000, guid: 15d45f0c6bd78a54498fd4811907d803, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Audience
+    second: {fileID: 2800000, guid: 2d7dbe6a28ac6044abad3dc561ed2740, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Crane
+    second: {fileID: 2800000, guid: 63ec62ce543d1f74189212911cf17ef5, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Flags
+    second: {fileID: 2800000, guid: e2a38c6d083dd2a468091d684b578471, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Grass-04
+    second: {fileID: 2800000, guid: 60aebeff32c3ee64bb887604f4ebfe5c, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Metal
+    second: {fileID: 2800000, guid: 9d8b45e82c38a4a4ab7b51dcb0f73b57, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Road-02
+    second: {fileID: 2800000, guid: c0844af6a5d0e09499eb572aaf6dd7e4, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: SideTrack_A
+    second: {fileID: 2800000, guid: 62669529341084f4abb6f40214c742c5, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Stone
+    second: {fileID: 2800000, guid: 54cfe7b59a406704d9d75aafbc44edb1, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: TrackSide-A
+    second: {fileID: 2800000, guid: 188eb1d4787494a48be57ee3ed5e1bb2, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Trackside-03
+    second: {fileID: 2800000, guid: d02e4a866467ef14eac185094f9dd46c, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Trees-01
+    second: {fileID: 2800000, guid: 0da62fa89339bd447af663fb27e9773e, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Wall-01
+    second: {fileID: 2800000, guid: 7fefe79482ba8674dba2353c39c60c08, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: Wins
+    second: {fileID: 2800000, guid: a02477b385164ed4381cba6f50a8fcc0, type: 3}
+  - first:
+      type: UnityEngine:Texture2D
+      assembly: UnityEngine.CoreModule
+      name: strip
+    second: {fileID: 2800000, guid: fa9d792c3d5f45f4babcaf9123ef2fe4, type: 3}
+  materials:
+    materialImportMode: 2
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    removeConstantScaleCurves: 1
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 1
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations: []
+    isReadable: 0
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    sortHierarchyByName: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    nodeNameCollisionStrategy: 1
+    fileIdsGeneration: 2
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    keepQuads: 0
+    weldVertices: 1
+    bakeAxisConversion: 0
+    preserveHierarchy: 0
+    skinWeightsMode: 0
+    maxBonesPerVertex: 4
+    minBoneWeight: 0.001
+    optimizeBones: 1
+    meshOptimizationFlags: -1
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVMarginMethod: 1
+    secondaryUVMinLightmapResolution: 40
+    secondaryUVMinObjectScale: 1
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  referencedClips: []
+  importAnimation: 1
+  humanDescription:
+    serializedVersion: 3
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    globalScale: 1
+    rootMotionBoneName: 
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  autoGenerateAvatarMappingIfUnspecified: 1
+  animationType: 2
+  humanoidOversampling: 1
+  avatarSetup: 0
+  addHumanoidExtraRootOnlyWhenUsingAvatar: 1
+  remapMaterialsIfMaterialImportModeIsNone: 0
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
