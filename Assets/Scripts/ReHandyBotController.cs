@@ -55,10 +55,10 @@ public class ReHandyBotController : MonoBehaviour
     private DistalComm distalRobot = new(); // Distal Control Library object
 
     // Track object:
-    Track track;
+    Track track_coords;
 
     // Bike object:
-    MotorbikeController bike;
+    MotorbikeController bike_coords;
 
     ////////////////////////////////////////////////////////////////////////////
     // Configuration values:
@@ -318,20 +318,20 @@ public class ReHandyBotController : MonoBehaviour
 
         if (ExerciseActive && MotorbikeController.Instance != null && Track.Instance != null)
         {
-            bike = MotorbikeController.Instance;
+            bike_coords = MotorbikeController.Instance;
 
-            pos_bike = bike.GetBikePosition();
-            vect_dir_bike = bike.GetBikeDirectionVector();
-            dt_pos_bike = bike.GetBikeVelocityVector();
+            pos_bike = bike_coords.GetBikePosition();
+            vect_dir_bike = bike_coords.GetBikeDirectionVector();
+            dt_pos_bike = bike_coords.GetBikeVelocityVector();
 
-            track = Track.Instance;
+            track_coords = Track.Instance;
 
-            pos_ctrline_near = track.GetClosestPointOnCenterLine(pos_bike);
-            vect_ctrline_tang = track.GetTangentAtPosition(pos_bike);
+            pos_ctrline_near = track_coords.GetClosestPointOnCenterLine(pos_bike);
+            vect_ctrline_tang = track_coords.GetTangentAtPosition(pos_bike);
 
-            curv_ctrline_near = track.GetCurvatureAtPosition(pos_bike);
-            ang_ctrline_tang = (float)Math.PI / 180f * track.GetTangentAngleAtPosition(pos_bike);
-            dist_ctrline_near = track.GetDistanceAtPosition(pos_bike);  
+            curv_ctrline_near = track_coords.GetCurvatureAtPosition(pos_bike);
+            ang_ctrline_tang = (float)Math.PI / 180f * track_coords.GetTangentAngleAtPosition(pos_bike);
+            dist_ctrline_near = track_coords.GetDistanceAtPosition(pos_bike);  
 
             // track.GetTrackLength();
         }

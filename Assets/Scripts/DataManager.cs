@@ -119,7 +119,11 @@ public class DataManager : MonoBehaviour
 
             "curv ctrline near",
             "ang ctrline tang",
-            "dist ctrline near"
+            "dist ctrline near",
+
+            "bike input steer",
+            "bike input throttle",
+            "bike input accel"
         };
 
         if (!File.Exists(dataFilePath))
@@ -133,14 +137,13 @@ public class DataManager : MonoBehaviour
         }
     }
 
-    private void SaveDataEntry(DistalComm.ExerciseData distal_data, BikeData bike_data, TrackData track_data)
+    private void SaveDataEntry(DistalComm.ExerciseData distal_data, BikeData bike_coords_data, 
+        TrackData track_coords_data, MotorbikeController.MotorbikeInput bike_input_data)
     {
-        // string datetime = DateTime.UtcNow.ToLocalTime().ToString("MMM-dd-yyyy HH:mm:ss.fff tt \"GMT\"zzz");
-
         /////////////////////////////////////////////////////////////////////////
         // Compute time step:
         /////////////////////////////////////////////////////////////////////////
-        ///
+        
         const float MSEC_PER_SEC = 1000f;
 
         float t_step;
@@ -176,21 +179,25 @@ public class DataManager : MonoBehaviour
                 $"{distal_data.PositionP}," +
                 $"{distal_data.VelocityP}," +
 
-                $"{bike_data.pos_bike.x}," +
-                $"{bike_data.pos_bike.z}," +
-                $"{bike_data.vect_dir_bike.x}," +
-                $"{bike_data.vect_dir_bike.z}," +
-                $"{bike_data.dt_pos_bike.x}," +
-                $"{bike_data.dt_pos_bike.z}," +
+                $"{bike_coords_data.pos_bike.x}," +
+                $"{bike_coords_data.pos_bike.z}," +
+                $"{bike_coords_data.vect_dir_bike.x}," +
+                $"{bike_coords_data.vect_dir_bike.z}," +
+                $"{bike_coords_data.dt_pos_bike.x}," +
+                $"{bike_coords_data.dt_pos_bike.z}," +
 
-                $"{track_data.pos_ctrline_near.x}," +
-                $"{track_data.pos_ctrline_near.z}," +
-                $"{track_data.vect_ctrline_tang.x}," +
-                $"{track_data.vect_ctrline_tang.z}," +
+                $"{track_coords_data.pos_ctrline_near.x}," +
+                $"{track_coords_data.pos_ctrline_near.z}," +
+                $"{track_coords_data.vect_ctrline_tang.x}," +
+                $"{track_coords_data.vect_ctrline_tang.z}," +
 
-                $"{track_data.curv_ctrline_near}," +
-                $"{track_data.ang_ctrline_tang}," +
-                $"{track_data.dist_ctrline_near},";
+                $"{track_coords_data.curv_ctrline_near}," +
+                $"{track_coords_data.ang_ctrline_tang}," +
+                $"{track_coords_data.dist_ctrline_near}," +
+
+                $"{bike_input_data.steer}," +
+                $"{bike_input_data.throttle_rhb}," +
+                $"{bike_input_data.acceleration}";
 
             lock (fileLock)
             {
@@ -271,7 +278,11 @@ public class DataManager : MonoBehaviour
             track_data.ang_ctrline_tang = ReHandyBotController.instance.ang_ctrline_tang;
             track_data.dist_ctrline_near = ReHandyBotController.instance.dist_ctrline_near;
 
-            SaveDataEntry(ReHandyBotController.instance.DistalData, bike_data, track_data);
+            SaveDataEntry(
+                ReHandyBotController.instance.DistalData, 
+                bike_data, 
+                track_data,
+                MotorbikeController.Instance.bike_input_data);
         }
 
         data_count++;
