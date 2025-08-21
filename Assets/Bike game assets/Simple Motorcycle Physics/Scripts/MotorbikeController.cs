@@ -234,6 +234,14 @@ public class MotorbikeController : MonoBehaviour
         // Speed display:
         SpeedTxt.text = ConvertSpeedMStoKMH(rigid_body.velocity.magnitude).ToString("F0");// rigid_body.velocity.magnitude shows speed meters per second (m/s)
 
+<<<<<<< HEAD
+=======
+    //    int DECIM_INPUT_STEER_RHB = DT_INPUT_STEER_RHB_MSEC / ReHandyBotController.DT_STEP_MSEC;
+
+        // int DECIM_INPUT_STEER_BIKE = DT_STEP_INPUT_STEER_BIKE_MSEC / DT_STEP_CTRL_BIKE_MSEC;
+
+
+>>>>>>> 27ef0998dde65c743280c9365d90f505ae8bd3ec
         int step_count = ReHandyBotController.instance.step_count;
 
         angle_roll = transform.eulerAngles.z;
