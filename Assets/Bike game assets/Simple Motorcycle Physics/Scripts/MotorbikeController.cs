@@ -225,7 +225,7 @@ public class MotorbikeController : MonoBehaviour
 
         SpeedTxt.text = ConvertSpeedMStoKMH(rigid_body.velocity.magnitude).ToString("F0");// rigid_body.velocity.magnitude shows speed meters per second (m/s)
 
-        int DECIM_INPUT_STEER_RHB = DT_INPUT_STEER_RHB_MSEC / ReHandyBotController.DT_STEP_MSEC;
+    //    int DECIM_INPUT_STEER_RHB = DT_INPUT_STEER_RHB_MSEC / ReHandyBotController.DT_STEP_MSEC;
 
         // int DECIM_INPUT_STEER_BIKE = DT_STEP_INPUT_STEER_BIKE_MSEC / DT_STEP_CTRL_BIKE_MSEC;
 
