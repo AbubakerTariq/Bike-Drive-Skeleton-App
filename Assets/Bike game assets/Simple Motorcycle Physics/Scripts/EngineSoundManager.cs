@@ -56,7 +56,7 @@ public class EngineSoundManager : MonoBehaviour
             //    ChangeGearSound(motorbikeController.gear_curr);
         }
 
-        if (Input.GetKey(KeyCode.W) || ReHandyBotController.instance.DistalData.PositionR < 0.028)
+        if (Input.GetKey(KeyCode.W) || ReHandyBotController.instance.distal_data.PositionR < 0.028)
         {
             audioSource.pitch = (EngineRpm.Evaluate(revValue) + 1) - motorbikeController.gear_curr / (Samples.Length - 1);
             audioSource2.pitch = (EngineRpm.Evaluate(revValue) + 1) - motorbikeController.gear_curr / (Samples.Length - 1);
