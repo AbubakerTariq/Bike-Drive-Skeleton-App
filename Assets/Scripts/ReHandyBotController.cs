@@ -34,8 +34,8 @@ public class ReHandyBotController : MonoBehaviour
     float OFFS_FORCE_RADIAL_INIT = 0f;
     float OFFS_TORQUE_ROT_INIT = 0f;
 
-    private bool SAFETY_SET_TARG = false;
-    private bool STABILITY_SET_TARG = true;  
+    private bool SAFETY_TCP_APP_ON = false;
+    private bool STABILITY_SET_TARG_ON = true;  
 
     const bool ENGAGE_BRAKE = false;
     const bool DISENGAGE_BRAKE = true;
@@ -111,8 +111,8 @@ public class ReHandyBotController : MonoBehaviour
     const float NULL_VALUE = 0f;
  
     public Vector3 pos_bike = NULL_VECTOR3;
-    public Vector3 vect_dir_bike = NULL_VECTOR3;
     public Vector3 dt_pos_bike = NULL_VECTOR3;
+    // public Vector3 dt_pos_bike_unit = NULL_VECTOR3;
 
     public Vector3 pos_ctrline_near = NULL_VECTOR3;
     public Vector3 vect_ctrline_tang = NULL_VECTOR3;
@@ -134,7 +134,7 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     private bool RHBConnected => distalRobot.is_device_connected;
-    public DistalComm.ExerciseData DistalData => distalRobot.DistalData;
+    public DistalComm.ExerciseData distal_data => distalRobot.DistalData;
     public bool ExerciseActive => isExerciseStarted;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -316,15 +316,15 @@ public class ReHandyBotController : MonoBehaviour
         // Extract data from bike and track objects:
         ////////////////////////////////////////////////////////////////////////////
 
-        if (ExerciseActive && MotorbikeController.Instance != null && Track.Instance != null)
+        if (ExerciseActive && MotorbikeController.instance != null && Track.instance != null)
         {
-            bike_coords = MotorbikeController.Instance;
+            bike_coords = MotorbikeController.instance;
 
             pos_bike = bike_coords.GetBikePosition();
-            vect_dir_bike = bike_coords.GetBikeDirectionVector();
             dt_pos_bike = bike_coords.GetBikeVelocityVector();
+            // dt_pos_bike_unit = bike_coords.GetBikeDirectionVector(); // verify if this is the correct function (21.08.2025)
 
-            track_coords = Track.Instance;
+            track_coords = Track.instance;
 
             pos_ctrline_near = track_coords.GetClosestPointOnCenterLine(pos_bike);
             vect_ctrline_tang = track_coords.GetTangentAtPosition(pos_bike);
@@ -347,7 +347,6 @@ public class ReHandyBotController : MonoBehaviour
         {
             ExternalConsoleLogger.Log("Update(" + step_count + ") t [" + String.Format("{0:#0.000}", timeElapsedValue) + "]:");
             ExternalConsoleLogger.Log("   pos bike " + pos_bike      );
-            ExternalConsoleLogger.Log("   dir bike " + vect_dir_bike );
             ExternalConsoleLogger.Log("   vel bike " + dt_pos_bike   );
             ExternalConsoleLogger.Log(" ");
             ExternalConsoleLogger.Log("   pos near  " + pos_ctrline_near  );
@@ -379,8 +378,8 @@ public class ReHandyBotController : MonoBehaviour
         // RHB coordinates:
         //////////////////////////////////////////////////////////////////////////// 
 
-        float pos_radial = ReHandyBotController.instance.DistalData.PositionR;
-        float pos_phi = ReHandyBotController.instance.DistalData.PositionP;
+        float pos_radial = ReHandyBotController.instance.distal_data.PositionR;
+        float pos_phi = ReHandyBotController.instance.distal_data.PositionP;
 
         ////////////////////////////////////////////////////////////////////////////
         // Impedance parameters for rotation angle limit:
@@ -551,7 +550,7 @@ public class ReHandyBotController : MonoBehaviour
     {
         if (isSystemStarted)
         {
-            distalRobot.SetSafety(SAFETY_SET_TARG);
+            distalRobot.SetSafety(SAFETY_TCP_APP_ON);
             onComplete?.Invoke();
             return;
         }
@@ -562,7 +561,7 @@ public class ReHandyBotController : MonoBehaviour
 
             if (success)
             {
-                distalRobot.SetSafety(SAFETY_SET_TARG);
+                distalRobot.SetSafety(SAFETY_TCP_APP_ON);
                 isSystemStarted = true;
                 onComplete?.Invoke();
                 break;
@@ -594,7 +593,7 @@ public class ReHandyBotController : MonoBehaviour
             DOVirtual.DelayedCall(0.1f, () =>
             {
                 loader.SetActive(false);
-                pos_radial_min = DistalData.PositionR;
+                pos_radial_min = distal_data.PositionR;
                 pos_radial_min = Math.Clamp(pos_radial_min, POS_RADIAL_MIN, POS_RADIAL_MAX);
 
                 for (int i = 0; i < MaxAttempts; i++)
@@ -671,7 +670,7 @@ public class ReHandyBotController : MonoBehaviour
                unlockRadial, unlockRotational,
                OFFS_FORCE_RADIAL_INIT, OFFS_TORQUE_ROT_INIT,
                out bool startExerciseResponse, out bool setGainResponse,
-               FORCE_GAIN_RADIAL, FORCE_GAIN_ROT, STABILITY_SET_TARG);
+               FORCE_GAIN_RADIAL, FORCE_GAIN_ROT, STABILITY_SET_TARG_ON);
 
             startExerciseSucess = startExerciseResponse;
         }
@@ -909,7 +908,7 @@ public class ReHandyBotController : MonoBehaviour
         System.Diagnostics.Stopwatch stopwatch = new();
         stopwatch.Start();
 
-        float init_position = DistalData.PositionR;
+        float init_position = distal_data.PositionR;
         float current_target = init_position;
         float current_time_ms = (float)stopwatch.Elapsed.TotalMilliseconds;
         float init_time_ms = current_time_ms;
@@ -972,7 +971,7 @@ public class ReHandyBotController : MonoBehaviour
         System.Diagnostics.Stopwatch stopwatch = new();
         stopwatch.Start();
 
-        float pos_phi_init = DistalData.PositionP;
+        float pos_phi_init = distal_data.PositionP;
         float current_target = pos_phi_init;
         float current_time_ms = (float)stopwatch.Elapsed.TotalMilliseconds;
         float init_time_ms = current_time_ms;
@@ -1003,7 +1002,7 @@ public class ReHandyBotController : MonoBehaviour
 
                 distalRobot.HL_SetTarget(
                     IDX_TARG_BASE, 
-                    DistalData.PositionR, current_target,
+                    distal_data.PositionR, current_target,
                     K_STIFF_RADIAL_WALL, K_STIFF_ROT_WALL,
                     B_DAMP_RADIAL_WALL, B_DAMP_ROT_WALL,
                     1, 1);
@@ -1017,7 +1016,7 @@ public class ReHandyBotController : MonoBehaviour
         if (!isExerciseStopping) 
             distalRobot.HL_SetTarget(
                 IDX_TARG_BASE, 
-                DistalData.PositionR, target,
+                distal_data.PositionR, target,
                 K_STIFF_RADIAL_WALL, K_STIFF_ROT_WALL,
                 B_DAMP_RADIAL_WALL, B_DAMP_ROT_WALL,
                 1, 1);

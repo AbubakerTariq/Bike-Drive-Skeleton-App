@@ -6,11 +6,11 @@ public class DebugInfo : MonoBehaviour
     [SerializeField] private TMP_Text debugText;
     private void Update()
     {
-        if (Track.Instance == null || MotorbikeController.Instance == null)
+        if (Track.instance == null || MotorbikeController.instance == null)
             return;
 
-        Track track = Track.Instance;
-        MotorbikeController bike = MotorbikeController.Instance;
+        Track track = Track.instance;
+        MotorbikeController bike = MotorbikeController.instance;
         Vector3 bikePos = bike.GetBikePosition();
 
         debugText.text = $"Track length: {track.GetTrackLength().ToString("F2")}m" +

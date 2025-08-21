@@ -107,8 +107,6 @@ public class DataManager : MonoBehaviour
 
             "pos bike x",
             "pos bike z",
-            "vect dir bike x",
-            "vect dir bike z",
             "dt pos bike x",
             "dt pos bike z",
 
@@ -123,7 +121,11 @@ public class DataManager : MonoBehaviour
 
             "bike input steer",
             "bike input throttle",
-            "bike input accel"
+            "bike input accel",
+
+            "bike pose ang roll",
+            "bike pose ang ctrl",
+            "bike pose dt_ang ctrl"
         };
 
         if (!File.Exists(dataFilePath))
@@ -137,8 +139,12 @@ public class DataManager : MonoBehaviour
         }
     }
 
-    private void SaveDataEntry(DistalComm.ExerciseData distal_data, BikeData bike_coords_data, 
-        TrackData track_coords_data, MotorbikeController.MotorbikeInput bike_input_data)
+    private void SaveDataEntry(
+        DistalComm.ExerciseData distal_data, 
+        BikeData bike_coords_data, 
+        TrackData track_coords_data, 
+        MotorbikeController.MotorbikeInput bike_input_data, 
+        MotorbikeController.MotorbikePose bike_pose_data)
     {
         /////////////////////////////////////////////////////////////////////////
         // Compute time step:
@@ -181,8 +187,6 @@ public class DataManager : MonoBehaviour
 
                 $"{bike_coords_data.pos_bike.x}," +
                 $"{bike_coords_data.pos_bike.z}," +
-                $"{bike_coords_data.vect_dir_bike.x}," +
-                $"{bike_coords_data.vect_dir_bike.z}," +
                 $"{bike_coords_data.dt_pos_bike.x}," +
                 $"{bike_coords_data.dt_pos_bike.z}," +
 
@@ -197,7 +201,11 @@ public class DataManager : MonoBehaviour
 
                 $"{bike_input_data.steer}," +
                 $"{bike_input_data.throttle_rhb}," +
-                $"{bike_input_data.acceleration}";
+                $"{bike_input_data.acceleration}," +
+
+                $"{bike_pose_data.angle_roll}," +
+                $"{bike_pose_data.angle_ctrl}," +
+                $"{bike_pose_data.dt_angle_ctrl}";
 
             lock (fileLock)
             {
@@ -262,15 +270,14 @@ public class DataManager : MonoBehaviour
 
     private void SaveDataOnTimerElapsed(object sender, ElapsedEventArgs e)
     {
-        BikeData bike_data;
-        TrackData track_data;
+        BikeData bike_coords_data = new();
+        TrackData track_data = new();
 
         // Modified counter (13.08.2025):
         if (data_count % DECIM_DATA_LOG == 0)
         {
-            bike_data.pos_bike = ReHandyBotController.instance.pos_bike;
-            bike_data.vect_dir_bike = ReHandyBotController.instance.vect_dir_bike;
-            bike_data.dt_pos_bike = ReHandyBotController.instance.dt_pos_bike;
+            bike_coords_data.pos_bike = ReHandyBotController.instance.pos_bike;
+            bike_coords_data.dt_pos_bike = ReHandyBotController.instance.dt_pos_bike;
 
             track_data.pos_ctrline_near = ReHandyBotController.instance.pos_ctrline_near;
             track_data.vect_ctrline_tang = ReHandyBotController.instance.vect_ctrline_tang;
@@ -279,10 +286,11 @@ public class DataManager : MonoBehaviour
             track_data.dist_ctrline_near = ReHandyBotController.instance.dist_ctrline_near;
 
             SaveDataEntry(
-                ReHandyBotController.instance.DistalData, 
-                bike_data, 
+                ReHandyBotController.instance.distal_data, 
+                bike_coords_data, 
                 track_data,
-                MotorbikeController.Instance.bike_input_data);
+                MotorbikeController.instance.bike_input_data,
+                MotorbikeController.instance.bike_pose_data);
         }
 
         data_count++;

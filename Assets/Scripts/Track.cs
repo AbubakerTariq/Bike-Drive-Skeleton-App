@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 public class Track : MonoBehaviour
 {
-    public static Track Instance;
+    public static Track instance;
 
     [Space]
     [SerializeField] private Transform waypointsParent;
@@ -15,7 +15,7 @@ public class Track : MonoBehaviour
 
     private void Awake()
     {
-        Instance = this;
+        instance = this;
     }
 
     private void Start()
