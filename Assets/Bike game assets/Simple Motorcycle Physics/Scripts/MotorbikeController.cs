@@ -878,7 +878,7 @@ public class MotorbikeController : MonoBehaviour
 
     public float ConvertSpeedMStoKMH(float speed)
     {
-        return Mathf.Clamp(speed * 3.6f, 0, 90);
+        return Mathf.Clamp(speed * 3.6f, 0, FACTOR_ACCEL);
     }
 
     ///////////////////////////////////////////////////////////
