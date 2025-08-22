@@ -47,25 +47,6 @@ public class DataManager : MonoBehaviour
     private readonly object fileLock = new object();
 
     /////////////////////////////////////////////////////////////////////////
-    // Data structures:
-    /////////////////////////////////////////////////////////////////////////
-    private struct BikeData
-    {
-        public Vector3 pos_bike;
-        public Vector3 vect_dir_bike;
-        public Vector3 dt_pos_bike;
-    }
-
-    private struct TrackData
-    {
-        public Vector3 pos_ctrline_near;
-        public Vector3 vect_ctrline_tang;
-        public float curv_ctrline_near;
-        public float ang_ctrline_tang;
-        public float dist_ctrline_near;
-    }
-
-    /////////////////////////////////////////////////////////////////////////
     // Methods:
     /////////////////////////////////////////////////////////////////////////
     ///
@@ -140,11 +121,12 @@ public class DataManager : MonoBehaviour
     }
 
     private void SaveDataEntry(
-        DistalComm.ExerciseData distal_data, 
-        BikeData bike_coords_data, 
-        TrackData track_coords_data, 
-        MotorbikeController.MotorbikeInput bike_input_data, 
-        MotorbikeController.MotorbikePose bike_pose_data)
+        int count,
+        DistalComm.ExerciseData distal_data,
+        MotorbikeController.BikeCoords bike_coords_data,
+        MotorbikeController.TrackCoords track_coords_data, 
+        MotorbikeController.BikeInput bike_input_data, 
+        MotorbikeController.BikePose bike_pose_data)
     {
         /////////////////////////////////////////////////////////////////////////
         // Compute time step:
@@ -155,7 +137,7 @@ public class DataManager : MonoBehaviour
         float t_step;
         float dt_step;
 
-        if (data_count == 0)
+        if (count == 0)
         {
             t_step_ref = distal_data.UptimeMs / MSEC_PER_SEC;
             t_step = 0f;
@@ -270,25 +252,31 @@ public class DataManager : MonoBehaviour
 
     private void SaveDataOnTimerElapsed(object sender, ElapsedEventArgs e)
     {
-        BikeData bike_coords_data = new();
-        TrackData track_data = new();
+        // TODO: remove at a later date
+        /*
+        BikeCoords bike_coords_data = new();
+        TrackCoords track_coords_data = new();
+        */
 
-        // Modified counter (13.08.2025):
-        if (data_count % DECIM_DATA_LOG == 0)
+        if (ReHandyBotController.instance.ExerciseActive && data_count % DECIM_DATA_LOG == 0)
         {
+            // TODO: remove at a later date
+            /*
             bike_coords_data.pos_bike = ReHandyBotController.instance.pos_bike;
             bike_coords_data.dt_pos_bike = ReHandyBotController.instance.dt_pos_bike;
 
-            track_data.pos_ctrline_near = ReHandyBotController.instance.pos_ctrline_near;
-            track_data.vect_ctrline_tang = ReHandyBotController.instance.vect_ctrline_tang;
-            track_data.curv_ctrline_near = ReHandyBotController.instance.curv_ctrline_near;
-            track_data.ang_ctrline_tang = ReHandyBotController.instance.ang_ctrline_tang;
-            track_data.dist_ctrline_near = ReHandyBotController.instance.dist_ctrline_near;
+            track_coords_data.pos_ctrline_near = ReHandyBotController.instance.pos_ctrline_near;
+            track_coords_data.vect_ctrline_tang = ReHandyBotController.instance.vect_ctrline_tang;
+            track_coords_data.curv_ctrline_near = ReHandyBotController.instance.curv_ctrline_near;
+            track_coords_data.ang_ctrline_tang = ReHandyBotController.instance.ang_ctrline_tang;
+            track_coords_data.dist_ctrline_near = ReHandyBotController.instance.dist_ctrline_near;
+            */
 
             SaveDataEntry(
-                ReHandyBotController.instance.distal_data, 
-                bike_coords_data, 
-                track_data,
+                data_count,
+                ReHandyBotController.instance.distal_data,
+                MotorbikeController.instance.bike_coords_data,
+                MotorbikeController.instance.track_coords_data,
                 MotorbikeController.instance.bike_input_data,
                 MotorbikeController.instance.bike_pose_data);
         }

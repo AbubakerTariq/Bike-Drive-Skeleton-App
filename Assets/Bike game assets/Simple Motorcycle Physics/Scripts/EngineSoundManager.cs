@@ -73,18 +73,18 @@ public class EngineSoundManager : MonoBehaviour
         audioSource.pitch = Mathf.Lerp(prevPitch, audioSource.pitch, Time.deltaTime * EngineFlow);
         prevPitch = audioSource.pitch;
 
-        audioSource.outputAudioMixerGroup.audioMixer.SetFloat("VolumeCompensation", MasterVolume - motorbikeController.GetComponent<Rigidbody>().velocity.magnitude / motorbikeController.SPEED_M_PER_SEC_HIGH / 1);
-        audioSource.outputAudioMixerGroup.audioMixer.SetFloat("Distortion", (motorbikeController.GetComponent<Rigidbody>().velocity.magnitude / motorbikeController.SPEED_M_PER_SEC_HIGH) / 3 + 0.4f);
+        audioSource.outputAudioMixerGroup.audioMixer.SetFloat("VolumeCompensation", MasterVolume - motorbikeController.GetComponent<Rigidbody>().velocity.magnitude / motorbikeController.SPEED_HIGH_M_PER_SEC / 1);
+        audioSource.outputAudioMixerGroup.audioMixer.SetFloat("Distortion", (motorbikeController.GetComponent<Rigidbody>().velocity.magnitude / motorbikeController.SPEED_HIGH_M_PER_SEC) / 3 + 0.4f);
 
 
         audioSource2.pitch = Mathf.Lerp(prevPitch2, audioSource2.pitch, Time.deltaTime * EngineFlow);
         prevPitch2 = audioSource2.pitch;
 
-        audioSource2.outputAudioMixerGroup.audioMixer.SetFloat("VolumeCompensation", MasterVolume - motorbikeController.GetComponent<Rigidbody>().velocity.magnitude / motorbikeController.SPEED_M_PER_SEC_HIGH / 1);
-        audioSource2.outputAudioMixerGroup.audioMixer.SetFloat("Distortion", (motorbikeController.GetComponent<Rigidbody>().velocity.magnitude / motorbikeController.SPEED_M_PER_SEC_HIGH) / 3 + 0.4f);
+        audioSource2.outputAudioMixerGroup.audioMixer.SetFloat("VolumeCompensation", MasterVolume - motorbikeController.GetComponent<Rigidbody>().velocity.magnitude / motorbikeController.SPEED_HIGH_M_PER_SEC / 1);
+        audioSource2.outputAudioMixerGroup.audioMixer.SetFloat("Distortion", (motorbikeController.GetComponent<Rigidbody>().velocity.magnitude / motorbikeController.SPEED_HIGH_M_PER_SEC) / 3 + 0.4f);
 
         //Wind
-        audioSourceWind.volume = motorbikeController.GetComponent<Rigidbody>().velocity.magnitude / motorbikeController.SPEED_M_PER_SEC_HIGH + MasterVolume / 10;
+        audioSourceWind.volume = motorbikeController.GetComponent<Rigidbody>().velocity.magnitude / motorbikeController.SPEED_HIGH_M_PER_SEC + MasterVolume / 10;
         audioSourceWind.volume = Mathf.Clamp(audioSourceWind.volume, 0f, 0.35f);
     }
 

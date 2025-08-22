@@ -126,6 +126,7 @@ public class Track : MonoBehaviour
     /// </summary>
     /// <param name="dist">Distance along the track in world units.</param>
     /// <returns>World position on the centerline at the given distance.</returns>
+    /// 
     public Vector3 GetPositionAtDistance(float dist)
     {
         if (centerPoints == null || centerPoints.Count < 2 || distances == null || distances.Count != centerPoints.Count + 1)

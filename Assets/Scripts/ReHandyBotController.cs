@@ -54,11 +54,9 @@ public class ReHandyBotController : MonoBehaviour
     public static ReHandyBotController instance;
     private DistalComm distalRobot = new(); // Distal Control Library object
 
-    // Track object:
-    Track track_coords;
-
-    // Bike object:
-    MotorbikeController bike_coords;
+    // TODO: remove at a later date:
+    // Track track_coords;
+    // MotorbikeController bike_coords;
 
     ////////////////////////////////////////////////////////////////////////////
     // Configuration values:
@@ -87,12 +85,12 @@ public class ReHandyBotController : MonoBehaviour
     // Throttle - BASELINE haptics settings:
     [HideInInspector] public float POS_RADIAL_BASE_THROT = 0.029f;
     private float K_STIFF_RADIAL_BASE_THROT = 2500f;
-    private float B_DAMP_RADIAL_BASE_THROT = 0f; // 21f; rely on embedded HL_SetTarget stability 
+    private float B_DAMP_RADIAL_BASE_THROT = 0f; // rely on embedded HL_SetTarget stability 
 
     // Steering - BASELINE haptics settings:
     [HideInInspector] public float POS_ROT_BASE_STEER = 0f;
-    private float K_STIFF_ROT_BASE_STEER = 0.05f;  
-    static float B_DAMP_ROT_BASE_STEER = 0f; // 0.0115f; rely on embedded HL_SetTarget stability
+    private float K_STIFF_ROT_BASE_STEER = 0.1f;  
+    static float B_DAMP_ROT_BASE_STEER = 0f; // rely on embedded HL_SetTarget stability
 
     ////////////////////////////////////////////////////////////////////////////
     // Impedance for RHB motion limits:
@@ -101,7 +99,7 @@ public class ReHandyBotController : MonoBehaviour
     private float K_STIFF_ROT_LIMIT = 0.6f;
     private float B_DAMP_ROT_LIMIT = 0f; // rely on embedded HL_SetTarget stability
 
-    public float ANGLE_ROT_LIM_DEG = 45f;
+    public float ANGLE_ROT_LIM_DEG = 60.0f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Data structures from bike and track objects:
@@ -112,7 +110,6 @@ public class ReHandyBotController : MonoBehaviour
  
     public Vector3 pos_bike = NULL_VECTOR3;
     public Vector3 dt_pos_bike = NULL_VECTOR3;
-    // public Vector3 dt_pos_bike_unit = NULL_VECTOR3;
 
     public Vector3 pos_ctrline_near = NULL_VECTOR3;
     public Vector3 vect_ctrline_tang = NULL_VECTOR3;
@@ -159,11 +156,13 @@ public class ReHandyBotController : MonoBehaviour
 
     private Queue<Action> MainThreadActionQueue = new();
 
+    // Replaced by MotionRoutineRHBSimple() (22.08.2025):
+    /*
     private Coroutine motionRoutineRadial;
     private Coroutine motionRoutineRotational;
-
     private bool isMoving = false;
     private bool isRotating = false;
+    */
 
     private float pos_radial_min;
 
@@ -318,22 +317,29 @@ public class ReHandyBotController : MonoBehaviour
 
         if (ExerciseActive && MotorbikeController.instance != null && Track.instance != null)
         {
-            bike_coords = MotorbikeController.instance;
+            // TODO: remove at a later date:
+            /*
+            pos_bike = MotorbikeController.instance.GetBikePosition();
+            dt_pos_bike = MotorbikeController.instance.GetBikeVelocityVector();
+            */
 
-            pos_bike = bike_coords.GetBikePosition();
-            dt_pos_bike = bike_coords.GetBikeVelocityVector();
-            // dt_pos_bike_unit = bike_coords.GetBikeDirectionVector(); // verify if this is the correct function (21.08.2025)
+            pos_bike = MotorbikeController.instance.bike_coords_data.pos_bike;
+            dt_pos_bike = MotorbikeController.instance.bike_coords_data.dt_pos_bike;
 
-            track_coords = Track.instance;
+            // TODO: remove at a later date:
+            /*
+            pos_ctrline_near = Track.instance.GetClosestPointOnCenterLine(pos_bike);
+            vect_ctrline_tang = Track.instance.GetTangentAtPosition(pos_bike);
+            curv_ctrline_near = Track.instance.GetCurvatureAtPosition(pos_bike);
+            ang_ctrline_tang = (float)Math.PI / 180f * Track.instance.GetTangentAngleAtPosition(pos_bike);
+            dist_ctrline_near = Track.instance.GetDistanceAtPosition(pos_bike);  
+            */
 
-            pos_ctrline_near = track_coords.GetClosestPointOnCenterLine(pos_bike);
-            vect_ctrline_tang = track_coords.GetTangentAtPosition(pos_bike);
-
-            curv_ctrline_near = track_coords.GetCurvatureAtPosition(pos_bike);
-            ang_ctrline_tang = (float)Math.PI / 180f * track_coords.GetTangentAngleAtPosition(pos_bike);
-            dist_ctrline_near = track_coords.GetDistanceAtPosition(pos_bike);  
-
-            // track.GetTrackLength();
+            pos_ctrline_near = MotorbikeController.instance.track_coords_data.pos_ctrline_near;
+            vect_ctrline_tang = MotorbikeController.instance.track_coords_data.vect_ctrline_tang;
+            curv_ctrline_near = MotorbikeController.instance.track_coords_data.curv_ctrline_near;
+            ang_ctrline_tang = MotorbikeController.instance.track_coords_data.ang_ctrline_tang;
+            dist_ctrline_near = MotorbikeController.instance.track_coords_data.dist_ctrline_near;
         }
     
         ////////////////////////////////////////////////////////////////////////////
@@ -741,7 +747,7 @@ public class ReHandyBotController : MonoBehaviour
         System.Threading.Thread.Sleep(DT_STEP_APP_MSEC);
         timerLocked = false;
 
-        // Removed 20.08.2025:
+        // Replaced by MotionRoutineRHBSimple() (22.08.2025):
         /*
         if (isMoving)
         {
@@ -782,7 +788,7 @@ public class ReHandyBotController : MonoBehaviour
         ExternalConsoleLogger.Log("____________________________________________________________________");
         ExternalConsoleLogger.Log("StopExercise(): timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
 
-        // Removed 20.08.2025:
+        // Replaced by MotionRoutineRHBSimple() (22.08.2025):
         /*
         motionRoutineRotational = StartCoroutine(MotionRoutineRotationalRHB(0f, () =>
         {
@@ -900,6 +906,8 @@ public class ReHandyBotController : MonoBehaviour
                 break;
     }
 
+    // Replaced with MotionRoutineRHBSimple() (22.08.2025):
+    /*
     private IEnumerator MotionRoutineRadialRHB(float target, UnityAction onComplete)
     {
         isMoving = true;
@@ -962,7 +970,10 @@ public class ReHandyBotController : MonoBehaviour
         isMoving = false;
         onComplete?.Invoke();
     }
+    */
 
+    // Replaced by MotionRoutineRHBSimple() (22.08.2025):
+    /*
     private IEnumerator MotionRoutineRotationalRHB(float target, UnityAction onComplete)
     {
         isRotating = true;
@@ -1026,6 +1037,7 @@ public class ReHandyBotController : MonoBehaviour
         isRotating = false;
         onComplete?.Invoke();
     }
+    */
 
     private bool MotionRoutineRHBSimple(float pos_rad_targ)
     {

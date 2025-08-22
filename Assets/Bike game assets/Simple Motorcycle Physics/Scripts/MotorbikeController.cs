@@ -8,7 +8,7 @@ public class MotorbikeController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Real-time bike steering step (CRITICAL):
     ////////////////////////////////////////////////////////////////////////////
-    
+
     public const int DT_STEP_INPUT_STEER_BIKE_MSEC = 25; // sampling rate for RHB steer input commands 
 
     ////////////////////////////////////////////////////////////////////////////
@@ -16,6 +16,8 @@ public class MotorbikeController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     private float ANGLE_STEER_FRONT_WHEEL_MAX_DEG = 60f; // 75f; // 45f;
+    private float SPEED_ANGLE_STEER_TRANS_M_PER_SEC = 1.0f; // transition speed for wheel steering angle behavior
+
     private float TORQUE_MOTOR_MAX = 600f; // 500f; 
     private float FACTOR_ACCEL = 2000f; // 1000f; // CRITICAL value: increases top speed but can make turning harder
 
@@ -30,12 +32,12 @@ public class MotorbikeController : MonoBehaviour
     private float FACTOR_ANGLE_SQUARED_STEER = 2.3f;
     private float FACTOR_INC_STEER = 20.0f; // 10.0f;
 
-    [HideInInspector] public float SPEED_M_PER_SEC_LOW = 8.0f;
-    [HideInInspector] public float SPEED_M_PER_SEC_HIGH = 25.0f;
+    [HideInInspector] public float SPEED_LOW_M_PER_SEC = 8.0f;
+    [HideInInspector] public float SPEED_HIGH_M_PER_SEC = 25.0f;
 
     // Roll and nonslip limit angles:
-    private float ANGLE_ROLL_LOW = 42.0f;
-    private float ANGLE_NONSLIP_MAX_DEG = 50.0f; 
+    private float ANGLE_ROLL_LOW_DEG = 42.0f;
+    private float ANGLE_NONSLIP_MAX_DEG = 50.0f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - ADJUSTABLE VALUES - CRITICAL:
@@ -53,7 +55,7 @@ public class MotorbikeController : MonoBehaviour
     private float INPUT_STEER_REF_DEG = 25.0f; //  15.0f; // 30.0f; // reference angle for steering response (the lower the angle the larger the response)
 
     // Steering - scaling RHB input:
-    private float SCALE_STEER_MIN = 1.0f;  
+    private float SCALE_STEER_MIN = 1.0f;
     private float SCALE_STEER_MAX = 2.0f; // make this > 1 to reduce the actual range of RHB rotation  
 
     private float ANG_SCALE_START = 15f * (float)Math.PI / 180f;
@@ -83,7 +85,7 @@ public class MotorbikeController : MonoBehaviour
     // Mudguard:
     [SerializeField]
     public GameObject RearMudGuard;
-    public Vector3 RearMudGuardSusOffset; 
+    public Vector3 RearMudGuardSusOffset;
 
     private WheelData[] wheels;
 
@@ -100,10 +102,10 @@ public class MotorbikeController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     float steer_sensitivity_init;
-    float torque_motor_init; 
-    float angle_roll;
-    [HideInInspector] public float rpm_value; 
-    
+    float torque_motor_init;
+    float angle_roll_deg;
+    [HideInInspector] public float rpm_value;
+
     [HideInInspector] public Vector3 velocity_rel_collision;
 
     // Initial conditions:
@@ -123,7 +125,7 @@ public class MotorbikeController : MonoBehaviour
     ///////////////////////////////////////////////////////////
     // Timers and counters:
     ///////////////////////////////////////////////////////////
-   
+
     private const int DECIM_DATA_DISP_BIKE_CTRL = 50;
 
     private int step_count_prev = 0;
@@ -147,11 +149,21 @@ public class MotorbikeController : MonoBehaviour
         public float rotation = 0f;
     }
 
+    /////////////////////////////////////////////////////////////////////////
+    // Data structures:
+    /////////////////////////////////////////////////////////////////////////
+    ///
+    public struct BikeCoords
+    {
+        public Vector3 pos_bike;
+        public Vector3 dt_pos_bike;
+    }
+
     ///////////////////////////////////////////////////////////
     // Motorbike input struct:
     ///////////////////////////////////////////////////////////
 
-    public struct MotorbikeInput
+    public struct BikeInput
     {
         public float steer;
         public float throttle_rhb; // NEW: 11.06.2025   
@@ -160,22 +172,39 @@ public class MotorbikeController : MonoBehaviour
         public float brakeBack;
     }
 
-    // Motorbike input variable:
-    public MotorbikeInput bike_input_data = new();
-
     ///////////////////////////////////////////////////////////
     // Motorbike pose (orientation angles) struct:
     ///////////////////////////////////////////////////////////
-    
-    public struct MotorbikePose
+
+    public struct BikePose
     {
         public float angle_roll;
+        public float angle_steer_wheel_fwd;
         public float angle_ctrl;
         public float dt_angle_ctrl;
     }
 
-    // Motorbike pose variable:
-    public MotorbikePose bike_pose_data;
+    /////////////////////////////////////////////////////////////
+    // Track coordinates struct:
+    /////////////////////////////////////////////////////////////   
+
+    public struct TrackCoords
+    {
+        public Vector3 pos_ctrline_near;
+        public Vector3 vect_ctrline_tang;
+        public float curv_ctrline_near;
+        public float ang_ctrline_tang;
+        public float dist_ctrline_near;
+    }
+
+    /////////////////////////////////////////////////////////////
+    // Public DATA VARIABLES for sharing data among classes:
+    /////////////////////////////////////////////////////////////   
+
+    public BikeCoords bike_coords_data = new(); // Motorbike coordinates
+    public BikeInput bike_input_data = new(); // Motorbike input
+    public BikePose bike_pose_data = new(); // Motorbike pose
+    public TrackCoords track_coords_data = new(); // Track coordinates
 
     /////////////////////////////////////////////////////////////
     // Previous kinematic states:
@@ -204,8 +233,9 @@ public class MotorbikeController : MonoBehaviour
     private bool DISP_MOTOR_CONTROL_ON = false;
 
     //////////////////////////////////////////////////////////////
-    /// Speed of bike
+    /// Bike speed text:
     //////////////////////////////////////////////////////////////
+
     [SerializeField] public Text SpeedTxt;
 
     /////////////////////////////////////////////////////////////
@@ -233,9 +263,14 @@ public class MotorbikeController : MonoBehaviour
     {
         int step_count = ReHandyBotController.instance.step_count;
 
-        angle_roll = transform.eulerAngles.z;
+        ////////////////////////////////////////////////////////////////
+        // Bike roll angle (degrees):
+        ////////////////////////////////////////////////////////////////
+
+        angle_roll_deg = transform.eulerAngles.z;
+
         if (transform.eulerAngles.z > 180)
-            angle_roll = transform.eulerAngles.z - 360;        
+            angle_roll_deg = transform.eulerAngles.z - 360;
 
         ////////////////////////////////////////////////////////////////
         // Check if bike is balanced:
@@ -250,19 +285,19 @@ public class MotorbikeController : MonoBehaviour
         if (!bike_fallen)
         {
             ////////////////////////////////////////////////////////////////
-            // Bike input - local var:
+            // Bike - local variables:
             ////////////////////////////////////////////////////////////////
-            
-            MotorbikeInput bike_input = new();
+
+            BikeInput bike_input = new();
 
             ////////////////////////////////////////////////////////////////
             // Acceleration input - KEYBOARD:
             ////////////////////////////////////////////////////////////////         
 
-            if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) && !USE_RHB_THROTTLE)
-                bike_input.acceleration = 1f; // this input gets modified at low speeds - see motorControl()
-            else
+            if (USE_RHB_THROTTLE)
                 bike_input.acceleration = 0f;
+            else if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
+                bike_input.acceleration = 1f; // this input gets modified at low speeds - see motorControl()
 
             ////////////////////////////////////////////////////////////////
             // RHB radial input - throttle:
@@ -280,7 +315,7 @@ public class MotorbikeController : MonoBehaviour
             ////////////////////////////////////////////////////////////////
             // RHB rotational input - convert to (raw) steering input:
             ////////////////////////////////////////////////////////////////
-            
+
             float POS_STEER_MAX = INPUT_STEER_REF_DEG * Mathf.PI / 180f;
 
             // RHB input:
@@ -320,7 +355,7 @@ public class MotorbikeController : MonoBehaviour
                     bike_input.steer = 1;
                 else if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
                     bike_input.steer = -1;
-            }        
+            }
 
             ////////////////////////////////////////////////////////////////
             // 'Upright force' calculations:
@@ -354,28 +389,32 @@ public class MotorbikeController : MonoBehaviour
             {
                 ExternalConsoleLogger.Log("    ====================================================================");
                 ExternalConsoleLogger.Log("    FixedUpdate(" + step_count + "):");
-                ExternalConsoleLogger.Log("    " + 
+                ExternalConsoleLogger.Log("    " +
                     "Bike throttle RHB [" + String.Format("{0:#0.000}", bike_input.throttle_rhb) + "] " +
-                    "USE_RHB_THROTTLE [" + USE_RHB_THROTTLE +"]  USE_RHB_STEER [" + USE_RHB_STEER + "] " +
+                    "USE_RHB_THROTTLE [" + USE_RHB_THROTTLE + "]  USE_RHB_STEER [" + USE_RHB_STEER + "] " +
                     "input_force_trq_on [" + input_force_trq_on + "]");
 
                 ExternalConsoleLogger.Log(" ");
             }
 
             ////////////////////////////////////////////////////////////////
-            // Bike control commands:
+            // Bike control commands (CRITICAL):
             ////////////////////////////////////////////////////////////////            
 
-            motoControlRHB(bike_input, step_count, USE_RHB_THROTTLE, out bike_pose_data); // note update of bike_pose_data
+            motoControlRHB(bike_input, step_count, USE_RHB_THROTTLE, out bike_coords_data, out bike_pose_data);
 
             steerHelper();
             steerHandles();
 
             ////////////////////////////////////////////////////////////////
-            // Update other public data vars for sharing among other classes (ensures atomicity):
+            // Update other public DATA VARIABLES for sharing among other classes (ensures atomicity & real-time updating):
             ////////////////////////////////////////////////////////////////            
 
+            // Bike input:
             bike_input_data = bike_input;
+
+            // Track coordinates:
+            track_coords_data = GetTrackCoordinates(bike_coords_data.pos_bike);
 
             ////////////////////////////////////////////////////////////////
             // Update text for speed display in Unity (21.08.2025):
@@ -415,7 +454,7 @@ public class MotorbikeController : MonoBehaviour
         t.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
 
         // Reset the bike velocity to 0 (optional)
-        rigid_body.velocity = Vector3.zero;        
+        rigid_body.velocity = Vector3.zero;
         rigid_body.angularDrag = 100;
         rigid_body.centerOfMass = com;
 
@@ -426,8 +465,8 @@ public class MotorbikeController : MonoBehaviour
         Rider.SetActive(true);
     }
 
-    private void motoControlRHB(MotorbikeInput input, int step_count, bool USE_RHB_THROTTLE, 
-        out MotorbikePose bike_pose)
+    private void motoControlRHB(BikeInput input, int step_count, bool USE_RHB_THROTTLE,
+        out BikeCoords bike_coords, out BikePose bike_pose)
     {
         ////////////////////////////////////////////////////////////////
         // Time step:
@@ -438,14 +477,14 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
         // Track the multiple updates to input.steer that happen in this function:
         ////////////////////////////////////////////////////////////////
-        
+
         const int N_STEER_UPDATES = 4;
         float[] steer_update = new float[N_STEER_UPDATES + 1];
 
         ////////////////////////////////////////////////////////////////
         // Initialize input.steer updates:
         ////////////////////////////////////////////////////////////////
-        ///
+
         steer_update[0] = input.steer;
 
         ////////////////////////////////////////////////////////////////
@@ -485,7 +524,7 @@ public class MotorbikeController : MonoBehaviour
 
             ExternalConsoleLogger.Log("    " +
                 "vel_magn [" + String.Format("{0:#0.000}", dt_pos_bike_magn) + "] " +
-                "SPEED_LOW [" + String.Format("{0:#0.000}", SPEED_M_PER_SEC_LOW) + "] ");
+                "SPEED_LOW [" + String.Format("{0:#0.000}", SPEED_LOW_M_PER_SEC) + "] ");
 
             ExternalConsoleLogger.Log("\n");
         }
@@ -496,32 +535,31 @@ public class MotorbikeController : MonoBehaviour
 
         float ratio_speed = 0f;
 
-        // input.steer UPDATE 1
-        if (dt_pos_bike_magn < SPEED_M_PER_SEC_LOW)
+        // input.steer UPDATE 1     
+        // Low-speed case:
+        if (dt_pos_bike_magn < SPEED_LOW_M_PER_SEC)
         {
-            ratio_speed = dt_pos_bike_magn / SPEED_M_PER_SEC_LOW;
+            ratio_speed = dt_pos_bike_magn / SPEED_LOW_M_PER_SEC;
 
-            // Low-speed case:
-            steer_update[1] = input.steer * ratio_speed * ratio_speed; 
-            input.steer = steer_update[1]; 
-                
+
+            steer_update[1] = input.steer * ratio_speed * ratio_speed;
+            input.steer = steer_update[1];
+
             angle_ctrl *= (2.0f - ratio_speed);
             dt_angle_ctrl *= ratio_speed * ratio_speed;
 
             input.acceleration += 3.0f * Mathf.Abs(angle_ctrl) * (1 - ratio_speed);
         }
+        // Other case:
         else
-        {
-            // Other case:
             steer_update[1] = input.steer;
-        }        
-        
-        if (dt_pos_bike_magn > SPEED_M_PER_SEC_HIGH)
+
+        if (dt_pos_bike_magn > SPEED_HIGH_M_PER_SEC)
         {
-            ratio_speed = dt_pos_bike_magn / SPEED_M_PER_SEC_HIGH;
+            ratio_speed = dt_pos_bike_magn / SPEED_HIGH_M_PER_SEC;
 
             if (dt_angle_ctrl * angle_ctrl < 0f)
-                dt_angle_ctrl *= 1.25f*ratio_speed;
+                dt_angle_ctrl *= 1.25f * ratio_speed;
         }
 
         ////////////////////////////////////////////////////////////////
@@ -531,10 +569,10 @@ public class MotorbikeController : MonoBehaviour
         float inc_steer = FACTOR_INC_STEER * dt_step;
 
         // input.steer UPDATE 2:
-        steer_update[2] = input.steer * (1 - FACTOR_ANGLE_SQUARED_STEER * angle_ctrl * angle_ctrl); 
+        steer_update[2] = input.steer * (1 - FACTOR_ANGLE_SQUARED_STEER * angle_ctrl * angle_ctrl);
         input.steer = steer_update[2];
 
-        float factor_speed_steer = 1f / (dt_pos_bike_magn * dt_pos_bike_magn + 1f);  
+        float factor_speed_steer = 1f / (dt_pos_bike_magn * dt_pos_bike_magn + 1f);
         float steer_term_input = STEER_SENSITIVITY * input.steer;
         float steer_term_angle = FACTOR_ANGLE_STEER * angle_ctrl;
         float steer_term_dt_angle = FACTOR_DT_ANGLE_STEER * dt_angle_ctrl;
@@ -546,8 +584,8 @@ public class MotorbikeController : MonoBehaviour
 
         // input.steer UPDATE 4:
         steer_update[4] = Mathf.Clamp(input.steer, steer_prev - inc_steer, steer_prev + inc_steer);
-        input.steer = steer_update[4]; 
-        
+        input.steer = steer_update[4];
+
         ////////////////////////////////////////////////////////////////
         // Save steering value for next step:
         ////////////////////////////////////////////////////////////////
@@ -557,7 +595,7 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
         // Display section:
         ////////////////////////////////////////////////////////////////
-        
+
         if (step_count % DECIM_DATA_DISP_BIKE_CTRL == 0 && step_count > step_count_prev &&
             ReHandyBotController.instance.ExerciseActive && DISP_MOTOR_CONTROL_ON)
         {
@@ -581,9 +619,10 @@ public class MotorbikeController : MonoBehaviour
         // Update steering angle (wheel colliders):
         ////////////////////////////////////////////////////////////////
 
-        if (dt_pos_bike_magn > 1.0f)
+        if (dt_pos_bike_magn > SPEED_ANGLE_STEER_TRANS_M_PER_SEC)
             wheel_coll_fwd.steerAngle = Mathf.Clamp(input.steer, -1, 1) * ANGLE_STEER_FRONT_WHEEL_MAX_DEG;
         else
+            // TODO: how come there is no scaling of dt_pos_bike_magn:
             wheel_coll_fwd.steerAngle = Mathf.Clamp(input.steer, -dt_pos_bike_magn, dt_pos_bike_magn);
 
         ////////////////////////////////////////////////////////////////
@@ -600,16 +639,16 @@ public class MotorbikeController : MonoBehaviour
         if (USE_RHB_THROTTLE) {
             wheel_coll_back.motorTorque = TORQUE_MOTOR_MAX * input.throttle_rhb;
 
-            if (dt_pos_bike_magn < SPEED_M_PER_SEC_HIGH)
+            if (dt_pos_bike_magn < SPEED_HIGH_M_PER_SEC)
                 rigid_body.AddForce(FACTOR_ACCEL * input.throttle_rhb * transform.forward);
             else
-                rigid_body.AddForce(0.5f*FACTOR_ACCEL * input.throttle_rhb * transform.forward);
+                rigid_body.AddForce(0.5f * FACTOR_ACCEL * input.throttle_rhb * transform.forward);
         }
         else {
             wheel_coll_back.motorTorque = TORQUE_MOTOR_MAX * input.acceleration;
 
-            if (dt_pos_bike_magn < SPEED_M_PER_SEC_HIGH)
-                rigid_body.AddForce(FACTOR_ACCEL * input.acceleration * transform.forward );
+            if (dt_pos_bike_magn < SPEED_HIGH_M_PER_SEC)
+                rigid_body.AddForce(FACTOR_ACCEL * input.acceleration * transform.forward);
         }
 
         ////////////////////////////////////////////////////////////////
@@ -623,10 +662,18 @@ public class MotorbikeController : MonoBehaviour
                 rigid_body.velocity.z * (1.0f - FACTOR_BRAKE / 10f));
 
         ////////////////////////////////////////////////////////////////
-        // Update bike pose:
+        // Generate bike coordinates output struct:
         ////////////////////////////////////////////////////////////////
- 
-        bike_pose.angle_roll = angle_roll;
+
+        bike_coords.pos_bike = pos_bike;
+        bike_coords.dt_pos_bike = dt_pos_bike;
+
+        ////////////////////////////////////////////////////////////////
+        // Generate bike pose output struct:
+        ////////////////////////////////////////////////////////////////
+
+        bike_pose.angle_roll = angle_roll_deg * (float)Math.PI / 180f;
+        bike_pose.angle_steer_wheel_fwd = wheel_coll_fwd.steerAngle * (float)Math.PI / 180f;
         bike_pose.angle_ctrl = angle_ctrl;
         bike_pose.dt_angle_ctrl = dt_angle_ctrl;
 
@@ -636,13 +683,13 @@ public class MotorbikeController : MonoBehaviour
 
         if (step_count % DECIM_DATA_DISP_BIKE_CTRL == 0 && step_count > step_count_prev &&
             ReHandyBotController.instance.ExerciseActive && DISP_MOTOR_CONTROL_ON)
-        {           
+        {
             try
             {
                 ExternalConsoleLogger.Log("    " +
-                    "wheel_coll_fwd.motorTorque [" + wheel_coll_fwd.motorTorque + "]" );
+                    "wheel_coll_fwd.motorTorque [" + wheel_coll_fwd.motorTorque + "]");
                 ExternalConsoleLogger.Log("    " +
-                    "wheel_coll_back.motorTorque [" + wheel_coll_back.motorTorque + "]" );
+                    "wheel_coll_back.motorTorque [" + wheel_coll_back.motorTorque + "]");
             }
             catch (Exception exc)
             {
@@ -652,10 +699,10 @@ public class MotorbikeController : MonoBehaviour
                 ExternalConsoleLogger.Log("      Stack trace:       [" + exc.StackTrace + "] \n");
             }
 
-            ExternalConsoleLogger.Log("\n");
+            ExternalConsoleLogger.Log(" ");
         }
     }
-        
+
     private void uprightForce(bool input_force_trq_on)
     {
         rigid_body.angularDrag -= 100f * Time.deltaTime;
@@ -683,7 +730,7 @@ public class MotorbikeController : MonoBehaviour
 
     public void uprightCheck()
     {
-        if ((Mathf.Abs(angle_roll) > ANGLE_NONSLIP_MAX_DEG || Input.GetKeyDown(KeyCode.F) || HardHit == true) 
+        if ((Mathf.Abs(angle_roll_deg) > ANGLE_NONSLIP_MAX_DEG || Input.GetKeyDown(KeyCode.F) || HardHit == true)
             && bike_fallen == false)
         {
             Rider.SetActive(false);
@@ -696,7 +743,7 @@ public class MotorbikeController : MonoBehaviour
 
     private void updateWheels()
     {
-        float delta = Time.fixedDeltaTime;
+        float dt_step = Time.fixedDeltaTime;
 
         foreach (WheelData wheel_this in wheels)
         {
@@ -711,10 +758,10 @@ public class MotorbikeController : MonoBehaviour
             else
                 localPos.y = wheel_this.wheelStartPos.y;
 
-            wheel_this.rotation = Mathf.Repeat(wheel_this.rotation + delta * wheel_this.wheelCollider.rpm * 360.0f / 60.0f, 360f);
+            wheel_this.rotation = Mathf.Repeat(wheel_this.rotation + dt_step * wheel_this.wheelCollider.rpm * 360.0f / 60.0f, 360f);
             wheel_this.wheelTransform.localRotation = Quaternion.Euler(
-                wheel_this.rotation, 
-                Mathf.Lerp(wheel_this.wheelTransform.localRotation.y, wheel_this.wheelCollider.steerAngle, Time.deltaTime * 10), 
+                wheel_this.rotation,
+                Mathf.Lerp(wheel_this.wheelTransform.localRotation.y, wheel_this.wheelCollider.steerAngle, Time.deltaTime * 10),
                 0);
         }
     }
@@ -736,8 +783,8 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////////////////////////
         // Adjust steering sensitivity:
         ////////////////////////////////////////////////////////////////////////////////////
-        
-        STEER_SENSITIVITY = Mathf.Clamp(steer_sensitivity_init - 0.9f * Mathf.Abs(angle_roll), 10f, steer_sensitivity_init);
+
+        STEER_SENSITIVITY = Mathf.Clamp(steer_sensitivity_init - 0.9f * Mathf.Abs(angle_roll_deg), 10f, steer_sensitivity_init);
 
         ////////////////////////////////////////////////////////////////////////////////////
         // Adjust steering angle factor (TODO: what do the numbers mean?):
@@ -751,24 +798,24 @@ public class MotorbikeController : MonoBehaviour
             FACTOR_ANGLE_STEER += 1f;
         */
 
-        if (angle_roll < -ANGLE_ROLL_LOW || angle_roll > ANGLE_ROLL_LOW)
+        if (angle_roll_deg < -ANGLE_ROLL_LOW_DEG || angle_roll_deg > ANGLE_ROLL_LOW_DEG)
             FACTOR_ANGLE_STEER += 3f; // 2f;
 
         ////////////////////////////////////////////////////////////////////////////////////
         // Adjust torque based on key inputs (TODO: keep or discard): 
         ////////////////////////////////////////////////////////////////////////////////////
 
-        if (!USE_RHB_THROTTLE) { 
-            if (angle_roll > 10 && Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
-                rigid_body.AddTorque(-transform.forward * 0.1f * angle_roll, ForceMode.Acceleration);
+        if (!USE_RHB_THROTTLE) {
+            if (angle_roll_deg > 10 && Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
+                rigid_body.AddTorque(-transform.forward * 0.1f * angle_roll_deg, ForceMode.Acceleration);
 
-            else if (angle_roll > 20 && Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
+            else if (angle_roll_deg > 20 && Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
                 rigid_body.AddTorque(-rigid_body.angularVelocity * 2, ForceMode.Acceleration);
 
-            else if (angle_roll < -10 && Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
-                rigid_body.AddTorque(transform.forward * 0.1f * -angle_roll, ForceMode.Acceleration);
-            
-            else if (angle_roll < -20 && Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
+            else if (angle_roll_deg < -10 && Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
+                rigid_body.AddTorque(transform.forward * 0.1f * -angle_roll_deg, ForceMode.Acceleration);
+
+            else if (angle_roll_deg < -20 && Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
                 rigid_body.AddTorque(-rigid_body.angularVelocity * 2, ForceMode.Acceleration);
         }
 
@@ -778,11 +825,11 @@ public class MotorbikeController : MonoBehaviour
 
         if (dt_pos_bike_magn < 10)
             SetWheelFriction(1.5f);
-        else if(dt_pos_bike_magn < 20 && dt_pos_bike_magn > 10)
+        else if (dt_pos_bike_magn < 20 && dt_pos_bike_magn > 10)
             SetWheelFriction(2);
-        else if(dt_pos_bike_magn < 30 && dt_pos_bike_magn > 20)
+        else if (dt_pos_bike_magn < 30 && dt_pos_bike_magn > 20)
             SetWheelFriction(2.5f);
-        else if(dt_pos_bike_magn < 40 && dt_pos_bike_magn > 20)
+        else if (dt_pos_bike_magn < 40 && dt_pos_bike_magn > 20)
             SetWheelFriction(3);
         else
             SetWheelFriction(3.5f);
@@ -807,7 +854,7 @@ public class MotorbikeController : MonoBehaviour
         if (gear_curr != gear_prev)
             StartCoroutine(MotorDisengage());
 
-        rpm_value = dt_pos_bike_magn % FACT_GEAR / FACT_GEAR;
+        rpm_value = (dt_pos_bike_magn % FACT_GEAR) / FACT_GEAR;
     }
 
     IEnumerator MotorDisengage()
@@ -817,22 +864,39 @@ public class MotorbikeController : MonoBehaviour
         TORQUE_MOTOR_MAX = torque_motor_init;
     }
 
-    public Vector3 GetBikePosition()
+    TrackCoords GetTrackCoordinates(Vector3 pos_bike) {
+        TrackCoords track_coords;
+ 
+        track_coords.pos_ctrline_near = Track.instance.GetClosestPointOnCenterLine(pos_bike);
+        track_coords.vect_ctrline_tang = Track.instance.GetTangentAtPosition(pos_bike);
+        track_coords.curv_ctrline_near = Track.instance.GetCurvatureAtPosition(pos_bike);
+        track_coords.ang_ctrline_tang = (float) Math.PI / 180f * Track.instance.GetTangentAngleAtPosition(pos_bike);
+        track_coords.dist_ctrline_near = Track.instance.GetDistanceAtPosition(pos_bike);
+
+        return track_coords;
+    }
+
+    public float ConvertSpeedMStoKMH(float speed)
+    {
+        return Mathf.Clamp(speed * 3.6f, 0, 90);
+    }
+
+    ///////////////////////////////////////////////////////////
+    // NOTE: made these functions private until we work out real-time issues (22.08.2025):
+    //////////////////////////////////////////////////////////
+
+    private Vector3 GetBikePosition()
     {
         return transform.position;
     }
     
-    public Vector3 GetBikeDirectionVector()
+    private Vector3 GetBikeDirectionVector()
     {
         return transform.forward;
     }
 
-    public Vector3 GetBikeVelocityVector()
+    private Vector3 GetBikeVelocityVector()
     {
         return rigid_body.velocity;
-    }
-    public float ConvertSpeedMStoKMH(float speed)
-    {
-        return Mathf.Clamp(speed * 3.6f, 0, 90);
     }
 }

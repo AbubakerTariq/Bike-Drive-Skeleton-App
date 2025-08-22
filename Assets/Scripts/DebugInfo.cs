@@ -11,6 +11,9 @@ public class DebugInfo : MonoBehaviour
 
         Track track = Track.instance;
         MotorbikeController bike = MotorbikeController.instance;
+
+        // Commnted out dut to change in change in functions' accesss level (22.08.2025):
+        /*
         Vector3 bikePos = bike.GetBikePosition();
 
         debugText.text = $"Track length: {track.GetTrackLength().ToString("F2")}m" +
@@ -22,5 +25,6 @@ public class DebugInfo : MonoBehaviour
                         $"\nTrack curvature at bike position: {track.GetCurvatureAtPosition(bikePos).ToString("F3")}" +
                         $"\nCenterline tangent direction at bike position: {track.GetTangentAtPosition(bikePos).ToString("F2")}" +
                         $"\nCenterline tangent angle at bike position: {track.GetTangentAngleAtPosition(bikePos).ToString("F2")}°";
+        */
     }
 }
