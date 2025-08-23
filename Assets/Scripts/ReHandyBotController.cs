@@ -54,10 +54,6 @@ public class ReHandyBotController : MonoBehaviour
     public static ReHandyBotController instance;
     private DistalComm distalRobot = new(); // Distal Control Library object
 
-    // TODO: remove at a later date:
-    // Track track_coords;
-    // MotorbikeController bike_coords;
-
     ////////////////////////////////////////////////////////////////////////////
     // Configuration values:
     ////////////////////////////////////////////////////////////////////////////
@@ -96,10 +92,10 @@ public class ReHandyBotController : MonoBehaviour
     // Impedance for RHB motion limits:
     ////////////////////////////////////////////////////////////////////////////   
 
-    private float K_STIFF_ROT_LIMIT = 0.6f;
-    private float B_DAMP_ROT_LIMIT = 0f; // rely on embedded HL_SetTarget stability
+    private float K_STIFF_ROT_LIM = 0.6f;
+    private float B_DAMP_ROT_LIM = 0f; // rely on embedded HL_SetTarget stability
 
-    public float ANGLE_ROT_LIM_DEG = 60.0f;
+    public float ANGLE_ROT_LIM_DEG = 45.0f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Data structures from bike and track objects:
@@ -191,7 +187,7 @@ public class ReHandyBotController : MonoBehaviour
     public int step_count = 0;
 
     ////////////////////////////////////////////////////////////////////////////
-    // Thread and timer dor SetTarget process:
+    // Thread and timer for SetTarget process:
     ////////////////////////////////////////////////////////////////////////////
 
     private System.Timers.Timer timerSetTarget;
@@ -240,8 +236,8 @@ public class ReHandyBotController : MonoBehaviour
 
     private void OnApplicationQuit()
     {
-        // Stop Set target events:
-        StopSetTargetEvents();
+        // Stop Set target events (TODO: keep or discard):
+        // StopSetTargetEvents();
 
         // Stop all RHB related processes when the application is closed
         connectionThread?.Abort();
@@ -317,24 +313,11 @@ public class ReHandyBotController : MonoBehaviour
 
         if (ExerciseActive && MotorbikeController.instance != null && Track.instance != null)
         {
-            // TODO: remove at a later date:
-            /*
-            pos_bike = MotorbikeController.instance.GetBikePosition();
-            dt_pos_bike = MotorbikeController.instance.GetBikeVelocityVector();
-            */
-
+            // Retrieve bike coordinates from MotorbikeController object:
             pos_bike = MotorbikeController.instance.bike_coords_data.pos_bike;
             dt_pos_bike = MotorbikeController.instance.bike_coords_data.dt_pos_bike;
 
-            // TODO: remove at a later date:
-            /*
-            pos_ctrline_near = Track.instance.GetClosestPointOnCenterLine(pos_bike);
-            vect_ctrline_tang = Track.instance.GetTangentAtPosition(pos_bike);
-            curv_ctrline_near = Track.instance.GetCurvatureAtPosition(pos_bike);
-            ang_ctrline_tang = (float)Math.PI / 180f * Track.instance.GetTangentAngleAtPosition(pos_bike);
-            dist_ctrline_near = Track.instance.GetDistanceAtPosition(pos_bike);  
-            */
-
+            // Retrieve track coordinates from MotorbikeController object:
             pos_ctrline_near = MotorbikeController.instance.track_coords_data.pos_ctrline_near;
             vect_ctrline_tang = MotorbikeController.instance.track_coords_data.vect_ctrline_tang;
             curv_ctrline_near = MotorbikeController.instance.track_coords_data.curv_ctrline_near;
@@ -346,11 +329,11 @@ public class ReHandyBotController : MonoBehaviour
         // Display section:
         ////////////////////////////////////////////////////////////////////////////
 
-        // Time elapsed display:
-        string timeElapsedText = String.Format("{0:#00}", timeElapsedSpan.Minutes) + ":" + String.Format("{0:#00}", timeElapsedSpan.Seconds);
-
         if (ExerciseActive && step_count % (DT_DISP_DATA_MSEC / DT_STEP_APP_MSEC) == 0 && DISP_TIMER_ACTIVITY_ON)
         {
+            // Time elapsed display:
+            string timeElapsedText = String.Format("{0:#00}", timeElapsedSpan.Minutes) + ":" + String.Format("{0:#00}", timeElapsedSpan.Seconds);
+
             ExternalConsoleLogger.Log("Update(" + step_count + ") t [" + String.Format("{0:#0.000}", timeElapsedValue) + "]:");
             ExternalConsoleLogger.Log("   pos bike " + pos_bike      );
             ExternalConsoleLogger.Log("   vel bike " + dt_pos_bike   );
@@ -391,13 +374,6 @@ public class ReHandyBotController : MonoBehaviour
         // Impedance parameters for rotation angle limit:
         ////////////////////////////////////////////////////////////////////////////
 
-        // RADIAL parameters:
-        /*
-        float pos_radial_lim = POS_RADIAL_MIN;
-        float k_stiff_radial_lim = 0f;
-        float b_damp_radial_lim = 0f;
-        */
-
         float gain_radial = 1.0f;
 
         // ROTATIONAL parameters:
@@ -411,26 +387,57 @@ public class ReHandyBotController : MonoBehaviour
 
         ////////////////////////////////////////////////////////////////////////////
         // Compute impedance parameters:
+        // If rotation limit is exceeded, apply limit values to rotational stiffness and damping:
         ////////////////////////////////////////////////////////////////////////////
-        
-        // If rotation limit exceeded, apply limit values to rotational siffness and damping:
-        if ((pos_phi - ANGLE_ROT_LIM) > 0f || (pos_phi + ANGLE_ROT_LIM) < 0f)
+
+        // TODO: remove at a later date:
+        /*
+        if ((pos_phi - ANGLE_ROT_LIM) > 0f)
         {
             k_rot_curr = K_STIFF_ROT_LIMIT;
             b_rot_curr = B_DAMP_ROT_LIMIT;
+            pos_eq_rot_curr = ANGLE_ROT_LIM;
+        }
+        else if ((pos_phi + ANGLE_ROT_LIM) < 0f)
+        {
+            k_rot_curr = K_STIFF_ROT_LIMIT;
+            b_rot_curr = B_DAMP_ROT_LIMIT;
+            pos_eq_rot_curr = -ANGLE_ROT_LIM;
         }
         else
         {
             k_rot_curr = K_STIFF_ROT_BASE_STEER;
             b_rot_curr = B_DAMP_ROT_BASE_STEER;
+            pos_eq_rot_curr = 0f;
+        }
+        */
+
+        // NEW IMPLEMENTATION:
+        // Compute equivalent stiffnes & equilibrium point for the combined steering stiffness and limit-position stiffness
+        // Overcomes the limitation of RHB only allowing a single target (22.08.2025):
+
+        float pos_eq_rot_lim_plus = ANGLE_ROT_LIM;
+        float pos_eq_rot_lim_minus = -ANGLE_ROT_LIM;
+
+        if (pos_phi > pos_eq_rot_lim_plus)
+        {
+            k_rot_curr = K_STIFF_ROT_BASE_STEER + K_STIFF_ROT_LIM;
+            pos_eq_rot_curr = (K_STIFF_ROT_LIM * pos_eq_rot_lim_plus) / k_rot_curr;
         }
 
-        if ((pos_phi - ANGLE_ROT_LIM) > 0f)
-            pos_eq_rot_curr = ANGLE_ROT_LIM;
-        else if ((pos_phi + ANGLE_ROT_LIM) < 0f)
-            pos_eq_rot_curr = -ANGLE_ROT_LIM;
+        else if (pos_phi < pos_eq_rot_lim_minus)
+        {
+            k_rot_curr = K_STIFF_ROT_BASE_STEER + K_STIFF_ROT_LIM;
+            pos_eq_rot_curr = (K_STIFF_ROT_LIM * pos_eq_rot_lim_minus) / k_rot_curr;
+        }
         else
+        {
+            k_rot_curr = K_STIFF_ROT_BASE_STEER;
             pos_eq_rot_curr = 0f;
+        }
+
+        // Assumes that damping is provided by embedded HL_SetTarget stability (22.08.2025):
+        b_rot_curr = 0f;
 
         ////////////////////////////////////////////////////////////////////////////
         // Send limit force commands to RHB firmware:
@@ -439,15 +446,11 @@ public class ReHandyBotController : MonoBehaviour
         bool success_set_target;
 
         if (ExerciseActive)
-        {
-            // success_set_target = HL_SetTargetEmpty();
-
             success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
                 POS_RADIAL_BASE_THROT, pos_eq_rot_curr,
                 K_STIFF_RADIAL_BASE_THROT, k_rot_curr,
                 B_DAMP_RADIAL_BASE_THROT, b_rot_curr,
                 gain_radial, gain_rot);
-        }
         else
             success_set_target = false;
 

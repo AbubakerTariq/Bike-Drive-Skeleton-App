@@ -65,7 +65,7 @@ public class DataManager : MonoBehaviour
 
     private void Start()
     {
-        SetupDataFile();
+        // SetupDataFile();
         SetupRecordingEvents();
     }
 
@@ -125,7 +125,7 @@ public class DataManager : MonoBehaviour
         DistalComm.ExerciseData distal_data,
         MotorbikeController.BikeCoords bike_coords_data,
         MotorbikeController.TrackCoords track_coords_data, 
-        MotorbikeController.BikeInput bike_input_data, 
+        MotorbikeController.BikeInputRHB bike_input_rhb_data, 
         MotorbikeController.BikePose bike_pose_data)
     {
         /////////////////////////////////////////////////////////////////////////
@@ -181,9 +181,9 @@ public class DataManager : MonoBehaviour
                 $"{track_coords_data.ang_ctrline_tang}," +
                 $"{track_coords_data.dist_ctrline_near}," +
 
-                $"{bike_input_data.steer}," +
-                $"{bike_input_data.throttle_rhb}," +
-                $"{bike_input_data.acceleration}," +
+                $"{bike_input_rhb_data.steer}," +
+                $"{bike_input_rhb_data.throttle}," +
+                $"{bike_input_rhb_data.acceleration}," +
 
                 $"{bike_pose_data.angle_roll}," +
                 $"{bike_pose_data.angle_ctrl}," +
@@ -232,8 +232,15 @@ public class DataManager : MonoBehaviour
     {
         StopDataRecording();
 
+        // Create new CSV file:
+        SetupDataFile();
+
+        // Reset data counter:
+        data_count = 0;
+
         threadTimerData = new Thread(() =>
         {
+
             // dataTimer = new(1f);
             timerData = new System.Timers.Timer(DT_STEP_DATA_FBK_MSEC);
             timerData.Elapsed += SaveDataOnTimerElapsed;
@@ -252,36 +259,18 @@ public class DataManager : MonoBehaviour
 
     private void SaveDataOnTimerElapsed(object sender, ElapsedEventArgs e)
     {
-        // TODO: remove at a later date
-        /*
-        BikeCoords bike_coords_data = new();
-        TrackCoords track_coords_data = new();
-        */
-
         if (ReHandyBotController.instance.ExerciseActive && data_count % DECIM_DATA_LOG == 0)
         {
-            // TODO: remove at a later date
-            /*
-            bike_coords_data.pos_bike = ReHandyBotController.instance.pos_bike;
-            bike_coords_data.dt_pos_bike = ReHandyBotController.instance.dt_pos_bike;
-
-            track_coords_data.pos_ctrline_near = ReHandyBotController.instance.pos_ctrline_near;
-            track_coords_data.vect_ctrline_tang = ReHandyBotController.instance.vect_ctrline_tang;
-            track_coords_data.curv_ctrline_near = ReHandyBotController.instance.curv_ctrline_near;
-            track_coords_data.ang_ctrline_tang = ReHandyBotController.instance.ang_ctrline_tang;
-            track_coords_data.dist_ctrline_near = ReHandyBotController.instance.dist_ctrline_near;
-            */
-
             SaveDataEntry(
                 data_count,
                 ReHandyBotController.instance.distal_data,
                 MotorbikeController.instance.bike_coords_data,
                 MotorbikeController.instance.track_coords_data,
-                MotorbikeController.instance.bike_input_data,
+                MotorbikeController.instance.bike_input_rhb_data,
                 MotorbikeController.instance.bike_pose_data);
-        }
 
-        data_count++;
+            data_count++;
+        }
     }
 
     public string DateTimeStamp()
