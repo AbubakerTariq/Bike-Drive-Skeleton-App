@@ -190,12 +190,17 @@ public class Track : MonoBehaviour
     /// <returns>Closest point on the centerline in world coordinates.</returns>
     public Vector3 GetClosestPointOnCenterLine(Vector3 position)
     {
-        float closestSqrDist = float.MaxValue;
+        float closestSqrDist = (float)1.0E7;
         Vector3 closestPoint = Vector3.zero;
+
+        // ExternalConsoleLogger.Log(" ");
+        // ExternalConsoleLogger.Log("--------------------------------------------------------------");
 
         for (int i = 0; i < centerPoints.Count; i++)
         {
             int j = (i + 1) % centerPoints.Count;
+
+            // ExternalConsoleLogger.Log("i = [" + i + "], j = [" + j + "]");
 
             Vector3 a = centerPoints[i];
             Vector3 b = centerPoints[j];
@@ -203,6 +208,9 @@ public class Track : MonoBehaviour
             Vector3 ab = b - a;
             Vector3 ap = position - a;
 
+            // TODO: keep or discard:
+            // float t = Vector3.Dot(ap, ab) / ab.magnitude / ap.magnitude;
+            
             float t = Mathf.Clamp01(Vector3.Dot(ap, ab) / ab.sqrMagnitude);
             Vector3 projection = a + ab * t;
 
@@ -213,6 +221,8 @@ public class Track : MonoBehaviour
                 closestPoint = projection;
             }
         }
+
+        // ExternalConsoleLogger.Log(" ");
 
         return closestPoint;
     }
