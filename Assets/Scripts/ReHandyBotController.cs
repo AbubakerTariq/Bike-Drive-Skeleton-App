@@ -201,7 +201,7 @@ public class ReHandyBotController : MonoBehaviour
     private bool DISP_TIMER_ACTIVITY_ON = true;
 
     ////////////////////////////////////////////////////////////////////////////
-    // Methods section:
+    // Basic methods:
     ////////////////////////////////////////////////////////////////////////////
 
     #region MonoBehavior Functions
@@ -254,6 +254,10 @@ public class ReHandyBotController : MonoBehaviour
         instance = null;
     }
     #endregion
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Timed update:
+    ////////////////////////////////////////////////////////////////////////////
 
     private void Update()
     {
@@ -359,6 +363,10 @@ public class ReHandyBotController : MonoBehaviour
         while (MainThreadActionQueue.Count > 0)
             MainThreadActionQueue.Dequeue().Invoke();
     }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // State check:
+    ////////////////////////////////////////////////////////////////////////////
 
     #region Exercise tasks
     private void CmdSetTargetSteerWithLimit()
@@ -478,6 +486,21 @@ public class ReHandyBotController : MonoBehaviour
         }
     }
     #endregion
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Haptics control:
+    ////////////////////////////////////////////////////////////////////////////
+    
+    /*
+    private void HapticControlTrackPreview(Vector2 coords_bike_2d, out Vector2 coords_prevu, out Vector2 coords_track_targ)
+    {
+
+    }
+    */
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Ancillary functions - RHB control:
+    ////////////////////////////////////////////////////////////////////////////
 
     #region RHB control functions
 
@@ -909,7 +932,10 @@ public class ReHandyBotController : MonoBehaviour
                 break;
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     // Replaced with MotionRoutineRHBSimple() (22.08.2025):
+    ////////////////////////////////////////////////////////////////////////////
+
     /*
     private IEnumerator MotionRoutineRadialRHB(float target, UnityAction onComplete)
     {
@@ -975,7 +1001,10 @@ public class ReHandyBotController : MonoBehaviour
     }
     */
 
+    ////////////////////////////////////////////////////////////////////////////
     // Replaced by MotionRoutineRHBSimple() (22.08.2025):
+    ////////////////////////////////////////////////////////////////////////////
+    
     /*
     private IEnumerator MotionRoutineRotationalRHB(float target, UnityAction onComplete)
     {
