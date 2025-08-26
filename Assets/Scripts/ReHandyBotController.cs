@@ -105,17 +105,20 @@ public class ReHandyBotController : MonoBehaviour
     const int INPUT_MODE_ANGLE_ROLL = 1;
     const int INPUT_MODE_ANGLE_CTRL = 2;
 
-    const int CASE_INPUT_MODE = INPUT_MODE_ANGLE_CTRL;
+    const int CASE_INPUT_MODE = INPUT_MODE_ANGLE_ROLL;
 
-    // Preview-ahead time:
-    public float DT_PREVIEW = 1.3f; 
+    // CRITICAL: preview-ahead time (26.08.2025)
+    public float DT_PREVIEW = 2.0f; //  1.3f;
 
-    // Gain(s) for tracking reference roll angle:
-    public float P_GAIN_ANGLE_INPUT_BIKE = 0.045f;   
+    // Gain for tracking reference roll angle
+    // CRITICAL: link it with FACTOR_STEER_DT_ANGLE_CTRL in MotorbikeController (26.08.2025):
+    public float P_GAIN_ANGLE_INPUT_BIKE = 0.09f; // 0.07f; // 0.045f;
 
-     // Gain(s) for tracking reference RHB rotation angle:
+    // Gain(s) for tracking reference RHB rotation angle:
     public float P_GAIN_POS_ROT_RHB = 3.5f;  
-    public float D_GAIN_POS_ROT_RHB = 0.0f;
+    public float D_GAIN_POS_ROT_RHB = 0f;
+
+    const int SGN_ANGLE_CTRL = -1; // due to angle_ctrl sign convention in MotorbikeController
 
     ////////////////////////////////////////////////////////////////////////////
     // Data structures from bike and track objects:
@@ -137,8 +140,9 @@ public class ReHandyBotController : MonoBehaviour
     private float dist_ctrline_near = NULL_VALUE; 
 
     // Bike pose:
-    private float angle_roll = NULL_VALUE;
-    private float angle_ctrl = NULL_VALUE;
+    private float angle_roll    = NULL_VALUE;
+    private float angle_ctrl_adj    = NULL_VALUE;
+    private float dt_angle_ctrl_adj = NULL_VALUE;
 
     // Preview tracking control:
     private Vector3 pos_preview = NULL_VECTOR3;
@@ -230,7 +234,7 @@ public class ReHandyBotController : MonoBehaviour
     // Data display:
     ////////////////////////////////////////////////////////////////////////////
 
-    private int DT_DISP_DATA_MSEC = 500; // 1000;
+    private int DT_DISP_DATA_MSEC = 1000;
     private bool DISP_TIMER_ACTIVITY_ON = true;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -388,8 +392,9 @@ public class ReHandyBotController : MonoBehaviour
             dist_ctrline_near = MotorbikeController.instance.track_coords_data.dist_ctrline_near;
 
             // Retrieve bike pose coordinates:
-            angle_roll = MotorbikeController.instance.bike_pose_data.angle_roll;
-            angle_ctrl = MotorbikeController.instance.bike_pose_data.angle_ctrl;
+            angle_roll        =                  MotorbikeController.instance.bike_pose_data.angle_roll;
+            angle_ctrl_adj    = SGN_ANGLE_CTRL * MotorbikeController.instance.bike_pose_data.angle_ctrl;
+            dt_angle_ctrl_adj = SGN_ANGLE_CTRL * MotorbikeController.instance.bike_pose_data.dt_angle_ctrl;
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -420,20 +425,22 @@ public class ReHandyBotController : MonoBehaviour
 
             angle_input_ref = P_GAIN_ANGLE_INPUT_BIKE * sgn_turn * err_pos_targ.magnitude;
 
+            /*
             if (angle_input_ref > ANGLE_ROLL_LOW)
                 angle_input_ref = ANGLE_ROLL_LOW;
             else if (angle_input_ref < -ANGLE_ROLL_LOW)
                 angle_input_ref = -ANGLE_ROLL_LOW;
+            */
 
             ////////////////////////////////////////////////////////////////////////////
             // Haptics control 3: steering control - RHB rotation angle reference:
             ////////////////////////////////////////////////////////////////////////////
-        
-            if (CASE_INPUT_MODE == INPUT_MODE_ANGLE_ROLL)      
-                pos_rot_ref = P_GAIN_POS_ROT_RHB * (angle_input_ref - angle_roll); 
-            
-            else if (CASE_INPUT_MODE == INPUT_MODE_ANGLE_CTRL)    
-                pos_rot_ref = P_GAIN_POS_ROT_RHB * (angle_input_ref - angle_ctrl); // NOTE sign            
+
+            if (CASE_INPUT_MODE == INPUT_MODE_ANGLE_ROLL)
+                pos_rot_ref = P_GAIN_POS_ROT_RHB * (angle_input_ref - angle_roll); // - D_GAIN_POS_ROT_RHB * dt_angle_ctrl_adj; // NOTE velocity term
+
+            else if (CASE_INPUT_MODE == INPUT_MODE_ANGLE_CTRL)
+                pos_rot_ref = P_GAIN_POS_ROT_RHB * (angle_input_ref - angle_ctrl_adj) - D_GAIN_POS_ROT_RHB * dt_angle_ctrl_adj;
         }
 
         ////////////////////////////////////////////////////////////////
@@ -484,7 +491,7 @@ public class ReHandyBotController : MonoBehaviour
             ExternalConsoleLogger.Log("   pos_preview    " + pos_preview);
             ExternalConsoleLogger.Log("   pos_track_targ " + pos_track_targ);
             ExternalConsoleLogger.Log(" ");
-            ExternalConsoleLogger.Log("   angle_ctrl, angle_roll[" + String.Format("{0:#0.000}", angle_ctrl) + "] [" + String.Format("{0:#0.000}", angle_roll) + "]");
+            ExternalConsoleLogger.Log("   angle_ctrl, angle_roll[" + String.Format("{0:#0.000}", angle_ctrl_adj) + "] [" + String.Format("{0:#0.000}", angle_roll) + "]");
             ExternalConsoleLogger.Log("   sgn*err_pos_targ      [" + String.Format("{0:#0.00}", sgn_turn*err_pos_targ.magnitude) + "]");
             ExternalConsoleLogger.Log("   angle_roll (ref, val) [" + String.Format("{0:#0.000}", angle_input_ref) + "] [" + String.Format("{0:#0.000}", angle_roll) + "]");
             ExternalConsoleLogger.Log("   pos_rot (ref, val)    [" + String.Format("{0:#0.000}", pos_rot_ref)    + "] [" + String.Format("{0:#0.000}", pos_rot)    + "]");

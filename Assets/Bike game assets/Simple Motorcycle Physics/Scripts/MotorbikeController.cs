@@ -18,17 +18,26 @@ public class MotorbikeController : MonoBehaviour
     const float ANGLE_STEER_FRONT_WHEEL_MAX_DEG = 60f; // 75f; // 45f;
     const float SPEED_TRANSITION_ANGLE_STEER_BEHAV = 1.0f; // transition speed for wheel steering angle behavior
 
-    const float TORQUE_MOTOR_MAX = 600f; // 500f;                                         
-    const float FACTOR_ACCEL = 2000f; // 1000f; // CRITICAL value: increases top speed but can make turning harder
+    const float TORQUE_MOTOR_MAX = 600f; // 500f;
 
-    const float FACTOR_BRAKE = 0f;
-    const float FACTOR_BRAKE_FWD = 400f;
-    const float FACTOR_BRAKE_BACK = 400f;
+    // Acceleration factor: CRITICAL value - increases top speed but can make turning harder
+    const float FACTOR_ACCEL = 2000f; // 1000f; 
+
+    // Braking factors: // TODO: remove at a later date
+    // const float FACTOR_BRAKE = 0f;
+    // const float FACTOR_BRAKE_FWD = 400f; // TODO: keep or discard
+    // const float FACTOR_BRAKE_BACK = 400f; // TODO: keep or discard
 
     const float RADIUS_WHEEL = 0.7f;
 
-    const float FACTOR_STEER_ANGLE_CTRL_REF        = 56.0f; // // based on range of 48 to 65 deg in original code
-    const float FACTOR_STEER_DT_ANGLE_CTRL            = 30.0f;
+    // Steer factor control angle:
+    const float FACTOR_STEER_ANGLE_CTRL_REF = 56f; // // based on range of 48 to 65 deg in original code
+
+    // Steer factor for control angular speed - higher values stabilize bike:
+    // CRITICAL: link it with P_GAIN_ANGLE_INPUT_BIKE in ReHandyBotController (26.08.2025):
+    const float FACTOR_STEER_DT_ANGLE_CTRL = 80f; // 30f; 
+
+    // Steer factor for control angular speed squared:
     const float FACTOR_STEER_ANGLE_CTRL_SQUARED_STEER = 2.3f;
 
     const float FACTOR_INC_STEER = 20.0f; // 10.0f;
@@ -37,8 +46,8 @@ public class MotorbikeController : MonoBehaviour
     const float SPEED_REF_HIGH_M_PER_SEC = 25.0f;
 
     // Roll and nonslip limit angles:
-    public const float ANGLE_ROLL_LOW_DEG         = 42.0f;
-    public const float ANGLE_ROLL_NONSLIP_MAX_DEG = 50.0f;
+    public const float ANGLE_ROLL_LOW_DEG         = 42f;
+    public const float ANGLE_ROLL_NONSLIP_MAX_DEG = 50f;
 
     // Return to vertical: scaling factor for roll angular speed
     const float FACTOR_DT_ANGLE_CTRL_RETURN = 1.25f;
@@ -63,8 +72,8 @@ public class MotorbikeController : MonoBehaviour
     const float SCALE_STEER_RHB_MIN = 1.0f;
     const float SCALE_STEER_RHB_MAX = 2.0f; // make this > 1 to reduce the actual range of RHB rotation  
 
-    const float ANG_SCALE_POS_ROT_START = 15.0f * (float)Math.PI / 180f;
-    const float ANG_SCALE_POS_ROT_END   = 30.0f * (float)Math.PI / 180f;
+    const float ANG_SCALE_POS_ROT_START = 15f * (float)Math.PI / 180f;
+    const float ANG_SCALE_POS_ROT_END   = 30f * (float)Math.PI / 180f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Object instance:
@@ -698,11 +707,19 @@ public class MotorbikeController : MonoBehaviour
         // Update rigid-body Cartesian velocities:
         ////////////////////////////////////////////////////////////////
 
-        if (Input.GetAxis("Vertical") < 0)
+        if (Input.GetAxis("Vertical") < 0) {
+            /*
             rigid_body.velocity = new Vector3(
                 rigid_body.velocity.x * (1.0f - FACTOR_BRAKE / 10f),
                 rigid_body.velocity.y,
                 rigid_body.velocity.z * (1.0f - FACTOR_BRAKE / 10f));
+            */
+
+            rigid_body.velocity = new Vector3(
+                rigid_body.velocity.x,
+                rigid_body.velocity.y,
+                rigid_body.velocity.z);
+        }
 
         ////////////////////////////////////////////////////////////////
         // Generate bike coordinates output struct:
