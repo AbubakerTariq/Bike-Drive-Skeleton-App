@@ -173,8 +173,8 @@ public class DataManager : MonoBehaviour
                 $"{bike_coords_data.pos_bike.z}," +
                 $"{bike_coords_data.dt_pos_bike.x}," +
                 $"{bike_coords_data.dt_pos_bike.z}," +
-                $"{bike_coords_data.dir_bike_unit.x}," +
-                $"{bike_coords_data.dir_bike_unit.z}," +
+                $"{bike_coords_data.dir_unit_bike.x}," +
+                $"{bike_coords_data.dir_unit_bike.z}," +
 
                 $"{track_coords_data.pos_ctrline_near.x}," +
                 $"{track_coords_data.pos_ctrline_near.z}," +

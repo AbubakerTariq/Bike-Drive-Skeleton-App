@@ -168,7 +168,7 @@ public class MotorbikeController : MonoBehaviour
     {
         public Vector3 pos_bike;
         public Vector3 dt_pos_bike;
-        public Vector3 dir_bike_unit;
+        public Vector3 dir_unit_bike;
     }
 
     ///////////////////////////////////////////////////////////
@@ -242,7 +242,7 @@ public class MotorbikeController : MonoBehaviour
     const int STEER_MODE_KEYB       = 2;
     const int STEER_MODE_TRACK_CTRL = 3;
 
-    const int CASE_STEER_MODE = STEER_MODE_RHB;
+    const int CASE_STEER_MODE = STEER_MODE_TRACK_CTRL;
 
     /////////////////////////////////////////////////////////////
     // Display settings:
@@ -433,15 +433,15 @@ public class MotorbikeController : MonoBehaviour
 
             motoControlRHB(bike_input_rhb, step_count, USE_RHB_THROTTLE, out bike_coords_data, out bike_pose_data);
 
-            ////////////////////////////////////////////////////////////////////////////////////
+            ////////////////////////////////////////////////////////////////
             // Adjust torque (key input mode only) and wheel sideways friction:
-            ///////////////////////////////////////////////////////////////////////////////////
+            ////////////////////////////////////////////////////////////////
 
             steerHelperTorqueFriction();
 
-            ////////////////////////////////////////////////////////////////////////////////////
+            ////////////////////////////////////////////////////////////////
             // Update handles relative angle in transform:
-            ///////////////////////////////////////////////////////////////////////////////////
+            ////////////////////////////////////////////////////////////////
 
             steerHandles();
 
@@ -504,7 +504,7 @@ public class MotorbikeController : MonoBehaviour
 
         Vector3 pos_bike = thisTransform.position;
         Vector3 dt_pos_bike = (pos_bike - pos_bike_prev) / dt_step;
-        Vector3 dir_bike_unit = GetBikeDirectionVector(); // was dt_pos_bike.normalized (TODO: verify this)
+        Vector3 dir_unit_bike = GetBikeDirectionVector(); // was dt_pos_bike.normalized (TODO: verify this)
 
         pos_bike_prev = pos_bike;
         dt_pos_bike_magn = dt_pos_bike.magnitude;
@@ -514,7 +514,7 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
 
         // Control angle (see Simple Motorcycle Physics, p. 9):
-        float angle_ctrl = Vector3.Dot(dir_bike_unit, Vector3.Cross(thisTransform.up, new Vector3(0, 1, 0)));
+        float angle_ctrl = Vector3.Dot(dir_unit_bike, Vector3.Cross(thisTransform.up, new Vector3(0, 1, 0)));
         float dt_angle_ctrl = (angle_ctrl - angle_ctrl_prev) / dt_step;
 
         angle_ctrl_prev = angle_ctrl;
@@ -710,7 +710,7 @@ public class MotorbikeController : MonoBehaviour
 
         bike_coords.pos_bike = pos_bike;
         bike_coords.dt_pos_bike = dt_pos_bike;
-        bike_coords.dir_bike_unit = dir_bike_unit;
+        bike_coords.dir_unit_bike = dir_unit_bike;
 
         ////////////////////////////////////////////////////////////////
         // Generate bike pose output struct:
