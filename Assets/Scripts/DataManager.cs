@@ -117,8 +117,19 @@ public class DataManager : MonoBehaviour
             "pos track targ x",
             "pos track targ z",
             "angle input ref",
-            "pos rot ref"
-    };
+            "pos rot ref",
+
+            "steer update 0",
+            "steer update 1",
+            "steer update 2",
+            "steer update 3",
+            "steer update 4",
+
+            "factor steer bike speed",
+            "steer term input",
+            "steer term angle ctrl",
+            "steer term dt angle ctrl"
+        };
 
         if (!File.Exists(dataFilePath))
         {
@@ -138,7 +149,8 @@ public class DataManager : MonoBehaviour
         MotorbikeController.TrackCoords track_coords_data, 
         MotorbikeController.BikeInputRHB bike_input_rhb_data, 
         MotorbikeController.BikePose bike_pose_data,
-        ReHandyBotController.HapticControl haptic_ctrl_data)
+        ReHandyBotController.HapticControl haptic_ctrl_data,
+        MotorbikeController.SteerCalc steer_calc_data)
     {
         string t_step_str = t.ToString("F3");
         string dt_step_str = dt.ToString("F3");
@@ -188,7 +200,18 @@ public class DataManager : MonoBehaviour
                 $"{haptic_ctrl_data.pos_track_targ.x}," +
                 $"{haptic_ctrl_data.pos_track_targ.z}," +
                 $"{haptic_ctrl_data.angle_input_ref}," +
-                $"{haptic_ctrl_data.pos_rot_ref}";
+                $"{haptic_ctrl_data.pos_rot_ref}," +
+                
+                $"{steer_calc_data.steer_update[0]}," +   
+                $"{steer_calc_data.steer_update[1]}," +   
+                $"{steer_calc_data.steer_update[2]}," +   
+                $"{steer_calc_data.steer_update[3]}," +   
+                $"{steer_calc_data.steer_update[4]}," +
+
+                $"{steer_calc_data.factor_steer_bike_speed}," +
+                $"{steer_calc_data.steer_term_input}," +
+                $"{steer_calc_data.steer_term_angle_ctrl}," +
+                $"{steer_calc_data.steer_term_dt_angle_ctrl}" ;
 
             lock (fileLock)
             {
@@ -258,10 +281,10 @@ public class DataManager : MonoBehaviour
 
     private void SaveDataOnTimerElapsed(object sender, ElapsedEventArgs e)
     {
-        const int N_DATA_REC_COUNTS_DROP = 3*DECIM_DATA_LOG; // number of initial counts to drop (to avoid timing bugs)
-
         const float MSEC_PER_SEC = 1000f;
         float DT_STEP_DATA_LOG   =  DECIM_DATA_LOG * DT_STEP_DATA_FBK_MSEC / MSEC_PER_SEC;
+
+        const int N_DATA_REC_COUNTS_DROP = 3*DECIM_DATA_LOG; // number of initial counts to drop (to avoid initial timing bugs)
 
         float t_step;
         float dt_step;
@@ -304,7 +327,8 @@ public class DataManager : MonoBehaviour
                         MotorbikeController.instance.track_coords_data,
                         MotorbikeController.instance.bike_input_rhb_data,
                         MotorbikeController.instance.bike_pose_data,
-                        ReHandyBotController.instance.haptic_ctrl_data);
+                        ReHandyBotController.instance.haptic_ctrl_data,
+                        MotorbikeController.instance.steer_calc_data);
 
                 /////////////////////////////////////////////////////////////////////////
                 // Save time step for next iteration:
