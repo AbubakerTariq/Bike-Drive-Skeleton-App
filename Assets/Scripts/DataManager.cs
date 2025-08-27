@@ -118,6 +118,8 @@ public class DataManager : MonoBehaviour
             "pos track targ z",
             "angle input ref",
             "pos rot ref",
+            "curv ctrline preview",
+            "cos dev targ",
 
             "steer update 0",
             "steer update 1",
@@ -201,6 +203,8 @@ public class DataManager : MonoBehaviour
                 $"{haptic_ctrl_data.pos_track_targ.z}," +
                 $"{haptic_ctrl_data.angle_input_ref}," +
                 $"{haptic_ctrl_data.pos_rot_ref}," +
+                $"{haptic_ctrl_data.curv_ctrline_preview}," +
+                $"{haptic_ctrl_data.cos_dev_targ}," +
                 
                 $"{steer_calc_data.steer_update[0]}," +   
                 $"{steer_calc_data.steer_update[1]}," +   

@@ -149,6 +149,7 @@ public class ReHandyBotController : MonoBehaviour
     private Vector3 pos_track_targ = NULL_VECTOR3;
     private float angle_input_ref = NULL_VALUE;
     private float pos_rot_ref = NULL_VALUE;
+    private float curv_ctrline_preview = NULL_VALUE;
 
     ////////////////////////////////////////////////////////////////////////////
     // Loader:
@@ -234,7 +235,7 @@ public class ReHandyBotController : MonoBehaviour
     // Data display:
     ////////////////////////////////////////////////////////////////////////////
 
-    private int DT_DISP_DATA_MSEC = 1000;
+    private int  DT_DISP_DATA_MSEC      = 1000;
     private bool DISP_TIMER_ACTIVITY_ON = true;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -247,6 +248,8 @@ public class ReHandyBotController : MonoBehaviour
         public Vector3 pos_track_targ;
         public float angle_input_ref;
         public float pos_rot_ref;
+        public float curv_ctrline_preview;
+        public float cos_dev_targ;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -400,19 +403,20 @@ public class ReHandyBotController : MonoBehaviour
         ////////////////////////////////////////////////////////////////////////////
         // Haptics control:
         ////////////////////////////////////////////////////////////////////////////
-
-        // float ANGLE_ROLL_LOW = MotorbikeController.ANGLE_ROLL_LOW_DEG * (float)Math.PI / 180f;
-
-        // Turn deadband: keep or discard:
-        /*
-        float ANGLE_DEV_TARG_MIN = 3.0f * (float)Math.PI / 180f;
-        Vector3 vect_bike_to_targ = NULL_VECTOR3;
-        float angle_dev_targ = NULL_VALUE; // bike's direction (forward) vector: deviation wrt target
-        */
-
+        
         Vector3 err_pos_targ = NULL_VECTOR3;
-        Vector3 vect_unit_turn = NULL_VECTOR3;
-        float sgn_turn = 0f;
+        Vector3 vect_unit_turn_req = NULL_VECTOR3;
+        float sgn_turn_req = 0f;
+
+        Vector3 vect_bike_to_targ = NULL_VECTOR3;
+        float cos_dev_targ = NULL_VALUE; // angular deviation of bike's heading wrt to target
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Haptics control:
+        ////////////////////////////////////////////////////////////////////////////
+
+        // Roll angle limit: TODO: remove at a later date
+        // float ANGLE_ROLL_LOW = MotorbikeController.ANGLE_ROLL_LOW_DEG * (float)Math.PI / 180f;
 
         if (ExerciseActive && MotorbikeController.instance != null && Track.instance != null)
         {
@@ -420,30 +424,21 @@ public class ReHandyBotController : MonoBehaviour
             // Haptics control 1: preview tracking - reference point on track:
             ////////////////////////////////////////////////////////////////////////////
 
-            HapticControlTrackPreview(pos_bike, dt_pos_bike, dir_unit_bike, DT_PREVIEW, Track.instance, ref pos_preview, ref pos_track_targ);
+            HapticControlTrackPreview(pos_bike, dt_pos_bike, dir_unit_bike, DT_PREVIEW, Track.instance, 
+                ref pos_preview, ref pos_track_targ, ref curv_ctrline_preview);
 
             ////////////////////////////////////////////////////////////////////////////
             // Haptics control 2: lateral displacement control - roll angle reference:
             ////////////////////////////////////////////////////////////////////////////
 
+            // Required turn direction:
             err_pos_targ = pos_track_targ - pos_preview;
-            vect_unit_turn = Vector3.Cross(dir_unit_bike, err_pos_targ.normalized); // test vector to establish turn direction
+            vect_unit_turn_req = Vector3.Cross(dir_unit_bike, err_pos_targ.normalized); // test vector to establish turn direction
+            sgn_turn_req = (float)Math.Sign(-vect_unit_turn_req.y);
 
-            // Turn deadband: keep or discard:
-            /*
-            vect_bike_to_targ = pos_track_targ - pos_bike;
-            angle_dev_targ = (float)Math.Acos(Vector3.Dot(vect_bike_to_targ.normalized, dir_unit_bike));
+            angle_input_ref = P_GAIN_ANGLE_INPUT_BIKE * sgn_turn_req * err_pos_targ.magnitude;
 
-            if (angle_dev_targ >= ANGLE_DEV_TARG_MIN)
-                sgn_turn = (float)Math.Sign(-vect_unit_turn.y);  
-            else
-                sgn_turn = 0f;
-            */
-
-            sgn_turn = (float)Math.Sign(-vect_unit_turn.y);
-
-            angle_input_ref = P_GAIN_ANGLE_INPUT_BIKE * sgn_turn * err_pos_targ.magnitude;
-
+            // Roll angle limit: TODO: remove at a later date
             /*
             if (angle_input_ref > ANGLE_ROLL_LOW)
                 angle_input_ref = ANGLE_ROLL_LOW;
@@ -460,6 +455,13 @@ public class ReHandyBotController : MonoBehaviour
 
             else if (CASE_INPUT_MODE == INPUT_MODE_ANGLE_CTRL)
                 pos_rot_ref = P_GAIN_POS_ROT_RHB * (angle_input_ref - angle_ctrl_adj) - D_GAIN_POS_ROT_RHB * dt_angle_ctrl_adj;
+
+            ////////////////////////////////////////////////////////////////////////////
+            // Haptics control 4: angular deviation of bike's heading wrt to target:
+            ////////////////////////////////////////////////////////////////////////////          
+
+            vect_bike_to_targ = pos_track_targ - pos_bike;
+            cos_dev_targ = (float)Vector3.Dot(vect_bike_to_targ.normalized, dir_unit_bike);
         }
 
         ////////////////////////////////////////////////////////////////
@@ -470,6 +472,8 @@ public class ReHandyBotController : MonoBehaviour
         haptic_ctrl_data.pos_track_targ = pos_track_targ;
         haptic_ctrl_data.angle_input_ref = angle_input_ref;
         haptic_ctrl_data.pos_rot_ref = pos_rot_ref;
+        haptic_ctrl_data.curv_ctrline_preview = curv_ctrline_preview;
+        haptic_ctrl_data.cos_dev_targ = cos_dev_targ;
 
         ////////////////////////////////////////////////////////////////////////////
         // Command steer angle limits:
@@ -511,7 +515,7 @@ public class ReHandyBotController : MonoBehaviour
             ExternalConsoleLogger.Log("   pos_track_targ " + pos_track_targ);
             ExternalConsoleLogger.Log(" ");
             ExternalConsoleLogger.Log("   angle_ctrl, angle_roll[" + String.Format("{0:#0.000}", angle_ctrl_adj) + "] [" + String.Format("{0:#0.000}", angle_roll) + "]");
-            ExternalConsoleLogger.Log("   sgn*err_pos_targ      [" + String.Format("{0:#0.00}", sgn_turn*err_pos_targ.magnitude) + "]");
+            ExternalConsoleLogger.Log("   sgn*err_pos_targ      [" + String.Format("{0:#0.00}", sgn_turn_req*err_pos_targ.magnitude) + "]");
             ExternalConsoleLogger.Log("   angle_roll (ref, val) [" + String.Format("{0:#0.000}", angle_input_ref) + "] [" + String.Format("{0:#0.000}", angle_roll) + "]");
             ExternalConsoleLogger.Log("   pos_rot (ref, val)    [" + String.Format("{0:#0.000}", pos_rot_ref)    + "] [" + String.Format("{0:#0.000}", pos_rot)    + "]");
             ExternalConsoleLogger.Log(" ");
@@ -633,14 +637,17 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     
     private void HapticControlTrackPreview(Vector3 pos_bike, Vector3 dt_pos_bike, Vector3 dir_unit_bike, float dt_preview, 
-        Track track_this, ref Vector3 pos_preview, ref Vector3 pos_track_targ)
+        Track track_this, ref Vector3 pos_preview_this, ref Vector3 pos_track_targ_this, ref float curv_ctrline_preview_this)
     {
         // Obtain preview point:
         float dist_preview = dt_pos_bike.magnitude * dt_preview; // distance to preview point ahead
-        pos_preview = pos_bike + dist_preview * dir_unit_bike;
+        pos_preview_this = pos_bike + dist_preview * dir_unit_bike;
 
         // Obtain target point on track:
-        pos_track_targ = track_this.GetClosestPointOnCenterLine(pos_preview);
+        pos_track_targ_this = track_this.GetClosestPointOnCenterLine(pos_preview_this);
+
+        // Curvature of centerline at preview point:
+        curv_ctrline_preview_this = track_this.GetCurvatureAtPosition(pos_track_targ_this);
     }
 
     ////////////////////////////////////////////////////////////////////////////
