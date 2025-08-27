@@ -13,7 +13,7 @@ public class DataManager : MonoBehaviour
     // Data feedback step interval ():
     /////////////////////////////////////////////////////////////////////////
 
-    public static int DT_STEP_DATA_FBK_MSEC = 5; // CRITICAL: this must match the data feedback interval in RHB firmware
+    public const int DT_STEP_DATA_FBK_MSEC = 5; // CRITICAL: this must match the data feedback interval in RHB firmware
     private const int DECIM_DATA_LOG = 10;
 
     /////////////////////////////////////////////////////////////////////////
@@ -32,15 +32,17 @@ public class DataManager : MonoBehaviour
     // Time step vars:
     /////////////////////////////////////////////////////////////////////////   
     
-    private int data_count = 0;
+    private int data_recv_count = 0;
 
     private float t_step_prev = 0f;
-    private float t_step_ref;
+    private float t_step_ref = 0f;
+
+    public bool isRaceStarted = false; // added to avoid ambiguous 'active exercise' situations during data logging (27.08.2025)
 
     /////////////////////////////////////////////////////////////////////////
     // Thread and timer to help save the data in the data file:
     /////////////////////////////////////////////////////////////////////////
-    
+
     private System.Timers.Timer timerData;
     private Thread threadTimerData;
 
@@ -65,16 +67,15 @@ public class DataManager : MonoBehaviour
 
     private void Start()
     {
-        // SetupDataFile();
-        SetupRecordingEvents();
+
     }
 
-    private void SetupDataFile()
+    public void SetupDataFile()
     {
         string dataFileName = DATA_FILENAME_DEF + DateTimeStamp() + FILE_EXT;
         dataFilePath = DATA_FILE_DIR + dataFileName;
 
-        // The headings to be set up in the data file
+        // Headings to be set up in the data file
         // Removed "Date Time" (13.08.2025)
         string[] headers = new[] { 
             "t sec", 
@@ -107,9 +108,17 @@ public class DataManager : MonoBehaviour
             "bike input accel",
 
             "bike pose ang roll",
+            "bike pose ang steer wheel",
             "bike pose ang ctrl",
-            "bike pose dt_ang ctrl"
-        };
+            "bike pose dt ang ctrl",
+
+            "pos preview x",
+            "pos preview z",
+            "pos track targ x",
+            "pos track targ z",
+            "angle input ref",
+            "pos rot ref"
+    };
 
         if (!File.Exists(dataFilePath))
         {
@@ -123,36 +132,16 @@ public class DataManager : MonoBehaviour
     }
 
     private void SaveDataEntry(
-        int count,
+        float t, float dt, 
         DistalComm.ExerciseData distal_data,
         MotorbikeController.BikeCoords bike_coords_data,
         MotorbikeController.TrackCoords track_coords_data, 
         MotorbikeController.BikeInputRHB bike_input_rhb_data, 
-        MotorbikeController.BikePose bike_pose_data)
+        MotorbikeController.BikePose bike_pose_data,
+        ReHandyBotController.HapticControl haptic_ctrl_data)
     {
-        /////////////////////////////////////////////////////////////////////////
-        // Compute time step:
-        /////////////////////////////////////////////////////////////////////////
-        
-        const float MSEC_PER_SEC = 1000f;
-
-        float t_step;
-        float dt_step;
-
-        if (count == 0)
-        {
-            t_step_ref = distal_data.UptimeMs / MSEC_PER_SEC;
-            t_step = 0f;
-            dt_step = 0f;
-        }
-        else
-        {
-            t_step = distal_data.UptimeMs / MSEC_PER_SEC - t_step_ref;
-            dt_step = t_step - t_step_prev;
-        }
-
-        string t_step_str = t_step.ToString("F3");
-        string dt_step_str = dt_step.ToString("F3");
+        string t_step_str = t.ToString("F3");
+        string dt_step_str = dt.ToString("F3");
 
         /////////////////////////////////////////////////////////////////////////
         // Save data step to file:
@@ -189,9 +178,17 @@ public class DataManager : MonoBehaviour
                 $"{bike_input_rhb_data.throttle}," +
                 $"{bike_input_rhb_data.acceleration}," +
 
-                $"{bike_pose_data.angle_roll}," +
+                $"{bike_pose_data.angle_roll}," +  
+                $"{bike_pose_data.angle_steer_wheel_fwd}," +
                 $"{bike_pose_data.angle_ctrl}," +
-                $"{bike_pose_data.dt_angle_ctrl}";
+                $"{bike_pose_data.dt_angle_ctrl}," +
+
+                $"{haptic_ctrl_data.pos_preview.x}," +
+                $"{haptic_ctrl_data.pos_preview.z}," +
+                $"{haptic_ctrl_data.pos_track_targ.x}," +
+                $"{haptic_ctrl_data.pos_track_targ.z}," +
+                $"{haptic_ctrl_data.angle_input_ref}," +
+                $"{haptic_ctrl_data.pos_rot_ref}";
 
             lock (fileLock)
             {
@@ -202,15 +199,9 @@ public class DataManager : MonoBehaviour
         {
             Debug.LogError($"Error saving data: {ex.Message}");
         }
-
-        /////////////////////////////////////////////////////////////////////////
-        // Save time step for next iteration:
-        /////////////////////////////////////////////////////////////////////////
-
-        t_step_prev = t_step;
     }
 
-    private void SetupRecordingEvents()
+    public void SetupRecordingEvents()
     {
         ReHandyBotController.instance.OnExerciseStart += StartDataRecording;
         ReHandyBotController.instance.OnExerciseStop += StopDataRecording;
@@ -234,17 +225,21 @@ public class DataManager : MonoBehaviour
 
     private void StartDataRecording()
     {
+        // Launch stop data log thread:
         StopDataRecording();
 
         // Create new CSV file:
         SetupDataFile();
 
-        // Reset data counter:
-        data_count = 0;
+        // 'Race started' flag:
+        isRaceStarted = true;
 
+        // Reset data received counter:
+        data_recv_count = 0;
+
+        // Set up timer:
         threadTimerData = new Thread(() =>
         {
-
             // dataTimer = new(1f);
             timerData = new System.Timers.Timer(DT_STEP_DATA_FBK_MSEC);
             timerData.Elapsed += SaveDataOnTimerElapsed;
@@ -263,26 +258,71 @@ public class DataManager : MonoBehaviour
 
     private void SaveDataOnTimerElapsed(object sender, ElapsedEventArgs e)
     {
-        if (ReHandyBotController.instance.ExerciseActive && data_count % DECIM_DATA_LOG == 0)
-        {
-            SaveDataEntry(
-                data_count,
-                ReHandyBotController.instance.distal_data,
-                MotorbikeController.instance.bike_coords_data,
-                MotorbikeController.instance.track_coords_data,
-                MotorbikeController.instance.bike_input_rhb_data,
-                MotorbikeController.instance.bike_pose_data);
+        const int N_DATA_REC_COUNTS_DROP = 3*DECIM_DATA_LOG; // number of initial counts to drop (to avoid timing bugs)
 
-            data_count++;
-        }
+        const float MSEC_PER_SEC = 1000f;
+        float DT_STEP_DATA_LOG   =  DECIM_DATA_LOG * DT_STEP_DATA_FBK_MSEC / MSEC_PER_SEC;
+
+        float t_step;
+        float dt_step;
+        float uptime_msec;
+
+        if (isRaceStarted)
+        {
+            int data_recv_count_offs = data_recv_count - N_DATA_REC_COUNTS_DROP;
+
+            if (data_recv_count_offs >= 0 && data_recv_count_offs % DECIM_DATA_LOG == 0)
+            {
+
+                /////////////////////////////////////////////////////////////////////////
+                // Compute time step:
+                /////////////////////////////////////////////////////////////////////////
+
+                uptime_msec = ReHandyBotController.instance.distal_data.UptimeMs;
+
+                if (data_recv_count_offs == 0) { 
+                    t_step_ref = uptime_msec / MSEC_PER_SEC;
+
+                    t_step  = 0f;
+                    dt_step = 0f;
+                }
+                else
+                {
+                    t_step  = uptime_msec / MSEC_PER_SEC - t_step_ref;
+                    dt_step = t_step - t_step_prev;
+                }                 
+                    
+                /////////////////////////////////////////////////////////////////////////
+                // Save data entry:
+                /////////////////////////////////////////////////////////////////////////
+
+                if (data_recv_count_offs == 0 || dt_step > DT_STEP_DATA_LOG / 2f) // condition aims to prevent duplicate entries
+                    SaveDataEntry(
+                        t_step, dt_step,
+                        ReHandyBotController.instance.distal_data,
+                        MotorbikeController.instance.bike_coords_data,
+                        MotorbikeController.instance.track_coords_data,
+                        MotorbikeController.instance.bike_input_rhb_data,
+                        MotorbikeController.instance.bike_pose_data,
+                        ReHandyBotController.instance.haptic_ctrl_data);
+
+                /////////////////////////////////////////////////////////////////////////
+                // Save time step for next iteration:
+                /////////////////////////////////////////////////////////////////////////
+
+                t_step_prev = t_step;
+            }
+
+            data_recv_count++;
+        }  
     }
 
     public string DateTimeStamp()
     {
-        string year = DateTime.Now.Year.ToString("0000");
-        string month = DateTime.Now.Month.ToString("00");
-        string date = DateTime.Now.Day.ToString("00");
-        string hour = DateTime.Now.Hour.ToString("00");
+        string year   = DateTime.Now.Year.ToString("0000");
+        string month  = DateTime.Now.Month.ToString("00");
+        string date   = DateTime.Now.Day.ToString("00");
+        string hour   = DateTime.Now.Hour.ToString("00");
         string minute = DateTime.Now.Minute.ToString("00");
         string second = DateTime.Now.Second.ToString("00");
 

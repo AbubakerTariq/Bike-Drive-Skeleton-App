@@ -172,7 +172,7 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     private bool isSystemStarted = false;
-    private bool isExerciseStarted = false;
+    public bool isExerciseStarted = false; // changed to public for access by DataManager (27.08.2025)
     private bool isExerciseStopping = false;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -245,7 +245,7 @@ public class ReHandyBotController : MonoBehaviour
     {
         public Vector3 pos_preview;
         public Vector3 pos_track_targ;
-        public float angle_roll_ref;
+        public float angle_input_ref;
         public float pos_rot_ref;
     }
 
@@ -400,11 +400,18 @@ public class ReHandyBotController : MonoBehaviour
         ////////////////////////////////////////////////////////////////////////////
         // Haptics control:
         ////////////////////////////////////////////////////////////////////////////
-        
-        float ANGLE_ROLL_LOW = MotorbikeController.ANGLE_ROLL_LOW_DEG * (float)Math.PI / 180f;
+
+        // float ANGLE_ROLL_LOW = MotorbikeController.ANGLE_ROLL_LOW_DEG * (float)Math.PI / 180f;
+
+        // Turn deadband: keep or discard:
+        /*
+        float ANGLE_DEV_TARG_MIN = 3.0f * (float)Math.PI / 180f;
+        Vector3 vect_bike_to_targ = NULL_VECTOR3;
+        float angle_dev_targ = NULL_VALUE; // bike's direction (forward) vector: deviation wrt target
+        */
 
         Vector3 err_pos_targ = NULL_VECTOR3;
-        Vector3 vect_turn = NULL_VECTOR3;
+        Vector3 vect_unit_turn = NULL_VECTOR3;
         float sgn_turn = 0f;
 
         if (ExerciseActive && MotorbikeController.instance != null && Track.instance != null)
@@ -420,8 +427,20 @@ public class ReHandyBotController : MonoBehaviour
             ////////////////////////////////////////////////////////////////////////////
 
             err_pos_targ = pos_track_targ - pos_preview;
-            vect_turn = Vector3.Cross(dir_unit_bike, err_pos_targ); // test vector to establish turn direction
-            sgn_turn = (float)Math.Sign(-vect_turn.y); // TODO: verify if this is correct
+            vect_unit_turn = Vector3.Cross(dir_unit_bike, err_pos_targ.normalized); // test vector to establish turn direction
+
+            // Turn deadband: keep or discard:
+            /*
+            vect_bike_to_targ = pos_track_targ - pos_bike;
+            angle_dev_targ = (float)Math.Acos(Vector3.Dot(vect_bike_to_targ.normalized, dir_unit_bike));
+
+            if (angle_dev_targ >= ANGLE_DEV_TARG_MIN)
+                sgn_turn = (float)Math.Sign(-vect_unit_turn.y);  
+            else
+                sgn_turn = 0f;
+            */
+
+            sgn_turn = (float)Math.Sign(-vect_unit_turn.y);
 
             angle_input_ref = P_GAIN_ANGLE_INPUT_BIKE * sgn_turn * err_pos_targ.magnitude;
 
@@ -449,7 +468,7 @@ public class ReHandyBotController : MonoBehaviour
 
         haptic_ctrl_data.pos_preview = pos_preview;
         haptic_ctrl_data.pos_track_targ = pos_track_targ;
-        haptic_ctrl_data.angle_roll_ref = angle_input_ref;
+        haptic_ctrl_data.angle_input_ref = angle_input_ref;
         haptic_ctrl_data.pos_rot_ref = pos_rot_ref;
 
         ////////////////////////////////////////////////////////////////////////////
@@ -764,7 +783,6 @@ public class ReHandyBotController : MonoBehaviour
                         ExternalConsoleLogger.Log("        OnCalibrate(): SetBrakes(): cmd ENGAGE \n");
 
                         isExerciseStarted = false;
-
                         isCalibrated = true;
                         SceneManager.LoadScene(PrototypeSceneName);
                         exerciseGuidelineText.SetActive(true);
@@ -847,6 +865,9 @@ public class ReHandyBotController : MonoBehaviour
             // Set feedback gains:
             SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
 
+            // Initiate recording on new data file:
+            DataManager.instance.SetupRecordingEvents();
+
             // Display section:
             ExternalConsoleLogger.Log(" ");
             ExternalConsoleLogger.Log("____________________________________________________________________");
@@ -928,6 +949,9 @@ public class ReHandyBotController : MonoBehaviour
 
         isExerciseStarted = false;
         isExerciseStopping = false;
+
+        // Set 'race started' flag (27.08.2025):
+        DataManager.instance.isRaceStarted = false;
 
         OnExerciseStop?.Invoke();
         onComplete?.Invoke();
