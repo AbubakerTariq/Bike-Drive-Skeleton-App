@@ -5,6 +5,8 @@ using UnityEngine.UI;
 
 public class MotorbikeController : MonoBehaviour
 {
+    float FACT_DEG_2_RAD = (float)Math.PI / 180f;
+
     ////////////////////////////////////////////////////////////////////////////
     // Real-time bike steering step (CRITICAL):
     ////////////////////////////////////////////////////////////////////////////
@@ -60,16 +62,21 @@ public class MotorbikeController : MonoBehaviour
 
     const float INPUT_THROT_THRESH = 0.6f; // minimum torque for mobility, also dependent on RADIAL stiffness  
     const float INPUT_THROT_MAX    = 1.3f; // this is a function of RADIAL stiffness  
+    const float INPUT_THROT_AUTO = 1.1f;
 
     // Steering - input settings:
     const float POS_ROT_STEER_REF_DEG = 25f; // 15f; // 30f; // reference angle for steering response (the lower the angle the larger the response)
 
-    // Steering - scaling RHB input:
-    const float SCALE_STEER_RHB_MIN = 1.0f; // TODO: test 0.2f for straight segments
-    const float SCALE_STEER_RHB_MAX = 2.0f; // make this > 1 to reduce the actual range of RHB rotation  
+    // Steering - Scaling RHB input - BASIC:
+    const float SCALE_STEER_RHB_BASE = 1.0f;  
+    const float SCALE_STEER_RHB_MAX  = 2.0f; // make this > 1 to reduce the actual range of RHB rotation  
 
     const float SCALE_ANG_POS_ROT_START_DEG = 15f; // TODO: test 10f for straight segments 
     const float SCALE_ANG_POS_ROT_END_DEG   = 30f;
+
+    // Steering - Auto steer - Adjustment parameters for angular deviation of bike's heading wrt to target:
+    const float SCALE_STEER_RHB_MIN  = 0.2f;
+    const float ANG_DEV_TARG_REF_DEG = 7.0f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Object instance:
@@ -93,8 +100,10 @@ public class MotorbikeController : MonoBehaviour
     private float factor_steer_input = FACTOR_STEER_INPUT;
     private float factor_steer_bike_speed = 0f;
 
-    private float torque_motor = 0f;
-    private float angle_roll_deg = 0f;
+    private float torque_motor    = 0f;
+
+    private float angle_roll      = 0f;
+    private float angle_roll_prev = 0f;
 
     public bool bike_fallen = false;
     public int gear_curr = 1;
@@ -201,6 +210,7 @@ public class MotorbikeController : MonoBehaviour
     public struct BikePose
     {
         public float angle_roll;
+        public float dt_angle_roll;
         public float angle_steer_wheel_fwd;
         public float angle_ctrl;
         public float dt_angle_ctrl;
@@ -314,13 +324,10 @@ public class MotorbikeController : MonoBehaviour
         int step_count = ReHandyBotController.instance.step_count;
 
         ////////////////////////////////////////////////////////////////
-        // Bike roll angle (degrees):
+        // Time step:
         ////////////////////////////////////////////////////////////////
 
-        angle_roll_deg = transform.eulerAngles.z;
-
-        if (transform.eulerAngles.z > 180)
-            angle_roll_deg = transform.eulerAngles.z - 360;
+        float dt_step = Time.fixedDeltaTime;
 
         ////////////////////////////////////////////////////////////////
         // Check if bike is balanced:
@@ -358,8 +365,13 @@ public class MotorbikeController : MonoBehaviour
             float pos_throttle_zero = ReHandyBotController.instance.POS_RADIAL_BASE_THROT;
 
             if (ReHandyBotController.instance.ExerciseActive)
-                bike_input_rhb.throttle = Mathf.Clamp(-1000f / DIST_RADIAL_THROT_FULL_MM * (pos_throttle - pos_throttle_zero),
-                    0f, INPUT_THROT_MAX);
+            {
+                if (ReHandyBotController.AUTO_STEERING_ON)
+                    bike_input_rhb.throttle = INPUT_THROT_AUTO;
+                else
+                    bike_input_rhb.throttle = Mathf.Clamp(-1000f / DIST_RADIAL_THROT_FULL_MM * (pos_throttle - pos_throttle_zero),
+                        0f, INPUT_THROT_MAX);
+            }
             else
                 bike_input_rhb.throttle = 0f;
 
@@ -373,20 +385,33 @@ public class MotorbikeController : MonoBehaviour
             float pos_rot = ReHandyBotController.instance.distal_data.PositionP;
             float pos_rot_abs = (float)Math.Abs(pos_rot);
 
-            // Scale RHB input:
+            // Reference angles:
+            float ang_pos_rot_start = FACT_DEG_2_RAD * SCALE_ANG_POS_ROT_START_DEG;
+            float ang_pos_rot_end   = FACT_DEG_2_RAD * SCALE_ANG_POS_ROT_END_DEG;
+
+            // Scale for RHB rotational input: adjust minimum scale value for angular deviation of bike's heading wrt to target:
+            float ang_pos_rot_dev_targ = FACT_DEG_2_RAD * ANG_DEV_TARG_REF_DEG;
+            float sin_dev_targ_ref = (float)Math.Sin(ang_pos_rot_dev_targ);
+
+            float sin_dev_targ = ReHandyBotController.instance.haptic_ctrl_data.sin_dev_targ;
+            float scale_steer_rhb_base_adj;
+
+            if (sin_dev_targ <= sin_dev_targ_ref)
+                scale_steer_rhb_base_adj = (SCALE_STEER_RHB_BASE - SCALE_STEER_RHB_MIN) / sin_dev_targ_ref 
+                    * (float)Math.Abs(sin_dev_targ) + SCALE_STEER_RHB_MIN;
+            else
+                scale_steer_rhb_base_adj = SCALE_STEER_RHB_BASE;
+
+            // Calculate scale for RHB rotational input:
             float scale_steer_rhb;
 
-            // Reference angles:
-            float ang_pos_rot_start = SCALE_ANG_POS_ROT_START_DEG * (float)Math.PI / 180f;
-            float ang_pos_rot_end   = SCALE_ANG_POS_ROT_END_DEG   * (float)Math.PI / 180f;
-
             if (pos_rot_abs < ang_pos_rot_start)
-                scale_steer_rhb = SCALE_STEER_RHB_MIN;
+                scale_steer_rhb = scale_steer_rhb_base_adj;
             else if (pos_rot_abs > ang_pos_rot_end)
                 scale_steer_rhb = SCALE_STEER_RHB_MAX;
             else
                 scale_steer_rhb = (pos_rot_abs - ang_pos_rot_start) / (ang_pos_rot_end - ang_pos_rot_start) *
-                    (SCALE_STEER_RHB_MAX - SCALE_STEER_RHB_MIN) + SCALE_STEER_RHB_MIN;
+                    (SCALE_STEER_RHB_MAX - scale_steer_rhb_base_adj) + scale_steer_rhb_base_adj;
 
             ////////////////////////////////////////////////////////////////
             // Select steering mode:
@@ -496,7 +521,6 @@ public class MotorbikeController : MonoBehaviour
     private void motoControlRHB(BikeInputRHB bike_input_rhb, int step_count, 
         out BikeCoords bike_coords, out BikePose bike_pose, ref SteerCalc steer_calc_data)
     {
-
         const bool USE_STEER_UPDATE_FULL = true;
 
         ////////////////////////////////////////////////////////////////
@@ -525,6 +549,23 @@ public class MotorbikeController : MonoBehaviour
 
         angle_ctrl_prev = angle_ctrl;
         dt_angle_ctrl_prev = dt_angle_ctrl;
+
+        ////////////////////////////////////////////////////////////////
+        // Bike roll angle (rad):
+        ////////////////////////////////////////////////////////////////
+
+        if (transform.eulerAngles.z > 180)
+            angle_roll = FACT_DEG_2_RAD * transform.eulerAngles.z - 2 * (float)Math.PI;
+        else
+            angle_roll = FACT_DEG_2_RAD * transform.eulerAngles.z;
+
+        ////////////////////////////////////////////////////////////////
+        // Angular roll speed:
+        ////////////////////////////////////////////////////////////////
+
+        float dt_angle_roll = (angle_roll - angle_roll_prev) / dt_step;
+
+        angle_roll_prev = angle_roll;
 
         ////////////////////////////////////////////////////////////////
         // Track the multiple updates to bike_input_rhb.steer that happen in this function:
@@ -593,15 +634,15 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
 
         // Bike speed factor - update:
-        // factor_steer_bike_speed = 0.00075933f; // minimum from data
+        // factor_steer_bike_speed = 7.6e-4f; // minimum from data
         factor_steer_bike_speed = 1f / (1f + (float)Math.Pow(dt_pos_bike_magn, 2));
 
         // Steer input factor - moved here from steerHelper() (TODO: keep or discard):
-        // factor_steer_input = Mathf.Clamp(FACTOR_STEER_INPUT - 0.9f * Mathf.Abs(angle_roll_deg), 10f, FACTOR_STEER_INPUT);
+        // factor_steer_input = Mathf.Clamp(FACTOR_STEER_INPUT - 0.9f / FACT_DEG_2_RAD * Mathf.Abs(angle_roll), 10f, FACTOR_STEER_INPUT);
         factor_steer_input = FACTOR_STEER_INPUT;
 
         // Control angle input factor - moved here from steerHelper() (TODO: keep or d iscard):
-        // if (Math.Abs(angle_roll_deg) > ANGLE_ROLL_LOW_DEG)
+        // if (Math.Abs(angle_roll) > ANGLE_ROLL_LOW_DEG)
         //    factor_steer_angle_ctrl += 3.0f; // 2.0f;
 
         float steer_term_input         = factor_steer_input * bike_input_rhb.steer;
@@ -684,7 +725,8 @@ public class MotorbikeController : MonoBehaviour
         // Generate bike pose output struct:
         ////////////////////////////////////////////////////////////////
 
-        bike_pose.angle_roll = angle_roll_deg * (float)Math.PI / 180f;
+        bike_pose.angle_roll = angle_roll; 
+        bike_pose.dt_angle_roll = dt_angle_roll;
         bike_pose.angle_steer_wheel_fwd = wheel_coll_fwd.steerAngle * (float)Math.PI / 180f;
         bike_pose.angle_ctrl = angle_ctrl;
         bike_pose.dt_angle_ctrl = dt_angle_ctrl;
@@ -806,7 +848,9 @@ public class MotorbikeController : MonoBehaviour
 
     public void uprightCheck()
     {
-        if ((Mathf.Abs(angle_roll_deg) > ANGLE_ROLL_NONSLIP_MAX_DEG || Input.GetKeyDown(KeyCode.F) || HardHit == true)
+        float angle_roll_nonslip_max = FACT_DEG_2_RAD * ANGLE_ROLL_NONSLIP_MAX_DEG;
+
+        if ((Mathf.Abs(angle_roll) > angle_roll_nonslip_max || Input.GetKeyDown(KeyCode.F) || HardHit == true)
             && bike_fallen == false)
         {
             Rider.SetActive(false);

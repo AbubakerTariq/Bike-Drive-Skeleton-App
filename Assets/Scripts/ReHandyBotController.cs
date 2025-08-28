@@ -28,6 +28,8 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // SetExercise() parameters (CRITICAL):
     //////////////////////////////////////////////////////////////////////////// 
+    
+    public const bool AUTO_STEERING_ON = true; // CRITICAL - use with care
 
     public const int NUM_TARGETS = 1;
 
@@ -116,7 +118,7 @@ public class ReHandyBotController : MonoBehaviour
 
     // Gain(s) for tracking reference RHB rotation angle:
     public float P_GAIN_POS_ROT_RHB = 3.5f;  
-    public float D_GAIN_POS_ROT_RHB = 0f;
+    public float D_GAIN_POS_ROT_RHB =  0f;
 
     const int SGN_ANGLE_CTRL = -1; // due to angle_ctrl sign convention in MotorbikeController
 
@@ -125,30 +127,31 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     static Vector3 NULL_VECTOR3 = Vector3.zero;
-    const float NULL_VALUE = 0f;
+    const float NULL_VALUE      = 0f;
  
     //  Bike coordinates:
-    private Vector3 pos_bike = NULL_VECTOR3;
-    private Vector3 dt_pos_bike = NULL_VECTOR3;
+    private Vector3 pos_bike      = NULL_VECTOR3;
+    private Vector3 dt_pos_bike   = NULL_VECTOR3;
     private Vector3 dir_unit_bike = NULL_VECTOR3;
 
     // Track coordinates:
-    private Vector3 pos_ctrline_near = NULL_VECTOR3;
+    private Vector3 pos_ctrline_near  = NULL_VECTOR3;
     private Vector3 vect_ctrline_tang = NULL_VECTOR3;
-    private float curv_ctrline_near = NULL_VALUE;
-    private float ang_ctrline_tang = NULL_VALUE;
-    private float dist_ctrline_near = NULL_VALUE; 
+    private float curv_ctrline_near   = NULL_VALUE;
+    private float ang_ctrline_tang    = NULL_VALUE;
+    private float dist_ctrline_near   = NULL_VALUE; 
 
     // Bike pose:
-    private float angle_roll    = NULL_VALUE;
-    private float angle_ctrl_adj    = NULL_VALUE;
-    private float dt_angle_ctrl_adj = NULL_VALUE;
+    private float angle_roll           = NULL_VALUE;
+    private float dt_angle_roll        = NULL_VALUE;
+    private float angle_ctrl_signed    = NULL_VALUE;
+    private float dt_angle_ctrl_signed = NULL_VALUE;
 
     // Preview tracking control:
-    private Vector3 pos_preview = NULL_VECTOR3;
-    private Vector3 pos_track_targ = NULL_VECTOR3;
-    private float angle_input_ref = NULL_VALUE;
-    private float pos_rot_ref = NULL_VALUE;
+    private Vector3 pos_preview        = NULL_VECTOR3;
+    private Vector3 pos_track_targ     = NULL_VECTOR3;
+    private float angle_input_ref      = NULL_VALUE;
+    private float pos_rot_ref          = NULL_VALUE;
     private float curv_ctrline_preview = NULL_VALUE;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -163,7 +166,6 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // RHB info related variables:
     ////////////////////////////////////////////////////////////////////////////
-
     private bool RHBConnected => distalRobot.is_device_connected;
     public DistalComm.ExerciseData distal_data => distalRobot.DistalData;
     public bool ExerciseActive => isExerciseStarted;
@@ -249,7 +251,7 @@ public class ReHandyBotController : MonoBehaviour
         public float angle_input_ref;
         public float pos_rot_ref;
         public float curv_ctrline_preview;
-        public float cos_dev_targ;
+        public float sin_dev_targ;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -395,9 +397,10 @@ public class ReHandyBotController : MonoBehaviour
             dist_ctrline_near = MotorbikeController.instance.track_coords_data.dist_ctrline_near;
 
             // Retrieve bike pose coordinates:
-            angle_roll        =                  MotorbikeController.instance.bike_pose_data.angle_roll;
-            angle_ctrl_adj    = SGN_ANGLE_CTRL * MotorbikeController.instance.bike_pose_data.angle_ctrl;
-            dt_angle_ctrl_adj = SGN_ANGLE_CTRL * MotorbikeController.instance.bike_pose_data.dt_angle_ctrl;
+            angle_roll           =                  MotorbikeController.instance.bike_pose_data.angle_roll;
+            dt_angle_roll        =                  MotorbikeController.instance.bike_pose_data.dt_angle_roll;
+            angle_ctrl_signed    = SGN_ANGLE_CTRL * MotorbikeController.instance.bike_pose_data.angle_ctrl;
+            dt_angle_ctrl_signed = SGN_ANGLE_CTRL * MotorbikeController.instance.bike_pose_data.dt_angle_ctrl;
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -410,10 +413,6 @@ public class ReHandyBotController : MonoBehaviour
 
         Vector3 vect_bike_to_targ = NULL_VECTOR3;
         float cos_dev_targ = NULL_VALUE; // angular deviation of bike's heading wrt to target
-
-        ////////////////////////////////////////////////////////////////////////////
-        // Haptics control:
-        ////////////////////////////////////////////////////////////////////////////
 
         // Roll angle limit: TODO: remove at a later date
         // float ANGLE_ROLL_LOW = MotorbikeController.ANGLE_ROLL_LOW_DEG * (float)Math.PI / 180f;
@@ -451,17 +450,19 @@ public class ReHandyBotController : MonoBehaviour
             ////////////////////////////////////////////////////////////////////////////
 
             if (CASE_INPUT_MODE == INPUT_MODE_ANGLE_ROLL)
-                pos_rot_ref = P_GAIN_POS_ROT_RHB * (angle_input_ref - angle_roll); // - D_GAIN_POS_ROT_RHB * dt_angle_ctrl_adj; // NOTE velocity term
+                pos_rot_ref = P_GAIN_POS_ROT_RHB * (angle_input_ref - angle_roll); // - D_GAIN_POS_ROT_RHB * dt_angle_roll; 
 
             else if (CASE_INPUT_MODE == INPUT_MODE_ANGLE_CTRL)
-                pos_rot_ref = P_GAIN_POS_ROT_RHB * (angle_input_ref - angle_ctrl_adj) - D_GAIN_POS_ROT_RHB * dt_angle_ctrl_adj;
+                pos_rot_ref = P_GAIN_POS_ROT_RHB * (angle_input_ref - angle_ctrl_signed) - D_GAIN_POS_ROT_RHB * dt_angle_ctrl_signed;
 
             ////////////////////////////////////////////////////////////////////////////
             // Haptics control 4: angular deviation of bike's heading wrt to target:
-            ////////////////////////////////////////////////////////////////////////////          
+            ////////////////////////////////////////////////////////////////////////////   
 
             vect_bike_to_targ = pos_track_targ - pos_bike;
-            cos_dev_targ = (float)Vector3.Dot(vect_bike_to_targ.normalized, dir_unit_bike);
+            Vector3 vect_unit_dev_targ = Vector3.Cross(dir_unit_bike, vect_bike_to_targ.normalized);
+
+            cos_dev_targ = vect_unit_dev_targ.y;
         }
 
         ////////////////////////////////////////////////////////////////
@@ -473,13 +474,23 @@ public class ReHandyBotController : MonoBehaviour
         haptic_ctrl_data.angle_input_ref = angle_input_ref;
         haptic_ctrl_data.pos_rot_ref = pos_rot_ref;
         haptic_ctrl_data.curv_ctrline_preview = curv_ctrline_preview;
-        haptic_ctrl_data.cos_dev_targ = cos_dev_targ;
+        haptic_ctrl_data.sin_dev_targ = cos_dev_targ;
 
         ////////////////////////////////////////////////////////////////////////////
         // Command steer angle limits:
         ////////////////////////////////////////////////////////////////////////////
 
-        CmdSetTargetSteerWithLimit(pos_rot);
+        if (AUTO_STEERING_ON)
+        {
+            float SCALE_POS_ROT_REF = 0.2f;
+            float pos_rot_ref_scaled = SCALE_POS_ROT_REF*haptic_ctrl_data.pos_rot_ref;
+
+            float k_rot_steer = 10.0f*K_STIFF_ROT_LIM;
+
+            CmdSetTargetSteerAuto(pos_rot_ref_scaled, k_rot_steer);
+        }
+        else       
+            CmdSetTargetSteerWithLimit(pos_rot);
 
         ////////////////////////////////////////////////////////////////////////////
         // Display section:
@@ -514,7 +525,7 @@ public class ReHandyBotController : MonoBehaviour
             ExternalConsoleLogger.Log("   pos_preview    " + pos_preview);
             ExternalConsoleLogger.Log("   pos_track_targ " + pos_track_targ);
             ExternalConsoleLogger.Log(" ");
-            ExternalConsoleLogger.Log("   angle_ctrl, angle_roll[" + String.Format("{0:#0.000}", angle_ctrl_adj) + "] [" + String.Format("{0:#0.000}", angle_roll) + "]");
+            ExternalConsoleLogger.Log("   angle_ctrl, angle_roll[" + String.Format("{0:#0.000}", angle_ctrl_signed) + "] [" + String.Format("{0:#0.000}", angle_roll) + "]");
             ExternalConsoleLogger.Log("   sgn*err_pos_targ      [" + String.Format("{0:#0.00}", sgn_turn_req*err_pos_targ.magnitude) + "]");
             ExternalConsoleLogger.Log("   angle_roll (ref, val) [" + String.Format("{0:#0.000}", angle_input_ref) + "] [" + String.Format("{0:#0.000}", angle_roll) + "]");
             ExternalConsoleLogger.Log("   pos_rot (ref, val)    [" + String.Format("{0:#0.000}", pos_rot_ref)    + "] [" + String.Format("{0:#0.000}", pos_rot)    + "]");
@@ -630,12 +641,42 @@ public class ReHandyBotController : MonoBehaviour
         }
         */
     }
+
+    private void CmdSetTargetSteerAuto(float pos_eq_rot_ref, float k_rot_steer)
+    {
+        ////////////////////////////////////////////////////////////////////////////
+        // Impedance parameters for rotation angle limit:
+        ////////////////////////////////////////////////////////////////////////////
+
+        // RADIAL parameters:
+        float gain_radial = 1.0f;
+
+        // ROTATIONAL parameters:
+        float b_rot_steer = 0f; // Assumes that damping is provided by embedded HL_SetTarget stability
+
+        float gain_rot = 1.0f;
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Send limit force commands to RHB firmware:
+        ////////////////////////////////////////////////////////////////////////////
+
+        bool success_set_target;
+
+        if (ExerciseActive)
+            success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
+                POS_RADIAL_BASE_THROT, pos_eq_rot_ref,
+                K_STIFF_RADIAL_BASE_THROT, k_rot_steer,
+                B_DAMP_RADIAL_BASE_THROT, b_rot_steer,
+                gain_radial, gain_rot);
+        else
+            success_set_target = false;        
+    }
     #endregion
 
     ////////////////////////////////////////////////////////////////////////////
     // Haptics control:
     ////////////////////////////////////////////////////////////////////////////
-    
+
     private void HapticControlTrackPreview(Vector3 pos_bike, Vector3 dt_pos_bike, Vector3 dir_unit_bike, float dt_preview, 
         Track track_this, ref Vector3 pos_preview_this, ref Vector3 pos_track_targ_this, ref float curv_ctrline_preview_this)
     {
@@ -870,7 +911,10 @@ public class ReHandyBotController : MonoBehaviour
             timerLocked = false;
 
             // Set feedback gains:
-            SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
+            if (AUTO_STEERING_ON)
+                SetGain(0f, 0f);
+            else
+                SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
 
             // Initiate recording on new data file:
             DataManager.instance.SetupRecordingEvents();

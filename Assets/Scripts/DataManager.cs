@@ -108,9 +108,10 @@ public class DataManager : MonoBehaviour
             "bike input accel",
 
             "bike pose ang roll",
-            "bike pose ang steer wheel",
+            "bike pose dt ang roll",
             "bike pose ang ctrl",
             "bike pose dt ang ctrl",
+            "bike pose ang steer wheel",
 
             "pos preview x",
             "pos preview z",
@@ -119,7 +120,7 @@ public class DataManager : MonoBehaviour
             "angle input ref",
             "pos rot ref",
             "curv ctrline preview",
-            "cos dev targ",
+            "sin dev targ",
 
             "steer update 0",
             "steer update 1",
@@ -192,10 +193,11 @@ public class DataManager : MonoBehaviour
                 $"{bike_input_rhb_data.throttle}," +
                 $"{bike_input_rhb_data.acceleration}," +
 
-                $"{bike_pose_data.angle_roll}," +  
-                $"{bike_pose_data.angle_steer_wheel_fwd}," +
+                $"{bike_pose_data.angle_roll}," +
+                $"{bike_pose_data.dt_angle_roll}," +
                 $"{bike_pose_data.angle_ctrl}," +
                 $"{bike_pose_data.dt_angle_ctrl}," +
+                $"{bike_pose_data.angle_steer_wheel_fwd}," +
 
                 $"{haptic_ctrl_data.pos_preview.x}," +
                 $"{haptic_ctrl_data.pos_preview.z}," +
@@ -204,7 +206,7 @@ public class DataManager : MonoBehaviour
                 $"{haptic_ctrl_data.angle_input_ref}," +
                 $"{haptic_ctrl_data.pos_rot_ref}," +
                 $"{haptic_ctrl_data.curv_ctrline_preview}," +
-                $"{haptic_ctrl_data.cos_dev_targ}," +
+                $"{haptic_ctrl_data.sin_dev_targ}," +
                 
                 $"{steer_calc_data.steer_update[0]}," +   
                 $"{steer_calc_data.steer_update[1]}," +   
