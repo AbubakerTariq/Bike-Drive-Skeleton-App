@@ -16,6 +16,26 @@ public class MotorbikeController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - Steering (CRITICAL):
     ////////////////////////////////////////////////////////////////////////////
+    
+    const bool USE_STEER_UPDATE_FULL = true; // see motoControlRHB()
+
+    // Steering - input settings:
+    const float POS_ROT_STEER_REF_DEG = 25f; // 15f; // 30f; // reference angle for steering response (the lower the angle the larger the response)
+
+    // Steering - Scaling RHB input - BASIC:
+    const float SCALE_STEER_RHB_BASE = 1.0f;
+    const float SCALE_STEER_RHB_MAX = 2.0f; // make this > 1 to reduce the actual range of RHB rotation  
+
+    const float SCALE_ANG_POS_ROT_START_DEG = 15f; // TODO: test 10f for straight segments 
+    const float SCALE_ANG_POS_ROT_END_DEG = 30f;
+
+    // Steering - Auto steer - Adjustment parameters for angular deviation of bike's heading wrt to target:
+    const float SCALE_STEER_RHB_MIN  = 0.2f;
+    const float ANG_DEV_TARG_REF_DEG = 7.0f;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Bike control parameters - Steering - Other:
+    ////////////////////////////////////////////////////////////////////////////
 
     // Factor for steer input - formerly called STEER_INPUT_SENSITIVITY:
     const float FACTOR_STEER_INPUT = 10f; // 30f; // 45f; // 
@@ -27,56 +47,49 @@ public class MotorbikeController : MonoBehaviour
     // Link it with P_GAIN_ANGLE_INPUT_BIKE in ReHandyBotController (26.08.2025):
     const float FACTOR_STEER_DT_ANGLE_CTRL = 80f; // 30f; //
 
-    ////////////////////////////////////////////////////////////////////////////
-    // Bike control parameters - Predefined / initial values:
-    ////////////////////////////////////////////////////////////////////////////
-
-    const float ANGLE_STEER_FRONT_WHEEL_MAX_DEG = 60f; // 75f; // 45f;
-    const float SPEED_TRANSITION_ANGLE_STEER_BEHAV = 1.0f; // transition speed for wheel steering angle behavior
-
-    const float TORQUE_MOTOR_MAX = 600f; // 500f;
-
-    // Acceleration factor: CRITICAL value - increases top speed but can make turning harder
-    const float FACTOR_ACCEL = 2000f; // 1000f; 
-
-    const float RADIUS_WHEEL = 0.7f;
-
     // Steer factor for control angular speed squared:
     const float FACTOR_STEER_ANGLE_CTRL_SQUARED_STEER = 2.3f;
 
     const float FACTOR_INC_STEER = 20.0f; // 10.0f;
 
-    // Roll and nonslip limit angles:
-    public const float ANGLE_ROLL_LOW_DEG         = 42f;
-    public const float ANGLE_ROLL_NONSLIP_MAX_DEG = 50f;
-
     // Return to vertical: scaling factor for roll angular speed
     const float FACTOR_DT_ANGLE_CTRL_RETURN = 1.25f;
 
+    const float ANGLE_STEER_FRONT_WHEEL_MAX_DEG = 60f; // 75f; // 45f;
+    const float SPEED_TRANSITION_ANGLE_STEER_BEHAV = 1.0f; // transition speed for wheel steering angle behavior
+
     ////////////////////////////////////////////////////////////////////////////
-    // Bike control parameters - Other tunable parameters:
+    // Bike control parameters - Throttle (CRITICAL):
     ////////////////////////////////////////////////////////////////////////////
+
+    // Throttle input:
+    const bool USE_RHB_THROTTLE = true;
 
     // Throttle - input geometry settings:
     const float DIST_RADIAL_THROT_FULL_MM = 2.0f; // grippers travel distance for full throttle (mm)
 
     const float INPUT_THROT_THRESH = 0.6f; // minimum torque for mobility, also dependent on RADIAL stiffness  
-    const float INPUT_THROT_MAX    = 1.3f; // this is a function of RADIAL stiffness  
-    const float INPUT_THROT_AUTO = 1.1f;
+    const float INPUT_THROT_MAX = 1.3f; // this is a function of RADIAL stiffness  
+    const float INPUT_THROT_AUTO_STEER_MAX = 1.0f;
 
-    // Steering - input settings:
-    const float POS_ROT_STEER_REF_DEG = 25f; // 15f; // 30f; // reference angle for steering response (the lower the angle the larger the response)
+    ////////////////////////////////////////////////////////////////////////////
+    // Bike control parameters - Motor torque & acceleration:
+    ////////////////////////////////////////////////////////////////////////////
+    ///
+    const float TORQUE_MOTOR_MAX = 600f; // 500f;
 
-    // Steering - Scaling RHB input - BASIC:
-    const float SCALE_STEER_RHB_BASE = 1.0f;  
-    const float SCALE_STEER_RHB_MAX  = 2.0f; // make this > 1 to reduce the actual range of RHB rotation  
+    // Acceleration factor: CRITICAL value - increases top speed but can make turning harder
+    const float FACTOR_ACCEL = 2000f; // 1000f; 
 
-    const float SCALE_ANG_POS_ROT_START_DEG = 15f; // TODO: test 10f for straight segments 
-    const float SCALE_ANG_POS_ROT_END_DEG   = 30f;
+    ////////////////////////////////////////////////////////////////////////////
+    // Bike control parameters - Other:
+    ////////////////////////////////////////////////////////////////////////////
 
-    // Steering - Auto steer - Adjustment parameters for angular deviation of bike's heading wrt to target:
-    const float SCALE_STEER_RHB_MIN  = 0.2f;
-    const float ANG_DEV_TARG_REF_DEG = 7.0f;
+    const float RADIUS_WHEEL = 0.7f;
+
+    // Roll and nonslip limit angles:
+    public const float ANGLE_ROLL_LOW_DEG         = 42f;
+    public const float ANGLE_ROLL_NONSLIP_MAX_DEG = 50f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Object instance:
@@ -91,7 +104,7 @@ public class MotorbikeController : MonoBehaviour
     [HideInInspector] public float factor_steer_angle_ctrl = FACTOR_STEER_ANGLE_CTRL_REF;
 
     // TODO; verify there are no problems with Inspector (26.08.2025):
-    [HideInInspector] public float SPEED_REF_LOW = 8.0f;
+    [HideInInspector] public float SPEED_REF_LOW  =  8.0f;
     [HideInInspector] public float SPEED_REF_HIGH = 25.0f;
 
     [HideInInspector] public float rpm_value;
@@ -279,8 +292,7 @@ public class MotorbikeController : MonoBehaviour
     // Input variables:
     ///////////////////////////////////////////////////////////
        
-    // Throttle input:
-    const bool USE_RHB_THROTTLE = true;
+
 
     // Steering mode:
     const int STEER_MODE_RHB        = 1;
@@ -358,6 +370,12 @@ public class MotorbikeController : MonoBehaviour
                 bike_input_rhb.acceleration = 1f; // this input gets modified at low speeds - see motorControl()
 
             ////////////////////////////////////////////////////////////////
+            // Deviation from centerline target (several uses):
+            ////////////////////////////////////////////////////////////////
+           
+            float sin_dev_targ = ReHandyBotController.instance.auto_steer_ctrl_data.sin_dev_targ;
+
+            ////////////////////////////////////////////////////////////////
             // RHB radial input - throttle:
             ////////////////////////////////////////////////////////////////
 
@@ -366,8 +384,12 @@ public class MotorbikeController : MonoBehaviour
 
             if (ReHandyBotController.instance.ExerciseActive)
             {
-                if (ReHandyBotController.AUTO_STEERING_ON)
-                    bike_input_rhb.throttle = INPUT_THROT_AUTO;
+                if (ReHandyBotController.AUTO_THROTTLE_RHB_ON)
+                {
+                    float factor_speed_throttle = 1f - (float)Math.Abs(sin_dev_targ); // 1f - sin_dev_targ * sin_dev_targ;
+
+                    bike_input_rhb.throttle = factor_speed_throttle * INPUT_THROT_AUTO_STEER_MAX;
+                }
                 else
                     bike_input_rhb.throttle = Mathf.Clamp(-1000f / DIST_RADIAL_THROT_FULL_MM * (pos_throttle - pos_throttle_zero),
                         0f, INPUT_THROT_MAX);
@@ -390,10 +412,8 @@ public class MotorbikeController : MonoBehaviour
             float ang_pos_rot_end   = FACT_DEG_2_RAD * SCALE_ANG_POS_ROT_END_DEG;
 
             // Scale for RHB rotational input: adjust minimum scale value for angular deviation of bike's heading wrt to target:
-            float ang_pos_rot_dev_targ = FACT_DEG_2_RAD * ANG_DEV_TARG_REF_DEG;
-            float sin_dev_targ_ref = (float)Math.Sin(ang_pos_rot_dev_targ);
+            float sin_dev_targ_ref = (float)Math.Sin(FACT_DEG_2_RAD * ANG_DEV_TARG_REF_DEG);
 
-            float sin_dev_targ = ReHandyBotController.instance.haptic_ctrl_data.sin_dev_targ;
             float scale_steer_rhb_base_adj;
 
             if (sin_dev_targ <= sin_dev_targ_ref)
@@ -428,7 +448,7 @@ public class MotorbikeController : MonoBehaviour
                     if (CASE_STEER_MODE == STEER_MODE_RHB)
                         pos_rot_val = pos_rot;
                     else
-                        pos_rot_val = ReHandyBotController.instance.haptic_ctrl_data.pos_rot_ref;
+                        pos_rot_val = ReHandyBotController.instance.auto_steer_ctrl_data.pos_rot_ref;
 
                     // Angle input with proportionality factor:   
                     bike_input_rhb.steer = scale_steer_rhb * pos_rot_val / pos_rot_steer_ref;
@@ -521,7 +541,7 @@ public class MotorbikeController : MonoBehaviour
     private void motoControlRHB(BikeInputRHB bike_input_rhb, int step_count, 
         out BikeCoords bike_coords, out BikePose bike_pose, ref SteerCalc steer_calc_data)
     {
-        const bool USE_STEER_UPDATE_FULL = true;
+
 
         ////////////////////////////////////////////////////////////////
         // Time step:
@@ -672,16 +692,16 @@ public class MotorbikeController : MonoBehaviour
         input_steer_prev = bike_input_rhb.steer;
 
         ////////////////////////////////////////////////////////////////
-        // Update steering angle (wheel colliders):
+        // Update wheels steering angle (wheel colliders) - CRITICAL:
         ////////////////////////////////////////////////////////////////
 
         if (dt_pos_bike_magn > SPEED_TRANSITION_ANGLE_STEER_BEHAV)
-            wheel_coll_fwd.steerAngle = Mathf.Clamp(bike_input_rhb.steer, -1f, 1f) * ANGLE_STEER_FRONT_WHEEL_MAX_DEG;
+            wheel_coll_fwd.steerAngle = bike_input_rhb.steer * ANGLE_STEER_FRONT_WHEEL_MAX_DEG; // Mathf.Clamp(bike_input_rhb.steer, -1f, 1f) * ANGLE_STEER_FRONT_WHEEL_MAX_DEG;
         else
             wheel_coll_fwd.steerAngle = Mathf.Clamp(bike_input_rhb.steer, -dt_pos_bike_magn, dt_pos_bike_magn); // TODO: how come there is no scaling
 
         ////////////////////////////////////////////////////////////////
-        // Select input for torque & force control:
+        // Apply input for torque & force control - CTRITICAL:
         ////////////////////////////////////////////////////////////////
 
         float scale_factor_accel = 0f;

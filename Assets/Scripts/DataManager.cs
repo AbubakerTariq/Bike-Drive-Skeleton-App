@@ -121,6 +121,8 @@ public class DataManager : MonoBehaviour
             "pos rot ref",
             "curv ctrline preview",
             "sin dev targ",
+            "vect ctrline tang target x",
+            "vect ctrline tang target z",
 
             "steer update 0",
             "steer update 1",
@@ -152,7 +154,7 @@ public class DataManager : MonoBehaviour
         MotorbikeController.TrackCoords track_coords_data, 
         MotorbikeController.BikeInputRHB bike_input_rhb_data, 
         MotorbikeController.BikePose bike_pose_data,
-        ReHandyBotController.HapticControl haptic_ctrl_data,
+        ReHandyBotController.AutoSteerControl auto_steer_ctrl_data,
         MotorbikeController.SteerCalc steer_calc_data)
     {
         string t_step_str = t.ToString("F3");
@@ -199,14 +201,16 @@ public class DataManager : MonoBehaviour
                 $"{bike_pose_data.dt_angle_ctrl}," +
                 $"{bike_pose_data.angle_steer_wheel_fwd}," +
 
-                $"{haptic_ctrl_data.pos_preview.x}," +
-                $"{haptic_ctrl_data.pos_preview.z}," +
-                $"{haptic_ctrl_data.pos_track_targ.x}," +
-                $"{haptic_ctrl_data.pos_track_targ.z}," +
-                $"{haptic_ctrl_data.angle_input_ref}," +
-                $"{haptic_ctrl_data.pos_rot_ref}," +
-                $"{haptic_ctrl_data.curv_ctrline_preview}," +
-                $"{haptic_ctrl_data.sin_dev_targ}," +
+                $"{auto_steer_ctrl_data.pos_preview.x}," +
+                $"{auto_steer_ctrl_data.pos_preview.z}," +
+                $"{auto_steer_ctrl_data.pos_track_targ.x}," +
+                $"{auto_steer_ctrl_data.pos_track_targ.z}," +
+                $"{auto_steer_ctrl_data.angle_input_ref}," +
+                $"{auto_steer_ctrl_data.pos_rot_ref}," +
+                $"{auto_steer_ctrl_data.curv_ctrline_preview}," +
+                $"{auto_steer_ctrl_data.sin_dev_targ}," +
+                $"{auto_steer_ctrl_data.vect_ctrline_tang_target.x}," +
+                $"{auto_steer_ctrl_data.vect_ctrline_tang_target.z}," +
                 
                 $"{steer_calc_data.steer_update[0]}," +   
                 $"{steer_calc_data.steer_update[1]}," +   
@@ -333,7 +337,7 @@ public class DataManager : MonoBehaviour
                         MotorbikeController.instance.track_coords_data,
                         MotorbikeController.instance.bike_input_rhb_data,
                         MotorbikeController.instance.bike_pose_data,
-                        ReHandyBotController.instance.haptic_ctrl_data,
+                        ReHandyBotController.instance.auto_steer_ctrl_data,
                         MotorbikeController.instance.steer_calc_data);
 
                 /////////////////////////////////////////////////////////////////////////
