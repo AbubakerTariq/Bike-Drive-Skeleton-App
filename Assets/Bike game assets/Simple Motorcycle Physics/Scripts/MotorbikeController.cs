@@ -62,8 +62,8 @@ public class MotorbikeController : MonoBehaviour
     // Bike control parameters - Throttle (CRITICAL):
     ////////////////////////////////////////////////////////////////////////////
 
-    // Throttle input:
-    const bool USE_RHB_THROTTLE = true;
+    // Throttle input - toggle keyboard input - removed 30.08.2025:
+    // const bool USE_RHB_THROTTLE = true;  
 
     // Throttle - input geometry settings:
     const float DIST_RADIAL_THROT_FULL_MM = 2.0f; // grippers travel distance for full throttle (mm)
@@ -304,9 +304,9 @@ public class MotorbikeController : MonoBehaviour
     // Steering mode:
     const int STEER_MODE_MANUAL       = 1;
     const int STEER_MODE_ASSISTED_TRACKING = 2;
-    const int STEER_MODE_KEYB         = 3;
+    // const int STEER_MODE_KEYB         = 3;
 
-    const int CASE_STEER_MODE = STEER_MODE_ASSISTED_TRACKING;
+    // const int CASE_STEER_MODE = STEER_MODE_ASSISTED_TRACKING;
 
     /////////////////////////////////////////////////////////////
     // Display settings:
@@ -367,14 +367,12 @@ public class MotorbikeController : MonoBehaviour
             BikeInputRHB bike_input_rhb = new();
 
             ////////////////////////////////////////////////////////////////
-            // Acceleration input - KEYBOARD:
+            // Acceleration input:
             ////////////////////////////////////////////////////////////////         
 
-            if (USE_RHB_THROTTLE)
-                bike_input_rhb.acceleration = 0f;
-            
-            else if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
-                bike_input_rhb.acceleration = 1f; // this input gets modified at low speeds - see motorControl()
+            // if (USE_RHB_THROTTLE) removed 30.08.2025
+              
+            bike_input_rhb.acceleration = 0f;
 
             ////////////////////////////////////////////////////////////////
             // Deviation from centerline target (several uses):
@@ -383,24 +381,35 @@ public class MotorbikeController : MonoBehaviour
             float sin_dev_targ = ReHandyBotController.instance.auto_steer_ctrl_data.sin_dev_targ;
 
             ////////////////////////////////////////////////////////////////
-            // RHB radial input - throttle:
+            // Throttle input cases:
             ////////////////////////////////////////////////////////////////
-
+ 
             float pos_throttle      = ReHandyBotController.instance.distal_data.PositionR;
             float pos_throttle_zero = ReHandyBotController.instance.POS_RADIAL_BASE_THROT;
 
             if (ReHandyBotController.instance.ExerciseActive)
-            {
-                if (ReHandyBotController.AUTO_THROTTLE_RHB_ON)
+                switch (ReHandyBotController.CASE_CTRL_MODE)
                 {
-                    float factor_speed_throttle = 1f - (float)Math.Abs(sin_dev_targ); // 1f - sin_dev_targ * sin_dev_targ;
+                    case ReHandyBotController.CTRL_ASSISTED:
+                        break;
 
-                    bike_input_rhb.throttle = factor_speed_throttle * INPUT_THROT_AUTO_STEER_MAX;
+                    case ReHandyBotController.CTRL_AUTO_STEER_THROTTLE:
+
+                        float factor_speed_throttle = 1f - (float)Math.Abs(sin_dev_targ); // was: 1f - sin_dev_targ * sin_dev_targ;
+                        bike_input_rhb.throttle = factor_speed_throttle * INPUT_THROT_AUTO_STEER_MAX;
+                        break;
+
+                    case ReHandyBotController.CTRL_AUTO_STEER:
+                    case ReHandyBotController.CTRL_MANUAL_SIMPLE:
+
+                        bike_input_rhb.throttle = Mathf.Clamp(
+                            -1000f / DIST_RADIAL_THROT_FULL_MM * (pos_throttle - pos_throttle_zero),
+                            0f, INPUT_THROT_MAX);
+                        break;
+
+                    default:
+                        bike_input_rhb.throttle = 0f;
                 }
-                else
-                    bike_input_rhb.throttle = Mathf.Clamp(-1000f / DIST_RADIAL_THROT_FULL_MM * (pos_throttle - pos_throttle_zero),
-                        0f, INPUT_THROT_MAX);
-            }
             else
                 bike_input_rhb.throttle = 0f;
 
@@ -421,9 +430,12 @@ public class MotorbikeController : MonoBehaviour
 
             float scale_steer_rhb_base_adj;
 
-            if (sin_dev_targ <= sin_dev_targ_ref)
-                scale_steer_rhb_base_adj = (SCALE_STEER_RHB_BASE - SCALE_STEER_RHB_MIN) / sin_dev_targ_ref 
-                    * (float)Math.Abs(sin_dev_targ) + SCALE_STEER_RHB_MIN;
+            // Steer scaling: adjustments for auto steer (TODO: keep or discard):
+            if ((  ReHandyBotController.CASE_CTRL_MODE == ReHandyBotController.CTRL_AUTO_STEER_THROTTLE 
+                || ReHandyBotController.CASE_CTRL_MODE == ReHandyBotController.CTRL_AUTO_STEER)
+                && sin_dev_targ <= sin_dev_targ_ref)
+                    scale_steer_rhb_base_adj = (SCALE_STEER_RHB_BASE - SCALE_STEER_RHB_MIN) / sin_dev_targ_ref 
+                        * (float)Math.Abs(sin_dev_targ) + SCALE_STEER_RHB_MIN;
             else
                 scale_steer_rhb_base_adj = SCALE_STEER_RHB_BASE;
 
@@ -444,57 +456,53 @@ public class MotorbikeController : MonoBehaviour
             // Select steering mode:
             ////////////////////////////////////////////////////////////////
 
-            // Steering input: MANUAL / TRACKING CONTROL:
-            if (CASE_STEER_MODE == STEER_MODE_MANUAL || CASE_STEER_MODE == STEER_MODE_ASSISTED_TRACKING)
-            {
-                if (ReHandyBotController.instance.ExerciseActive)
+            if (ReHandyBotController.instance.ExerciseActive) {
+
+                // "Raw" steering input - several cases: 
+                float input_steer_raw;
+
+                switch (ReHandyBotController.CASE_CTRL_MODE)
                 {
-                    float input_steer_raw;
+                    case ReHandyBotController.CTRL_ASSISTED:
+                        break;
 
-                    // Select position value:
-                    if (CASE_STEER_MODE == STEER_MODE_ASSISTED_TRACKING)
+                    case ReHandyBotController.CTRL_AUTO_STEER_THROTTLE:
+                    case ReHandyBotController.CTRL_AUTO_STEER:
+
                         input_steer_raw = ReHandyBotController.instance.auto_steer_ctrl_data.input_steer_fbk;
-                    else // MANUAL mode
-                        input_steer_raw = pos_rot;  
+                        break;
 
-                    // Angle input with proportionality factor:   
-                    bike_input_rhb.steer = FACT_STEER_RESPONSE * scale_steer_rhb * input_steer_raw;
+                    case ReHandyBotController.CTRL_MANUAL_SIMPLE:
+
+                        input_steer_raw = 1f / ReHandyBotController.SCALE_POS_ROT_INPUT_USER * pos_rot;
+                        break;
+
+                    default:
+
+                        input_steer_raw = 0f;
+                        break;
                 }
-                else
-                    bike_input_rhb.steer = 0f;
+
+                // Steering input with scaling factors:
+                bike_input_rhb.steer = FACT_STEER_RESPONSE * scale_steer_rhb * input_steer_raw;
             }
-                
-            // Steering input - KEYBOARD:
-            /*
-            else if (CASE_STEER_MODE == STEER_MODE_KEYB)
-            {
-                if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
-                    bike_input_rhb.steer = 1;
-                else if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
-                    bike_input_rhb.steer = -1;
-            }
-            */
+            else
+                bike_input_rhb.steer = 0f;
+
+            // Steering input bike_input_rhb.steer - KEYBOARD - removed 30.08.2025
 
             ////////////////////////////////////////////////////////////////
             // 'Upright force' calculations:
             ////////////////////////////////////////////////////////////////
 
+            // if (USE_RHB_THROTTLE)  removed 30.08.2025
+
             bool input_force_trq_on;
 
-            if (USE_RHB_THROTTLE)
-            {
-                if (bike_input_rhb.throttle >= INPUT_THROT_THRESH)
-                    input_force_trq_on = true;
-                else
-                    input_force_trq_on = false;
-            }
+            if (bike_input_rhb.throttle >= INPUT_THROT_THRESH)
+                input_force_trq_on = true;
             else
-            {
-                if (bike_input_rhb.acceleration > 0f)
-                    input_force_trq_on = true;
-                else
-                    input_force_trq_on = false;
-            }
+                input_force_trq_on = false;
 
             uprightForce(input_force_trq_on);
 
@@ -550,8 +558,6 @@ public class MotorbikeController : MonoBehaviour
     private void motoControlRHB(BikeInputRHB bike_input_rhb, int step_count, 
         out BikeCoords bike_coords, out BikePose bike_pose, ref SteerCalc steer_calc_data)
     {
-
-
         ////////////////////////////////////////////////////////////////
         // Time step:
         ////////////////////////////////////////////////////////////////
@@ -663,16 +669,12 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
 
         // Bike speed factor - update:
-        // factor_steer_bike_speed = 7.6e-4f; // minimum from data
         factor_steer_bike_speed = 1f / (1f + (float)Math.Pow(dt_pos_bike_magn, 2));
 
         // Steer input factor - moved here from steerHelper() (TODO: keep or discard):
         // factor_steer_input = Mathf.Clamp(FACTOR_STEER_INPUT - 0.9f / FACT_DEG_2_RAD * Mathf.Abs(angle_roll_bike), 10f, FACTOR_STEER_INPUT);
+        
         factor_steer_input = FACTOR_STEER_INPUT;
-
-        // Control angle input factor - moved here from steerHelper() (TODO: keep or d iscard):
-        // if (Math.Abs(angle_roll_bike) > ANGLE_ROLL_LOW_DEG)
-        //    factor_steer_angle_ctrl += 3.0f; // 2.0f;
 
         float steer_term_input         = factor_steer_input * bike_input_rhb.steer;
         float steer_term_angle_ctrl    = factor_steer_angle_ctrl * angle_ctrl;
@@ -713,24 +715,18 @@ public class MotorbikeController : MonoBehaviour
         // Apply input for torque & force control - CTRITICAL:
         ////////////////////////////////////////////////////////////////
 
+        // if (USE_RHB_THROTTLE) removed 30.08.2025
+
+        wheel_coll_back.motorTorque = torque_motor * bike_input_rhb.throttle;
+
         float scale_factor_accel = 0f;
 
-        if (USE_RHB_THROTTLE) {
-            wheel_coll_back.motorTorque = torque_motor * bike_input_rhb.throttle;
+        if (dt_pos_bike_magn < SPEED_REF_HIGH)
+            scale_factor_accel = 1f;
+        else
+            scale_factor_accel = 0.5f;
 
-            if (dt_pos_bike_magn < SPEED_REF_HIGH)
-                scale_factor_accel = 1f;
-            else
-                scale_factor_accel = 0.5f;
-
-            rigid_body.AddForce(scale_factor_accel * FACTOR_ACCEL * bike_input_rhb.throttle * transform.forward);
-        }
-        else {
-            wheel_coll_back.motorTorque = torque_motor * bike_input_rhb.acceleration;
-
-            if (dt_pos_bike_magn < SPEED_REF_HIGH)
-                rigid_body.AddForce(FACTOR_ACCEL * bike_input_rhb.acceleration * transform.forward);
-        }
+        rigid_body.AddForce(scale_factor_accel * FACTOR_ACCEL * bike_input_rhb.throttle * transform.forward);
 
         ////////////////////////////////////////////////////////////////
         // Update rigid-body Cartesian velocities:
@@ -790,36 +786,9 @@ public class MotorbikeController : MonoBehaviour
 
             ExternalConsoleLogger.Log("\n");
 
-            /*
-            for (int j = 0; j <= N_STEER_UPDATES; j++)
-                ExternalConsoleLogger.Log("    steer_update[" + j + "] = " + String.Format("{0:#0.000}", steer_update[j]));
-
-            ExternalConsoleLogger.Log("\n");
-            */
+            // for (int j = 0; j <= N_STEER_UPDATES; j++)
+            //     ExternalConsoleLogger.Log("    steer_update[" + j + "] = " + String.Format("{0:#0.000}", steer_update[j]));
         }
-
-        /*
-        if (step_count % DECIM_DATA_DISP_BIKE_CTRL == 0 && step_count > step_count_prev &&
-            ReHandyBotController.instance.ExerciseActive && DISP_MOTOR_CONTROL_ON)
-        {
-            try
-            {
-                ExternalConsoleLogger.Log("    " +
-                    "wheel_coll_fwd.motorTorque [" + wheel_coll_fwd.motorTorque + "]");
-                ExternalConsoleLogger.Log("    " +
-                    "wheel_coll_back.motorTorque [" + wheel_coll_back.motorTorque + "]");
-            }
-            catch (Exception exc)
-            {
-                ExternalConsoleLogger.Log("   -------------------------------------------------------------");
-                ExternalConsoleLogger.Log("   motoControlRHB(): EXCEPTION - failed to access wheel collider\n");
-                ExternalConsoleLogger.Log("      Exception message: [" + exc.Message + "]");
-                ExternalConsoleLogger.Log("      Stack trace:       [" + exc.StackTrace + "] \n");
-            }
-
-            ExternalConsoleLogger.Log(" ");
-        }
-        */
     }
 
     void Awake()
@@ -857,10 +826,6 @@ public class MotorbikeController : MonoBehaviour
 
         if (dt_pos_bike_magn < 1.0f && !input_force_trq_on) // Input.GetKey(KeyCode.W) (11.06.2025)
         {
-            // Removed 11.06.2025: 
-            // var rot = Quaternion.FromToRotation(transform.up, Vector3.up);
-            // rigid_body.AddTorque(new Vector3(rot.x, rot.y, rot.z)* 10 , ForceMode.Acceleration);
-
             transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, transform.rotation.eulerAngles.y, 0);
             rigid_body.constraints = RigidbodyConstraints.FreezeAll;
         }

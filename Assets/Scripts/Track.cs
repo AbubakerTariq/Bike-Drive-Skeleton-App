@@ -207,9 +207,6 @@ public class Track : MonoBehaviour
 
             Vector3 ab = b - a;
             Vector3 ap = position - a;
-
-            // TODO: keep or discard:
-            // float t = Vector3.Dot(ap, ab) / ab.magnitude / ap.magnitude;
             
             float t = Mathf.Clamp01(Vector3.Dot(ap, ab) / ab.sqrMagnitude);
             Vector3 projection = a + ab * t;
