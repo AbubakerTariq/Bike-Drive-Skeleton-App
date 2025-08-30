@@ -118,7 +118,7 @@ public class DataManager : MonoBehaviour
             "pos track targ x",
             "pos track targ z",
             "angle input ref",
-            "pos rot ref",
+            "input steer fbk",
             "curv ctrline preview",
             "sin dev targ",
             "vect ctrline tang target x",
@@ -195,8 +195,8 @@ public class DataManager : MonoBehaviour
                 $"{bike_input_rhb_data.throttle}," +
                 $"{bike_input_rhb_data.acceleration}," +
 
-                $"{bike_pose_data.angle_roll}," +
-                $"{bike_pose_data.dt_angle_roll}," +
+                $"{bike_pose_data.angle_roll_bike}," +
+                $"{bike_pose_data.dt_angle_roll_bike}," +
                 $"{bike_pose_data.angle_ctrl}," +
                 $"{bike_pose_data.dt_angle_ctrl}," +
                 $"{bike_pose_data.angle_steer_wheel_fwd}," +
@@ -206,7 +206,7 @@ public class DataManager : MonoBehaviour
                 $"{auto_steer_ctrl_data.pos_track_targ.x}," +
                 $"{auto_steer_ctrl_data.pos_track_targ.z}," +
                 $"{auto_steer_ctrl_data.angle_input_ref}," +
-                $"{auto_steer_ctrl_data.pos_rot_ref}," +
+                $"{auto_steer_ctrl_data.input_steer_fbk}," +
                 $"{auto_steer_ctrl_data.curv_ctrline_preview}," +
                 $"{auto_steer_ctrl_data.sin_dev_targ}," +
                 $"{auto_steer_ctrl_data.vect_ctrline_tang_target.x}," +

@@ -28,7 +28,7 @@ public class ReHandyBotController : MonoBehaviour
     // SetExercise() parameters (CRITICAL):
     //////////////////////////////////////////////////////////////////////////// 
     
-    public const bool AUTO_STEER_RHB_ON = true; // CRITICAL - use with care
+    public const bool AUTO_STEER_RHB_ON    = true; // CRITICAL - use with care
     public const bool AUTO_THROTTLE_RHB_ON = true; // CRITICAL - use with care
 
     float OFFS_FORCE_RADIAL_INIT = 0f;
@@ -103,11 +103,13 @@ public class ReHandyBotController : MonoBehaviour
     // Auto steer control parameters:
     ////////////////////////////////////////////////////////////////////////////
     
-    // Tracking control input mode:
+    // Tracking control input mode (TODO: keep or discard):
+    /*
     const int INPUT_MODE_ANGLE_ROLL = 1;
     const int INPUT_MODE_ANGLE_CTRL = 2;
 
     const int CASE_INPUT_MODE = INPUT_MODE_ANGLE_ROLL;
+    */
 
     // CRITICAL: preview-ahead time (26.08.2025)
     public float DT_PREVIEW = 2.0f; //  1.3f;
@@ -142,8 +144,8 @@ public class ReHandyBotController : MonoBehaviour
     private float dist_ctrline_near    = NULL_VALUE; 
 
     // Bike pose:
-    private float angle_roll           = NULL_VALUE;
-    private float dt_angle_roll        = NULL_VALUE;
+    private float angle_roll_bike           = NULL_VALUE;
+    private float dt_angle_roll_bike        = NULL_VALUE;
     private float angle_ctrl_signed    = NULL_VALUE;
     private float dt_angle_ctrl_signed = NULL_VALUE;
 
@@ -151,7 +153,7 @@ public class ReHandyBotController : MonoBehaviour
     private Vector3 pos_preview        = NULL_VECTOR3;
     private Vector3 pos_track_targ     = NULL_VECTOR3;
     private float angle_input_ref      = NULL_VALUE;
-    private float pos_rot_ref          = NULL_VALUE;
+    private float input_steer_fbk          = NULL_VALUE;
     private float curv_ctrline_preview = NULL_VALUE;
     private float sin_dev_targ         = NULL_VALUE; // angular deviation of bike's heading wrt to target
     private Vector3 vect_ctrline_tang_target = NULL_VECTOR3;
@@ -251,7 +253,7 @@ public class ReHandyBotController : MonoBehaviour
         public Vector3 pos_preview;
         public Vector3 pos_track_targ;
         public float angle_input_ref;
-        public float pos_rot_ref;
+        public float input_steer_fbk;
         public float curv_ctrline_preview;
         public float sin_dev_targ;
         public Vector3 vect_ctrline_tang_target;
@@ -400,8 +402,8 @@ public class ReHandyBotController : MonoBehaviour
             dist_ctrline_near = MotorbikeController.instance.track_coords_data.dist_ctrline_near;
 
             // Retrieve bike pose coordinates:
-            angle_roll           =                  MotorbikeController.instance.bike_pose_data.angle_roll;
-            dt_angle_roll        =                  MotorbikeController.instance.bike_pose_data.dt_angle_roll;
+            angle_roll_bike           =                  MotorbikeController.instance.bike_pose_data.angle_roll_bike;
+            dt_angle_roll_bike        =                  MotorbikeController.instance.bike_pose_data.dt_angle_roll_bike;
             angle_ctrl_signed    = SGN_ANGLE_CTRL * MotorbikeController.instance.bike_pose_data.angle_ctrl;
             dt_angle_ctrl_signed = SGN_ANGLE_CTRL * MotorbikeController.instance.bike_pose_data.dt_angle_ctrl;
         }
@@ -448,14 +450,19 @@ public class ReHandyBotController : MonoBehaviour
             */
 
             ////////////////////////////////////////////////////////////////////////////
-            // Auto steer control 3: steering control - RHB rotation angle reference:
+            // Auto steer control 3: steering input - feedback-based:
             ////////////////////////////////////////////////////////////////////////////
 
+            // TODO: keep or discard
+            /*
             if (CASE_INPUT_MODE == INPUT_MODE_ANGLE_ROLL)
-                pos_rot_ref = P_GAIN_POS_ROT_RHB * (angle_input_ref - angle_roll); // - D_GAIN_POS_ROT_RHB * dt_angle_roll; 
+                input_steer_fbk = P_GAIN_POS_ROT_RHB * (angle_input_ref - angle_roll_bike); // - D_GAIN_POS_ROT_RHB * dt_angle_roll_bike; 
 
             else if (CASE_INPUT_MODE == INPUT_MODE_ANGLE_CTRL)
-                pos_rot_ref = P_GAIN_POS_ROT_RHB * (angle_input_ref - angle_ctrl_signed) - D_GAIN_POS_ROT_RHB * dt_angle_ctrl_signed;
+                input_steer_fbk = P_GAIN_POS_ROT_RHB * (angle_input_ref - angle_ctrl_signed) - D_GAIN_POS_ROT_RHB * dt_angle_ctrl_signed;
+            */
+
+            input_steer_fbk = P_GAIN_POS_ROT_RHB * (angle_input_ref - angle_roll_bike); // - D_GAIN_POS_ROT_RHB * dt_angle_roll_bike; 
 
             ////////////////////////////////////////////////////////////////////////////
             // Auto steer control 4: angular deviation of bike's heading wrt to target:
@@ -479,7 +486,7 @@ public class ReHandyBotController : MonoBehaviour
         auto_steer_ctrl_data.pos_preview = pos_preview;
         auto_steer_ctrl_data.pos_track_targ = pos_track_targ;
         auto_steer_ctrl_data.angle_input_ref = angle_input_ref;
-        auto_steer_ctrl_data.pos_rot_ref = pos_rot_ref;
+        auto_steer_ctrl_data.input_steer_fbk = input_steer_fbk;
         auto_steer_ctrl_data.curv_ctrline_preview = curv_ctrline_preview;
         auto_steer_ctrl_data.sin_dev_targ = sin_dev_targ;
         auto_steer_ctrl_data.vect_ctrline_tang_target = vect_ctrline_tang_target;
@@ -491,8 +498,8 @@ public class ReHandyBotController : MonoBehaviour
         if (AUTO_STEER_RHB_ON)
         {
             float SCALE_POS_ROT_REF = 1.0f; // 0.2f;
-            // float pos_rot_ref_scaled = SCALE_POS_ROT_REF*auto_steer_ctrl_data.pos_rot_ref;
-            float pos_rot_ref_scaled = SCALE_POS_ROT_REF* angle_roll;
+            // float pos_rot_ref_scaled = SCALE_POS_ROT_REF*auto_steer_ctrl_data.input_steer_fbk;
+            float pos_rot_ref_scaled = SCALE_POS_ROT_REF* angle_roll_bike;
 
             float k_rot_steer = 10.0f*K_STIFF_ROT_LIM;
 
@@ -500,46 +507,6 @@ public class ReHandyBotController : MonoBehaviour
         }
         else       
             CmdSetTargetSteerWithLimit(pos_rot);
-
-        ////////////////////////////////////////////////////////////////////////////
-        // Display section:
-        ////////////////////////////////////////////////////////////////////////////
-
-        /*
-        if (ExerciseActive && step_count % (DT_DISP_DATA_MSEC / DT_STEP_APP_MSEC) == 0 && DISP_TIMER_ACTIVITY_ON)
-        {
-            // Time elapsed display:
-            string timeElapsedText = String.Format("{0:#00}", timeElapsedSpan.Minutes) + ":" + String.Format("{0:#00}", timeElapsedSpan.Seconds);
-
-            ExternalConsoleLogger.Log("Update(" + step_count + ") t [" + String.Format("{0:#0.000}", timeElapsedValue) + "]:");
-            ExternalConsoleLogger.Log("   pos bike " + pos_bike      );
-            ExternalConsoleLogger.Log("   vel bike " + dt_pos_bike   );
-            ExternalConsoleLogger.Log(" ");
-            ExternalConsoleLogger.Log("   pos near  " + pos_ctrline_near  );
-            ExternalConsoleLogger.Log("   vect tang " + vect_ctrline_tang );
-            ExternalConsoleLogger.Log("   curvature [" + String.Format("{0:#0.000}", curv_ctrline_near) + "]");
-            ExternalConsoleLogger.Log("   ang tang  [" + String.Format("{0:#0.00}", ang_ctrline_tang)   + "]");
-            ExternalConsoleLogger.Log("   d ctrline [" + String.Format("{0:#0.00}", dist_ctrline_near)   + "]");
-            ExternalConsoleLogger.Log(" ");
-        }
-        */
-
-        if (ExerciseActive && step_count % (DT_DISP_DATA_MSEC / DT_STEP_APP_MSEC) == 0 && DISP_TIMER_ACTIVITY_ON)
-        {
-            // Time elapsed display:
-            string timeElapsedText = String.Format("{0:#00}", timeElapsedSpan.Minutes) + ":" + String.Format("{0:#00}", timeElapsedSpan.Seconds);
-
-            ExternalConsoleLogger.Log("Update(" + step_count + ") t [" + String.Format("{0:#0.000}", timeElapsedValue) + "]:");
-            ExternalConsoleLogger.Log("   pos_bike       " + pos_bike);
-            ExternalConsoleLogger.Log("   pos_preview    " + pos_preview);
-            ExternalConsoleLogger.Log("   pos_track_targ " + pos_track_targ);
-            ExternalConsoleLogger.Log(" ");
-            ExternalConsoleLogger.Log("   angle_ctrl, angle_roll[" + String.Format("{0:#0.000}", angle_ctrl_signed) + "] [" + String.Format("{0:#0.000}", angle_roll) + "]");
-            ExternalConsoleLogger.Log("   sgn*err_pos_targ      [" + String.Format("{0:#0.00}", sgn_turn_req*err_pos_targ.magnitude) + "]");
-            ExternalConsoleLogger.Log("   angle_roll (ref, val) [" + String.Format("{0:#0.000}", angle_input_ref) + "] [" + String.Format("{0:#0.000}", angle_roll) + "]");
-            ExternalConsoleLogger.Log("   pos_rot (ref, val)    [" + String.Format("{0:#0.000}", pos_rot_ref)    + "] [" + String.Format("{0:#0.000}", pos_rot)    + "]");
-            ExternalConsoleLogger.Log(" ");
-        }
 
         ////////////////////////////////////////////////////////////////////////////
         // Update step counter:
@@ -553,6 +520,27 @@ public class ReHandyBotController : MonoBehaviour
 
         while (MainThreadActionQueue.Count > 0)
             MainThreadActionQueue.Dequeue().Invoke();
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Display section:
+        ////////////////////////////////////////////////////////////////////////////
+
+        if (ExerciseActive && step_count % (DT_DISP_DATA_MSEC / DT_STEP_APP_MSEC) == 0 && DISP_TIMER_ACTIVITY_ON)
+        {
+            // Time elapsed display:
+            string timeElapsedText = String.Format("{0:#00}", timeElapsedSpan.Minutes) + ":" + String.Format("{0:#00}", timeElapsedSpan.Seconds);
+
+            ExternalConsoleLogger.Log("Update(" + step_count + ") t [" + String.Format("{0:#0.000}", timeElapsedValue) + "]:");
+            ExternalConsoleLogger.Log("   pos_bike       " + pos_bike);
+            ExternalConsoleLogger.Log("   pos_preview    " + pos_preview);
+            ExternalConsoleLogger.Log("   pos_track_targ " + pos_track_targ);
+            ExternalConsoleLogger.Log(" ");
+            ExternalConsoleLogger.Log("   angle_ctrl, angle_roll_bike[" + String.Format("{0:#0.000}", angle_ctrl_signed) + "] [" + String.Format("{0:#0.000}", angle_roll_bike) + "]");
+            ExternalConsoleLogger.Log("   sgn*err_pos_targ      [" + String.Format("{0:#0.00}", sgn_turn_req * err_pos_targ.magnitude) + "]");
+            ExternalConsoleLogger.Log("   angle_roll_bike (ref, val) [" + String.Format("{0:#0.000}", angle_input_ref) + "] [" + String.Format("{0:#0.000}", angle_roll_bike) + "]");
+            ExternalConsoleLogger.Log("   pos_rot (ref, val)    [" + String.Format("{0:#0.000}", input_steer_fbk) + "] [" + String.Format("{0:#0.000}", pos_rot) + "]");
+            ExternalConsoleLogger.Log(" ");
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -1362,16 +1350,23 @@ public class ReHandyBotController : MonoBehaviour
 
     private void Destroy()
     {
-        StopSetTargetEvents();
+        // TODO: keep or discard:
+        // StopSetTargetEvents();
     }
-    
+
     #region Set Target functions
+
+    // TODO: keep or discard:
+    /*
     private void SetupSetTargetEvents()
     {
         ReHandyBotController.instance.OnExerciseStart += StartSetTargetEvents;
         ReHandyBotController.instance.OnExerciseStop += StopSetTargetEvents;
     }
+    */
 
+    // TODO: keep or discard:
+    /*
     private void StartSetTargetEvents()
     {
         StopSetTargetEvents();
@@ -1385,23 +1380,32 @@ public class ReHandyBotController : MonoBehaviour
         });
         threadTimerSetTarget.Start();
     }
+    */
 
+    // TODO: keep or discard:
+    /*
     private void StopSetTargetEvents()
     {
         threadTimerSetTarget?.Abort();
         timerSetTarget?.Stop();
         timerSetTarget?.Dispose();
     }
+    */
 
+    // TODO: keep or discard:
+    /*
     private void SendCmdSetTargetSteerLimit(object sender, ElapsedEventArgs e)
     {
         // RHB coordinates:
         float pos_rot = ReHandyBotController.instance.distal_data.PositionP;
 
         CmdSetTargetSteerWithLimit(pos_rot);
-    }   
+    }  
+    */
 
-
+    ////////////////////////////////////////////////////////////////////////////
+    // Ancillary functions:
+    ////////////////////////////////////////////////////////////////////////////
     private Vector2 VectorXZ(Vector3 vect)
     {
         return new Vector2(vect.x, vect.x);
