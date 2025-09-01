@@ -3424,6 +3424,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   MasterVolume: -15
+  audioSource: {fileID: 0}
+  audioSource2: {fileID: 0}
+  audioSourceWind: {fileID: 0}
   Samples:
   - {fileID: 8300000, guid: d2e0fd566f298f44ca34fe01f75d16e8, type: 3}
   - {fileID: 8300000, guid: a917f471c687ee6429c3df1df668d029, type: 3}
@@ -3431,6 +3434,8 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 6e835f1a5b6f5314e9c57e129da61f72, type: 3}
   - {fileID: 8300000, guid: ed5b66dac6639e74c8bee138949ad5ce, type: 3}
   - {fileID: 8300000, guid: 3db63eb6bd1ff7846bfc0cddbdbc1bfe, type: 3}
+  motorbikeController: {fileID: 0}
+  r_body: {fileID: 0}
   EngineRpm:
     serializedVersion: 2
     m_Curve:
@@ -3572,6 +3577,11 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  changed: 0
+  prevPitch: 0
+  prevPitch2: 0
+  prevVol: 0
+  prevVol2: 0
   revLimiter: 1
   revValue: 0
   EngineFlow: 50
@@ -4603,6 +4613,7 @@ GameObject:
   - component: {fileID: 8928942118896632358}
   - component: {fileID: 8928942118896632379}
   - component: {fileID: 8928942118896632374}
+  - component: {fileID: 8192281440794049460}
   m_Layer: 0
   m_Name: MotorcycleWRider
   m_TagString: Player
@@ -4674,36 +4685,56 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56717b2fd6707fa48890f733b8ade5df, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  WColForward: {fileID: 8928942119820932949}
-  WColBack: {fileID: 8928942119156124462}
+  factor_steer_angle_ctrl: 56
+  SPEED_REF_LOW: 8
+  SPEED_REF_HIGH: 25
+  rpm_value: 0
+  velocity_rel_collision: {x: 0, y: 0, z: 0}
+  bike_fallen: 0
+  gear_curr: 1
+  wheel_coll_fwd: {fileID: 0}
+  wheel_coll_back: {fileID: 0}
   wheelF: {fileID: 5145614305621081429}
   wheelB: {fileID: 4281122537119276147}
   handles: {fileID: 7902237060153771708}
   RearMudGuard: {fileID: 4858094793745244186}
   RearMudGuardSusOffset: {x: 0, y: 0, z: 0}
-  preventGlitchAngle: 70
-  canArtificialStoppie: 0
-  stoppieAmount: 0.7
-  fallen: 0
-  maxSteerAngle: 45
-  maxMotorTorque: 900
-  ArtificialAcceleration: 4500
-  ArtificialBrake: 0.02
-  maxForwardBrake: 1000
-  maxBackBrake: 200
-  wheelRadius: 0.5
-  steerSensivity: 39
-  controlAngle: 50
-  controlOmega: 60
-  lowSpeed: 9
-  highSpeed: 100
   com: {x: 0, y: 1.5, z: 0}
-  currentGear: 1
-  revValue: 0
   Rider: {fileID: 5486286349470450988}
   RagdollAnimation: {fileID: 7985579707336744918, guid: a940ea4ebb45c9b45b7cf112fa49b7ae, type: 3}
   Ragdoll: {fileID: 3092097735282227737, guid: cd9e90ccf08bae74aa61d8797586998f, type: 3}
-  collisionRelativeVelocity: {x: 0, y: 0, z: 0}
+  SpeedTxt: {fileID: 0}
+--- !u!114 &8192281440794049460
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8928942118896632376}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 56717b2fd6707fa48890f733b8ade5df, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  factor_steer_angle_ctrl: 56
+  SPEED_REF_LOW: 8
+  SPEED_REF_HIGH: 25
+  rpm_value: 0
+  velocity_rel_collision: {x: 0, y: 0, z: 0}
+  bike_fallen: 0
+  gear_curr: 1
+  wheel_coll_fwd: {fileID: 0}
+  wheel_coll_back: {fileID: 0}
+  wheelF: {fileID: 0}
+  wheelB: {fileID: 0}
+  handles: {fileID: 0}
+  RearMudGuard: {fileID: 0}
+  RearMudGuardSusOffset: {x: 0, y: 0, z: 0}
+  com: {x: 0, y: 0, z: 0}
+  Rider: {fileID: 0}
+  RagdollAnimation: {fileID: 0}
+  Ragdoll: {fileID: 0}
+  SpeedTxt: {fileID: 0}
 --- !u!1 &8928942119159969042
 GameObject:
   m_ObjectHideFlags: 0

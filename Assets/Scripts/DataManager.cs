@@ -123,6 +123,7 @@ public class DataManager : MonoBehaviour
             "sin dev targ",
             "vect ctrline tang target x",
             "vect ctrline tang target z",
+            "angle roll rhb",
 
             "steer update 0",
             "steer update 1",
@@ -154,7 +155,7 @@ public class DataManager : MonoBehaviour
         MotorbikeController.TrackCoords track_coords_data, 
         MotorbikeController.BikeInputRHB bike_input_rhb_data, 
         MotorbikeController.BikePose bike_pose_data,
-        ReHandyBotController.AutoSteerControl auto_steer_ctrl_data,
+        ReHandyBotController.FeedbackControl fbk_ctrl_data,
         MotorbikeController.SteerCalc steer_calc_data)
     {
         string t_step_str = t.ToString("F3");
@@ -201,16 +202,17 @@ public class DataManager : MonoBehaviour
                 $"{bike_pose_data.dt_angle_ctrl}," +
                 $"{bike_pose_data.angle_steer_wheel_fwd}," +
 
-                $"{auto_steer_ctrl_data.pos_preview.x}," +
-                $"{auto_steer_ctrl_data.pos_preview.z}," +
-                $"{auto_steer_ctrl_data.pos_track_targ.x}," +
-                $"{auto_steer_ctrl_data.pos_track_targ.z}," +
-                $"{auto_steer_ctrl_data.angle_input_ref}," +
-                $"{auto_steer_ctrl_data.input_steer_fbk}," +
-                $"{auto_steer_ctrl_data.curv_ctrline_preview}," +
-                $"{auto_steer_ctrl_data.sin_dev_targ}," +
-                $"{auto_steer_ctrl_data.vect_ctrline_tang_target.x}," +
-                $"{auto_steer_ctrl_data.vect_ctrline_tang_target.z}," +
+                $"{fbk_ctrl_data.pos_preview.x}," +
+                $"{fbk_ctrl_data.pos_preview.z}," +
+                $"{fbk_ctrl_data.pos_track_targ.x}," +
+                $"{fbk_ctrl_data.pos_track_targ.z}," +
+                $"{fbk_ctrl_data.angle_input_ref}," +
+                $"{fbk_ctrl_data.input_steer_fbk}," +
+                $"{fbk_ctrl_data.curv_ctrline_preview}," +
+                $"{fbk_ctrl_data.sin_dev_targ}," +
+                $"{fbk_ctrl_data.vect_ctrline_tang_target.x}," +
+                $"{fbk_ctrl_data.vect_ctrline_tang_target.z}," +
+                $"{fbk_ctrl_data.angle_roll_rhb}," +
                 
                 $"{steer_calc_data.steer_update[0]}," +   
                 $"{steer_calc_data.steer_update[1]}," +   
@@ -337,7 +339,7 @@ public class DataManager : MonoBehaviour
                         MotorbikeController.instance.track_coords_data,
                         MotorbikeController.instance.bike_input_rhb_data,
                         MotorbikeController.instance.bike_pose_data,
-                        ReHandyBotController.instance.auto_steer_ctrl_data,
+                        ReHandyBotController.instance.fbk_ctrl_data,
                         MotorbikeController.instance.steer_calc_data);
 
                 /////////////////////////////////////////////////////////////////////////

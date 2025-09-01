@@ -27,7 +27,7 @@ public class MotorbikeController : MonoBehaviour
     const float SCALE_STEER_RHB_BASE = 1.0f;
     const float SCALE_STEER_RHB_MAX  = 2.0f; // make this > 1 to reduce the actual range of RHB rotation  
 
-    const float SCALE_POS_ROT_START_DEG = 15f; // TODO: test 10f for straight segments 
+    const float SCALE_POS_ROT_START_DEG = 15f;  
     const float SCALE_POS_ROT_END_DEG   = 30f;
 
     // Steering - Auto steer - Adjustment parameters 
@@ -44,7 +44,6 @@ public class MotorbikeController : MonoBehaviour
     const float FACTOR_STEER_ANGLE_CTRL_REF = 56f; // based on range of 48 to 65 deg in original code
 
     // Steer factor for control angular speed - higher values stabilize bike:
-    // Link it with P_GAIN_ANGLE_INPUT_BIKE in ReHandyBotController (26.08.2025):
     const float FACTOR_STEER_DT_ANGLE_CTRL = 80f; // 30f; //
 
     // Steer factor for control angular speed squared:
@@ -62,15 +61,12 @@ public class MotorbikeController : MonoBehaviour
     // Bike control parameters - Throttle (CRITICAL):
     ////////////////////////////////////////////////////////////////////////////
 
-    // Throttle input - toggle keyboard input - removed 30.08.2025:
-    // const bool USE_RHB_THROTTLE = true;  
-
     // Throttle - input geometry settings:
     const float DIST_RADIAL_THROT_FULL_MM = 2.0f; // grippers travel distance for full throttle (mm)
 
     const float INPUT_THROT_THRESH = 0.6f; // minimum torque for mobility, also dependent on RADIAL stiffness  
     const float INPUT_THROT_MAX = 1.3f; // this is a function of RADIAL stiffness  
-    const float INPUT_THROT_AUTO_STEER_MAX = 1.0f;
+    const float INPUT_THROT_FBK_MAX = 1.0f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - Motor torque & acceleration:
@@ -95,14 +91,13 @@ public class MotorbikeController : MonoBehaviour
     // Bike states during race (with initial values):
     ////////////////////////////////////////////////////////////////////////////
 
-    [HideInInspector] public float factor_steer_angle_ctrl = FACTOR_STEER_ANGLE_CTRL_REF;
-
     // TODO; verify there are no problems with Inspector (26.08.2025):
-    [HideInInspector] public float SPEED_REF_LOW  =  8.0f;
-    [HideInInspector] public float SPEED_REF_HIGH = 25.0f;
+    /*[HideInInspector]*/ public float factor_steer_angle_ctrl = FACTOR_STEER_ANGLE_CTRL_REF;
+    /*[HideInInspector]*/ public float SPEED_REF_LOW  =  8.0f;
+    /*[HideInInspector]*/ public float SPEED_REF_HIGH = 25.0f;
 
-    [HideInInspector] public float rpm_value;
-    [HideInInspector] public Vector3 velocity_rel_collision;
+    /*[HideInInspector]*/ public float rpm_value;
+    /*[HideInInspector]*/ public Vector3 velocity_rel_collision;
 
     // Bike roll angle - CRITICAL for steering:
     private float angle_roll_bike      = 0f;
@@ -115,14 +110,6 @@ public class MotorbikeController : MonoBehaviour
 
     public bool bike_fallen = false;
     public int gear_curr = 1;
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Control inputs from RHB (30.08.2025):
-    ////////////////////////////////////////////////////////////////////////////
-
-    // Reference roll angle from RHB
-    // Based on end-effector rotation angle - CRITICAL for steering:
-    private float angle_roll_rhb = 0f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Object instance:
@@ -142,12 +129,10 @@ public class MotorbikeController : MonoBehaviour
     public Transform wheelB;
 
     // Handles:
-    [SerializeField]
-    public GameObject handles;
+    [SerializeField]  public GameObject handles;
 
     // Mudguard:
-    [SerializeField]
-    public GameObject RearMudGuard;
+    [SerializeField] public GameObject RearMudGuard;
     public Vector3 RearMudGuardSusOffset;
 
     private WheelData[] wheels;
@@ -167,8 +152,9 @@ public class MotorbikeController : MonoBehaviour
     public GameObject Rider;
     public GameObject RagdollAnimation;
     public GameObject Ragdoll;
-    bool HardHit;
-    GameObject tempRagdollClone, tempAnimRiderClone;
+    
+    private bool HardHit;
+    private GameObject tempRagdollClone, tempAnimRiderClone;
 
     ///////////////////////////////////////////////////////////
     // Timers and counters:
@@ -369,16 +355,14 @@ public class MotorbikeController : MonoBehaviour
             ////////////////////////////////////////////////////////////////
             // Acceleration input:
             ////////////////////////////////////////////////////////////////         
-
-            // if (USE_RHB_THROTTLE) removed 30.08.2025
-              
+            
             bike_input_rhb.acceleration = 0f;
 
             ////////////////////////////////////////////////////////////////
             // Deviation from centerline target (several uses):
             ////////////////////////////////////////////////////////////////
            
-            float sin_dev_targ = ReHandyBotController.instance.auto_steer_ctrl_data.sin_dev_targ;
+            float sin_dev_targ = ReHandyBotController.instance.fbk_ctrl_data.sin_dev_targ;
 
             ////////////////////////////////////////////////////////////////
             // Throttle input cases:
@@ -387,24 +371,34 @@ public class MotorbikeController : MonoBehaviour
             float pos_throttle      = ReHandyBotController.instance.distal_data.PositionR;
             float pos_throttle_zero = ReHandyBotController.instance.POS_RADIAL_BASE_THROT;
 
+            // Throttle input from bike trajectory feedback:
+            float factor_speed_throttle = 1f - (float)Math.Abs(sin_dev_targ); // was: 1f - sin_dev_targ * sin_dev_targ;
+            float input_throttle_fbk =   factor_speed_throttle * INPUT_THROT_FBK_MAX;
+
+            // Manual throttle input - from RHB:
+            float input_throttle_manual = Mathf.Clamp(
+                -1000f / DIST_RADIAL_THROT_FULL_MM * (pos_throttle - pos_throttle_zero),
+                0f, INPUT_THROT_MAX);
+
+            // Select throttle input:
             if (ReHandyBotController.instance.ExerciseActive)
                 switch (ReHandyBotController.CASE_CTRL_MODE)
                 {
                     case ReHandyBotController.CTRL_ASSISTED:
+                        bike_input_rhb.throttle =
+                            ReHandyBotController.FACT_ASSIST_THROTTLE         * input_throttle_fbk 
+                            + (1f - ReHandyBotController.FACT_ASSIST_THROTTLE) * input_throttle_manual;
                         break;
 
                     case ReHandyBotController.CTRL_AUTO_STEER_THROTTLE:
 
-                        float factor_speed_throttle = 1f - (float)Math.Abs(sin_dev_targ); // was: 1f - sin_dev_targ * sin_dev_targ;
-                        bike_input_rhb.throttle = factor_speed_throttle * INPUT_THROT_AUTO_STEER_MAX;
+                        bike_input_rhb.throttle = input_throttle_fbk;
                         break;
 
                     case ReHandyBotController.CTRL_AUTO_STEER:
                     case ReHandyBotController.CTRL_MANUAL_SIMPLE:
 
-                        bike_input_rhb.throttle = Mathf.Clamp(
-                            -1000f / DIST_RADIAL_THROT_FULL_MM * (pos_throttle - pos_throttle_zero),
-                            0f, INPUT_THROT_MAX);
+                        bike_input_rhb.throttle = input_throttle_manual;
                         break;
 
                     default:
@@ -464,17 +458,15 @@ public class MotorbikeController : MonoBehaviour
                 switch (ReHandyBotController.CASE_CTRL_MODE)
                 {
                     case ReHandyBotController.CTRL_ASSISTED:
-                        break;
-
                     case ReHandyBotController.CTRL_AUTO_STEER_THROTTLE:
                     case ReHandyBotController.CTRL_AUTO_STEER:
 
-                        input_steer_raw = ReHandyBotController.instance.auto_steer_ctrl_data.input_steer_fbk;
+                        input_steer_raw = ReHandyBotController.instance.fbk_ctrl_data.input_steer_fbk;
                         break;
 
                     case ReHandyBotController.CTRL_MANUAL_SIMPLE:
 
-                        input_steer_raw = 1f / ReHandyBotController.SCALE_POS_ROT_INPUT_USER * pos_rot;
+                        input_steer_raw = 1f / ReHandyBotController.FRAC_POS_ROT_INPUT_USER * pos_rot;
                         break;
 
                     default:
@@ -494,8 +486,6 @@ public class MotorbikeController : MonoBehaviour
             ////////////////////////////////////////////////////////////////
             // 'Upright force' calculations:
             ////////////////////////////////////////////////////////////////
-
-            // if (USE_RHB_THROTTLE)  removed 30.08.2025
 
             bool input_force_trq_on;
 
@@ -714,8 +704,6 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
         // Apply input for torque & force control - CTRITICAL:
         ////////////////////////////////////////////////////////////////
-
-        // if (USE_RHB_THROTTLE) removed 30.08.2025
 
         wheel_coll_back.motorTorque = torque_motor * bike_input_rhb.throttle;
 
