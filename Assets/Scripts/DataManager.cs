@@ -117,14 +117,14 @@ public class DataManager : MonoBehaviour
             "pos preview z",
             "pos track targ x",
             "pos track targ z",
-            "angle input ref",
-            "input steer fbk",
+            "angle roll targ",
+            "input steer targ",
             "curv ctrline preview",
             "sin dev targ",
-            "vect ctrline tang target x",
-            "vect ctrline tang target z",
-            "angle roll rhb",
+            "vect ctrline tangent targ x",
+            "vect ctrline tangent targ z"
 
+            /*
             "steer update 0",
             "steer update 1",
             "steer update 2",
@@ -135,6 +135,7 @@ public class DataManager : MonoBehaviour
             "steer term input",
             "steer term angle ctrl",
             "steer term dt angle ctrl"
+            */
         };
 
         if (!File.Exists(dataFilePath))
@@ -153,7 +154,7 @@ public class DataManager : MonoBehaviour
         DistalComm.ExerciseData distal_data,
         MotorbikeController.BikeCoords bike_coords_data,
         MotorbikeController.TrackCoords track_coords_data, 
-        MotorbikeController.BikeInputRHB bike_input_rhb_data, 
+        MotorbikeController.BikeInput bike_input_data, 
         MotorbikeController.BikePose bike_pose_data,
         ReHandyBotController.FeedbackControl fbk_ctrl_data,
         MotorbikeController.SteerCalc steer_calc_data)
@@ -192,9 +193,9 @@ public class DataManager : MonoBehaviour
                 $"{track_coords_data.ang_ctrline_tang}," +
                 $"{track_coords_data.dist_ctrline_near}," +
 
-                $"{bike_input_rhb_data.steer}," +
-                $"{bike_input_rhb_data.throttle}," +
-                $"{bike_input_rhb_data.acceleration}," +
+                $"{bike_input_data.steer}," +
+                $"{bike_input_data.throttle}," +
+                $"{bike_input_data.acceleration}," +
 
                 $"{bike_pose_data.angle_roll_bike}," +
                 $"{bike_pose_data.dt_angle_roll_bike}," +
@@ -206,14 +207,14 @@ public class DataManager : MonoBehaviour
                 $"{fbk_ctrl_data.pos_preview.z}," +
                 $"{fbk_ctrl_data.pos_track_targ.x}," +
                 $"{fbk_ctrl_data.pos_track_targ.z}," +
-                $"{fbk_ctrl_data.angle_input_ref}," +
-                $"{fbk_ctrl_data.input_steer_fbk}," +
+                $"{fbk_ctrl_data.angle_roll_targ}," +
+                $"{fbk_ctrl_data.input_steer_targ}," +
                 $"{fbk_ctrl_data.curv_ctrline_preview}," +
                 $"{fbk_ctrl_data.sin_dev_targ}," +
                 $"{fbk_ctrl_data.vect_ctrline_tang_target.x}," +
-                $"{fbk_ctrl_data.vect_ctrline_tang_target.z}," +
-                $"{fbk_ctrl_data.angle_roll_rhb}," +
+                $"{fbk_ctrl_data.vect_ctrline_tang_target.z}";
                 
+                /*
                 $"{steer_calc_data.steer_update[0]}," +   
                 $"{steer_calc_data.steer_update[1]}," +   
                 $"{steer_calc_data.steer_update[2]}," +   
@@ -224,6 +225,7 @@ public class DataManager : MonoBehaviour
                 $"{steer_calc_data.steer_term_input}," +
                 $"{steer_calc_data.steer_term_angle_ctrl}," +
                 $"{steer_calc_data.steer_term_dt_angle_ctrl}" ;
+                */
 
             lock (fileLock)
             {

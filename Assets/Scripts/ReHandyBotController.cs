@@ -159,17 +159,7 @@ public class ReHandyBotController : MonoBehaviour
     private float dt_angle_ctrl_signed = NULL_VALUE;
 
     // Feedback control:
-    private Vector3 pos_preview        = NULL_VECTOR3;
-    private Vector3 pos_track_targ     = NULL_VECTOR3;
-    private float angle_input_ref      = NULL_VALUE;
-    private float input_steer_fbk      = NULL_VALUE;
-    private float curv_ctrline_preview = NULL_VALUE;
-    private float sin_dev_targ         = NULL_VALUE; // angular deviation of bike's heading wrt to target
-    private Vector3 vect_ctrline_tang_target = NULL_VECTOR3;
-    // private Vector3 pos_track_near     = NULL_VECTOR3; // TODO: keep or discard
-    private float angle_roll_rhb   = NULL_VALUE;
-
-    private float angle_roll_steer = NULL_VALUE; // for assisted control (CTRL_ASSISTED) we use a 'consensus' roll angle - CRITICAL
+    private float input_steer_targ = NULL_VALUE;
 
     ////////////////////////////////////////////////////////////////////////////
     // Loader:
@@ -265,12 +255,11 @@ public class ReHandyBotController : MonoBehaviour
     {
         public Vector3 pos_preview;
         public Vector3 pos_track_targ;
-        public float angle_input_ref;
-        public float input_steer_fbk;
+        public float angle_roll_targ;
+        public float input_steer_targ;
         public float curv_ctrline_preview;
         public float sin_dev_targ;
         public Vector3 vect_ctrline_tang_target;
-        public float angle_roll_rhb;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -396,7 +385,7 @@ public class ReHandyBotController : MonoBehaviour
         float pos_rot = ReHandyBotController.instance.distal_data.PositionP;
 
         ////////////////////////////////////////////////////////////////////////////
-        // Extract data from bike and track objects:
+        // Retrieve data from bike and track objects:
         ////////////////////////////////////////////////////////////////////////////
 
         if (ExerciseActive && MotorbikeController.instance != null && Track.instance != null)
@@ -421,100 +410,12 @@ public class ReHandyBotController : MonoBehaviour
         }
 
         ////////////////////////////////////////////////////////////////////////////
-        // Feedback control:
+        // Compute steering input - feedback based 
+        // Update public DATA VARIABLES for sharing among other classes (for atomicity & real-time updating):
         ////////////////////////////////////////////////////////////////////////////
         
-        // Deviation wrt target point on track:
-        Vector3 err_pos_targ = NULL_VECTOR3;
-        Vector3 vect_unit_turn_targ = NULL_VECTOR3;
-        float sgn_turn_targ = 0f;  
-        
-        // Deviation wrt nearest point on track:
-        Vector3 err_pos_near = NULL_VECTOR3;
-        Vector3 vect_unit_turn_near = NULL_VECTOR3;
-        float sgn_turn_near = 0f;
-
-        Vector3 vect_bike_to_targ = NULL_VECTOR3;
-
-        // float ANGLE_ROLL_LOW removed 30.08.2025
-
         if (ExerciseActive && MotorbikeController.instance != null && Track.instance != null)
-        {
-            ////////////////////////////////////////////////////////////////////////////
-            // Feedback control 1: preview tracking - reference point on track:
-            ////////////////////////////////////////////////////////////////////////////
-
-            TrackDataFbkControl(
-                pos_bike, dt_pos_bike, dir_unit_bike, 
-                DT_PREVIEW, Track.instance, 
-                ref pos_preview, ref pos_track_targ, // ref pos_track_near,
-                ref curv_ctrline_preview, ref vect_ctrline_tang_target);
-
-            ////////////////////////////////////////////////////////////////////////////
-            // Feedback control 2: lateral displacement control - roll angle reference:
-            ////////////////////////////////////////////////////////////////////////////
-
-            // Deviation wrt target point on track:
-            err_pos_targ = pos_track_targ - pos_preview;
-            vect_unit_turn_targ = Vector3.Cross(dir_unit_bike, err_pos_targ.normalized); // test vector to establish turn direction
-            sgn_turn_targ = (float)Math.Sign(-vect_unit_turn_targ.y);
-
-            // TODO: keep or discard
-            // Deviation wrt nearest point on track:
-            /*
-            err_pos_near = pos_track_near - pos_bike;
-            vect_unit_turn_near = Vector3.Cross(dir_unit_bike, err_pos_near.normalized); 
-            sgn_turn_near = (float)Math.Sign(-vect_unit_turn_near.y);
-            */
-
-            angle_input_ref =
-                P_GAIN_ERR_POS_TARG * sgn_turn_targ * err_pos_targ.magnitude;
-            // + P_GAIN_ERR_POS_NEAR * sgn_turn_near * err_pos_near.magnitude; // TODO: keep or discard
-
-            // angle_input_ref & ANGLE_ROLL_LOW comparison: removed 30.08.2025
-
-            ////////////////////////////////////////////////////////////////////////////
-            // Feedback control 3: steering input
-            // Uses 'consensus' roll angle value - based on assistance level - CRITICAL
-            ////////////////////////////////////////////////////////////////////////////
-            
-            angle_roll_rhb = 1f / FRAC_POS_ROT_INPUT_USER * pos_rot;
-
-            // TODO: work out the correct blending function:
-            if (CASE_CTRL_MODE == CTRL_ASSISTED)
-                angle_roll_steer = (1f - FACT_ASSIST_STEER) * angle_roll_rhb + FACT_ASSIST_STEER * angle_roll_bike;
-            else
-                angle_roll_steer = angle_roll_bike;
-
-            input_steer_fbk = P_GAIN_ANGLE_INPUT * (angle_input_ref - angle_roll_steer); // - D_GAIN_ANGLE_INPUT * dt_angle_roll_bike; 
-
-            ////////////////////////////////////////////////////////////////////////////
-            // Feedback control 4: angular deviation of bike's heading wrt to target:
-            ////////////////////////////////////////////////////////////////////////////   
-
-            // vect_bike_to_targ = pos_track_targ - pos_bike;
-            // Vector3 vect_unit_dev_targ = Vector3.Cross(dir_unit_bike, vect_bike_to_targ.normalized);
-
-            // sin_dev_targ = vect_unit_dev_targ.y;
-
-            Vector3 vect_unit_dev_tangent = Vector3.Cross(
-                vect_ctrline_tang.normalized, vect_ctrline_tang_target.normalized);
-
-            sin_dev_targ = vect_unit_dev_tangent.y;
-        }
-
-        ////////////////////////////////////////////////////////////////
-        // Update public DATA VARIABLES for sharing among other classes (for atomicity & real-time updating):
-        ////////////////////////////////////////////////////////////////    
-
-        fbk_ctrl_data.pos_preview = pos_preview;
-        fbk_ctrl_data.pos_track_targ = pos_track_targ;
-        fbk_ctrl_data.angle_input_ref = angle_input_ref;
-        fbk_ctrl_data.input_steer_fbk = input_steer_fbk;
-        fbk_ctrl_data.curv_ctrline_preview = curv_ctrline_preview;
-        fbk_ctrl_data.sin_dev_targ = sin_dev_targ;
-        fbk_ctrl_data.vect_ctrline_tang_target = vect_ctrline_tang_target;
-        fbk_ctrl_data.angle_roll_rhb = angle_roll_rhb;
+            input_steer_targ = SteerInputTarget(pos_bike, dt_pos_bike, dir_unit_bike, out fbk_ctrl_data);
 
         ////////////////////////////////////////////////////////////////////////////
         // Set Target commands for steering and throttle - CRITICAL:
@@ -567,13 +468,13 @@ public class ReHandyBotController : MonoBehaviour
 
             ExternalConsoleLogger.Log("Update(" + step_count + ") t [" + String.Format("{0:#0.000}", timeElapsedValue) + "]:");
             ExternalConsoleLogger.Log("   pos_bike       " + pos_bike);
-            ExternalConsoleLogger.Log("   pos_preview    " + pos_preview);
-            ExternalConsoleLogger.Log("   pos_track_targ " + pos_track_targ);
+            ExternalConsoleLogger.Log("   pos_preview    " + fbk_ctrl_data.pos_preview);
+            ExternalConsoleLogger.Log("   pos_track_targ " + fbk_ctrl_data.pos_track_targ);
             ExternalConsoleLogger.Log(" ");
             ExternalConsoleLogger.Log("   angle_ctrl, angle_roll_bike[" + String.Format("{0:#0.000}", angle_ctrl_signed) + "] [" + String.Format("{0:#0.000}", angle_roll_bike) + "]");
-            ExternalConsoleLogger.Log("   sgn*err_pos_targ      [" + String.Format("{0:#0.00}", sgn_turn_targ * err_pos_targ.magnitude) + "]");
-            ExternalConsoleLogger.Log("   angle_roll_bike (ref, val) [" + String.Format("{0:#0.000}", angle_input_ref) + "] [" + String.Format("{0:#0.000}", angle_roll_bike) + "]");
-            ExternalConsoleLogger.Log("   pos_rot (ref, val)    [" + String.Format("{0:#0.000}", input_steer_fbk) + "] [" + String.Format("{0:#0.000}", pos_rot) + "]");
+            // ExternalConsoleLogger.Log("   sgn*err_pos_targ      [" + String.Format("{0:#0.00}", sgn_turn_targ * err_pos_targ.magnitude) + "]");
+            ExternalConsoleLogger.Log("   angle_roll_bike (ref, val) [" + String.Format("{0:#0.000}", fbk_ctrl_data.angle_roll_targ) + "] [" + String.Format("{0:#0.000}", angle_roll_bike) + "]");
+            ExternalConsoleLogger.Log("   pos_rot (ref, val)    [" + String.Format("{0:#0.000}", input_steer_targ) + "] [" + String.Format("{0:#0.000}", pos_rot) + "]");
             ExternalConsoleLogger.Log(" ");
         }
     }
@@ -581,6 +482,75 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Basic steering control:
     ////////////////////////////////////////////////////////////////////////////
+
+    float SteerInputTarget(Vector3 pos_bike_this, Vector3 dt_pos_bike_this, Vector3 dir_unit_bike_this, out FeedbackControl fbk_ctrl) {
+
+        float input_steer_targ_this = NULL_VALUE;
+
+        Vector3 pos_preview = NULL_VECTOR3;
+        Vector3 pos_track_targ = NULL_VECTOR3;
+        float angle_roll_targ = NULL_VALUE;
+        float curv_ctrline_preview = NULL_VALUE;
+        float sin_dev_targ = NULL_VALUE; // angular deviation of bike's heading wrt to target
+        Vector3 vect_ctrline_tang_target = NULL_VECTOR3;
+
+        // Deviation wrt target point on track:
+        Vector3 err_pos_targ = NULL_VECTOR3;
+        Vector3 vect_unit_turn_targ = NULL_VECTOR3;
+        float sgn_turn_targ = 0f;
+
+        // Deviation wrt nearest point on track:
+        Vector3 err_pos_near = NULL_VECTOR3;
+        Vector3 vect_unit_turn_near = NULL_VECTOR3;
+
+        Vector3 vect_bike_to_targ = NULL_VECTOR3;
+
+        TrackDataFbkControl(
+            pos_bike_this, dt_pos_bike_this, dir_unit_bike_this, 
+            DT_PREVIEW, Track.instance, 
+            ref pos_preview, ref pos_track_targ,  
+            ref curv_ctrline_preview, ref vect_ctrline_tang_target);
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Feedback control 2: lateral displacement control - roll angle target:
+        ////////////////////////////////////////////////////////////////////////////
+
+        // Deviation wrt target point on track:
+        err_pos_targ = pos_track_targ - pos_preview;
+        vect_unit_turn_targ = Vector3.Cross(dir_unit_bike_this, err_pos_targ.normalized); // test vector to establish turn direction
+        sgn_turn_targ = (float) Math.Sign(-vect_unit_turn_targ.y);
+
+        angle_roll_targ = P_GAIN_ERR_POS_TARG* sgn_turn_targ * err_pos_targ.magnitude;
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Feedback control 3: steering input - KEY STEP
+        ////////////////////////////////////////////////////////////////////////////
+
+        input_steer_targ_this = P_GAIN_ANGLE_INPUT* (angle_roll_targ - angle_roll_bike); // - D_GAIN_ANGLE_INPUT * dt_angle_roll_bike; 
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Feedback control 4: angular deviation of bike's heading wrt to target:
+        ////////////////////////////////////////////////////////////////////////////  
+        
+        Vector3 vect_unit_dev_tangent = Vector3.Cross(
+            vect_ctrline_tang.normalized, vect_ctrline_tang_target.normalized);
+
+        sin_dev_targ = vect_unit_dev_tangent.y;
+
+        ////////////////////////////////////////////////////////////////
+        // Update data variables' struct for sharing among other classes (for atomicity & real-time updating):
+        ////////////////////////////////////////////////////////////////    
+
+        fbk_ctrl.pos_preview = pos_preview;
+        fbk_ctrl.pos_track_targ = pos_track_targ;
+        fbk_ctrl.angle_roll_targ = angle_roll_targ;
+        fbk_ctrl.input_steer_targ = input_steer_targ_this;
+        fbk_ctrl.curv_ctrline_preview = curv_ctrline_preview;
+        fbk_ctrl.sin_dev_targ = sin_dev_targ;
+        fbk_ctrl.vect_ctrline_tang_target = vect_ctrline_tang_target;
+
+        return input_steer_targ_this;
+    }
 
     #region Exercise tasks
     private void CmdSetTargetCtrlManualSimpleWithLimit(float pos_rot)
@@ -682,6 +652,7 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Data for feedback (assisted / auto-steer) control:
     ////////////////////////////////////////////////////////////////////////////
+    
     private void TrackDataFbkControl(
         Vector3 pos_bike, Vector3 dt_pos_bike, Vector3 dir_unit_bike, 
         float dt_preview, Track track_this, 
