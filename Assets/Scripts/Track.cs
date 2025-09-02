@@ -29,6 +29,7 @@ public class Track : MonoBehaviour
         // Set up the center line visual
         SetupCenterLineVisual();
     }
+
     private void Start()
     {
 

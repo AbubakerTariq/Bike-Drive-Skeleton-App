@@ -51,7 +51,7 @@ public class DataManager : MonoBehaviour
     /////////////////////////////////////////////////////////////////////////
     // Methods:
     /////////////////////////////////////////////////////////////////////////
-    ///
+    
     private void Awake()
     {
         // Singleton logic
@@ -156,7 +156,7 @@ public class DataManager : MonoBehaviour
         MotorbikeController.TrackCoords track_coords_data, 
         MotorbikeController.BikeInput bike_input_data, 
         MotorbikeController.BikePose bike_pose_data,
-        ReHandyBotController.FeedbackControl fbk_ctrl_data,
+        MotorbikeController.FeedbackControl fbk_ctrl_data,
         MotorbikeController.SteerCalc steer_calc_data)
     {
         string t_step_str = t.ToString("F3");
@@ -193,7 +193,7 @@ public class DataManager : MonoBehaviour
                 $"{track_coords_data.ang_ctrline_tang}," +
                 $"{track_coords_data.dist_ctrline_near}," +
 
-                $"{bike_input_data.steer}," +
+                $"{bike_input_data.steer_scaled}," +
                 $"{bike_input_data.throttle}," +
                 $"{bike_input_data.acceleration}," +
 
@@ -339,9 +339,9 @@ public class DataManager : MonoBehaviour
                         ReHandyBotController.instance.distal_data,
                         MotorbikeController.instance.bike_coords_data,
                         MotorbikeController.instance.track_coords_data,
-                        MotorbikeController.instance.bike_input_rhb_data,
+                        MotorbikeController.instance.bike_input_data,
                         MotorbikeController.instance.bike_pose_data,
-                        ReHandyBotController.instance.fbk_ctrl_data,
+                        MotorbikeController.instance.fbk_ctrl_data,
                         MotorbikeController.instance.steer_calc_data);
 
                 /////////////////////////////////////////////////////////////////////////
