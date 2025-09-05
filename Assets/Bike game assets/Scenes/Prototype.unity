@@ -5600,7 +5600,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &921147231
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -26926,9 +26926,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56717b2fd6707fa48890f733b8ade5df, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  FACTOR_ANGLE_STEER: 25
-  SPEED_M_PER_SEC_LOW: 8
-  SPEED_M_PER_SEC_HIGH: 25
+  DT_PREVIEW: 2
+  P_GAIN_ERR_POS_TARG: 0.06
+  P_GAIN_ANGLE_INPUT: 3.5
+  D_GAIN_ANGLE_INPUT: 0
+  SPEED_REF_LOW: 8
+  SPEED_REF_HIGH: 25
+  rpm_value: 0
+  velocity_rel_collision: {x: 0, y: 0, z: 0}
+  bike_fallen: 0
+  gear_curr: 1
   wheel_coll_fwd: {fileID: 1479870654682857108}
   wheel_coll_back: {fileID: 1479870654655137860}
   wheelF: {fileID: 1479870656397148938}
@@ -26937,10 +26944,6 @@ MonoBehaviour:
   RearMudGuard: {fileID: 1479870656474662210}
   RearMudGuardSusOffset: {x: 0, y: 0, z: 0}
   com: {x: 0, y: 1.5, z: 0}
-  rpm_value: 0
-  velocity_rel_collision: {x: 0, y: 0, z: 0}
-  bike_fallen: 0
-  gear_curr: 1
   Rider: {fileID: 1479870655507070262}
   RagdollAnimation: {fileID: 7985579707336744918, guid: a940ea4ebb45c9b45b7cf112fa49b7ae, type: 3}
   Ragdoll: {fileID: 3092097735282227737, guid: cd9e90ccf08bae74aa61d8797586998f, type: 3}

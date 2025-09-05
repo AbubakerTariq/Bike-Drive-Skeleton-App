@@ -37,7 +37,7 @@ public class MotorDetails : MonoBehaviour
         t2.GetComponent<Text>().color = Color.red;
         else
         t2.GetComponent<Text>().color = Color.white;
-        t3.GetComponent<Text>().text = "Control ω [rad⋅s−1] : " + MotorbikeController.FACTOR_STEER_ANGLE_CTRL_REF;
+        t3.GetComponent<Text>().text = "Control ω [rad⋅s−1] : " + MotorbikeController.FACTOR_STEER_ANGLE_CTRL;
         t4.GetComponent<Text>().text = "Steer Angle [deg] : " + c1.GetComponent<WheelCollider>().steerAngle;
         c2.GetComponent<WheelCollider>().GetGroundHit(out hit);
         t5.GetComponent<Text>().text = "Rear Grip Force [N] : " + hit.force;

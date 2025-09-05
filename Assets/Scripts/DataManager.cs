@@ -118,11 +118,12 @@ public class DataManager : MonoBehaviour
             "pos track targ x",
             "pos track targ z",
             "angle roll targ",
+            "dt angle roll targ",
             "input steer targ",
             "curv ctrline preview",
             "sin dev targ",
             "vect ctrline tangent targ x",
-            "vect ctrline tangent targ z"
+            "vect ctrline tangent targ z",
 
             /*
             "steer update 0",
@@ -130,12 +131,12 @@ public class DataManager : MonoBehaviour
             "steer update 2",
             "steer update 3",
             "steer update 4",
+            */
 
             "factor steer bike speed",
             "steer term input",
             "steer term angle ctrl",
             "steer term dt angle ctrl"
-            */
         };
 
         if (!File.Exists(dataFilePath))
@@ -208,11 +209,12 @@ public class DataManager : MonoBehaviour
                 $"{fbk_ctrl_data.pos_track_targ.x}," +
                 $"{fbk_ctrl_data.pos_track_targ.z}," +
                 $"{fbk_ctrl_data.angle_roll_targ}," +
+                $"{fbk_ctrl_data.dt_angle_roll_targ}," +
                 $"{fbk_ctrl_data.input_steer_targ}," +
                 $"{fbk_ctrl_data.curv_ctrline_preview}," +
                 $"{fbk_ctrl_data.sin_dev_targ}," +
                 $"{fbk_ctrl_data.vect_ctrline_tang_target.x}," +
-                $"{fbk_ctrl_data.vect_ctrline_tang_target.z}";
+                $"{fbk_ctrl_data.vect_ctrline_tang_target.z}," +
                 
                 /*
                 $"{steer_calc_data.steer_update[0]}," +   
@@ -220,12 +222,13 @@ public class DataManager : MonoBehaviour
                 $"{steer_calc_data.steer_update[2]}," +   
                 $"{steer_calc_data.steer_update[3]}," +   
                 $"{steer_calc_data.steer_update[4]}," +
+                */
 
                 $"{steer_calc_data.factor_steer_bike_speed}," +
                 $"{steer_calc_data.steer_term_input}," +
                 $"{steer_calc_data.steer_term_angle_ctrl}," +
                 $"{steer_calc_data.steer_term_dt_angle_ctrl}" ;
-                */
+                
 
             lock (fileLock)
             {
@@ -335,7 +338,8 @@ public class DataManager : MonoBehaviour
 
                 if (data_recv_count_offs == 0 || dt_step > DT_STEP_DATA_LOG / 2f) // condition aims to prevent duplicate entries
                     SaveDataEntry(
-                        t_step, dt_step,
+                        t_step, 
+                        dt_step,
                         ReHandyBotController.instance.distal_data,
                         MotorbikeController.instance.bike_coords_data,
                         MotorbikeController.instance.track_coords_data,

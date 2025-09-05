@@ -30,7 +30,7 @@ public class ReHandyBotController : MonoBehaviour
     public const int CTRL_AUTO_STEER          = 3;
     public const int CTRL_MANUAL_SIMPLE       = 4;
 
-    public const int CASE_CTRL_MODE = CTRL_MANUAL_SIMPLE;
+    public const int CASE_CTRL_MODE = CTRL_ASSISTED;
 
     ////////////////////////////////////////////////////////////////////////////
     // User-based game parameters - CRITICAL (30.08.2025):
@@ -61,7 +61,6 @@ public class ReHandyBotController : MonoBehaviour
     public const int NUM_TARGETS = 1;
 
     private byte IDX_TARG_BASE = 1;
-    // private byte IDX_TARG_LIM = 2;
 
     ////////////////////////////////////////////////////////////////////////////
     // Object instances:
@@ -134,6 +133,7 @@ public class ReHandyBotController : MonoBehaviour
 
     // Feedback control:
     private float input_steer_targ = NULL_VALUE;
+    private float angle_roll_targ  = NULL_VALUE;
 
     ////////////////////////////////////////////////////////////////////////////
     // Loader:
@@ -342,43 +342,19 @@ public class ReHandyBotController : MonoBehaviour
         ////////////////////////////////////////////////////////////////////////////
 
         if (ExerciseActive && MotorbikeController.instance != null && Track.instance != null)
-        {   // TODO: remove at a later date
-            // Retrieve bike coordinates from MotorbikeController object:
-            /*
-            pos_bike      = MotorbikeController.instance.bike_coords_data.pos_bike;
-            dt_pos_bike   = MotorbikeController.instance.bike_coords_data.dt_pos_bike;
-            dir_unit_bike = MotorbikeController.instance.bike_coords_data.dir_unit_bike;
-            */
-
-            // Retrieve track coordinates from MotorbikeController object:
-            pos_ctrline_near  = MotorbikeController.instance.track_coords_data.pos_ctrline_near;
-            vect_ctrline_tang = MotorbikeController.instance.track_coords_data.vect_ctrline_tang;
-            curv_ctrline_near = MotorbikeController.instance.track_coords_data.curv_ctrline_near;
-            ang_ctrline_tang  = MotorbikeController.instance.track_coords_data.ang_ctrline_tang;
-            dist_ctrline_near = MotorbikeController.instance.track_coords_data.dist_ctrline_near;
-
+        {
             // Retrieve bike pose coordinates:
-            angle_roll_bike      =                  MotorbikeController.instance.bike_pose_data.angle_roll_bike;
-            dt_angle_roll_bike   =                  MotorbikeController.instance.bike_pose_data.dt_angle_roll_bike;
-            // angle_ctrl_signed    = SGN_ANGLE_CTRL * MotorbikeController.instance.bike_pose_data.angle_ctrl; // TODO: remove at a later date
-            // dt_angle_ctrl_signed = SGN_ANGLE_CTRL * MotorbikeController.instance.bike_pose_data.dt_angle_ctrl; // TODO: remove at a later date
+            angle_roll_bike = MotorbikeController.instance.bike_pose_data.angle_roll_bike;
+
+            // Retrieve fedback control data:
+            angle_roll_targ = MotorbikeController.instance.fbk_ctrl_data.angle_roll_targ;
         }
-
-        ////////////////////////////////////////////////////////////////////////////
-        // Compute steering input - feedback based 
-        // Update public DATA VARIABLES for sharing among other classes (for atomicity & real-time updating)
-        // NOTE: fbk_ctrl_data contains input_steer_targ
-        ////////////////////////////////////////////////////////////////////////////
-
-        // TODO: remove at a later date
-        // if (ExerciseActive && MotorbikeController.instance != null && Track.instance != null)
-        //    input_steer_targ = InputBikeSteerTargetFbk(pos_bike, dt_pos_bike, dir_unit_bike, out fbk_ctrl_data);
 
         ////////////////////////////////////////////////////////////////////////////
         // Set Target commands for steering and throttle - CRITICAL:
         //////////////////////////////////////////////////////////////////////////// 
         
-        CmdSetTargetSteerThrottleCases(pos_rot, angle_roll_bike, CASE_CTRL_MODE);
+        CmdSetTargetSteerAndThrottleCases(pos_rot, angle_roll_targ, angle_roll_bike, CASE_CTRL_MODE);
 
         ////////////////////////////////////////////////////////////////////////////
         // Update step counter:
@@ -398,7 +374,7 @@ public class ReHandyBotController : MonoBehaviour
     // Force feedback gains - CASES:
     ////////////////////////////////////////////////////////////////////////////
 
-    void SetFeebackGainCases(int case_ctrl_mode) { 
+    void SetForceFeebackGainCases(int case_ctrl_mode) { 
         switch (case_ctrl_mode)
         {
             case CTRL_ASSISTED:
@@ -424,13 +400,13 @@ public class ReHandyBotController : MonoBehaviour
     // Control commands using Set Target - CASES:
     ////////////////////////////////////////////////////////////////////////////
 
-    void CmdSetTargetSteerThrottleCases(float pos_rot, float angle_roll_bike_this, int case_ctrl_mode) { 
+    void CmdSetTargetSteerAndThrottleCases(float pos_rot, float angle_roll_targ_this, float angle_roll_bike_this, int case_ctrl_mode) { 
         switch (case_ctrl_mode)
         {
             case CTRL_ASSISTED:
 
                 CmdSetTargetCtrlFeedback(
-                    FRAC_POS_ROT_INPUT_USER* angle_roll_bike,
+                    FRAC_POS_ROT_INPUT_USER* angle_roll_targ_this,
                     FACT_ASSIST_STEER* K_STIFF_TRACKING); // TODO: add baseline stiffness for zero assist
                 break;
 
@@ -438,7 +414,7 @@ public class ReHandyBotController : MonoBehaviour
             case CTRL_AUTO_STEER:
 
                 CmdSetTargetCtrlFeedback(
-                    FRAC_POS_ROT_INPUT_USER* angle_roll_bike,
+                    FRAC_POS_ROT_INPUT_USER* angle_roll_bike_this, // TODO: consider changing to angle_roll_targ_this
                     K_STIFF_TRACKING);
                 break;
 
@@ -773,7 +749,7 @@ public class ReHandyBotController : MonoBehaviour
             timerLocked = false;
 
             // Set force feedback gains:
-            SetFeebackGainCases(CASE_CTRL_MODE);
+            SetForceFeebackGainCases(CASE_CTRL_MODE);
 
             // Initiate recording on new data file:
             DataManager.instance.SetupRecordingEvents();
