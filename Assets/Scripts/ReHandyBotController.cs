@@ -5,7 +5,6 @@ using DG.Tweening;
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using System.Timers;
 //using System.Runtime.Remoting.Messaging;
 using TMPro;
 using UnityEngine;
@@ -14,6 +13,8 @@ using UnityEngine.SceneManagement;
 
 public class ReHandyBotController : MonoBehaviour
 {
+    float FACT_DEG_2_RAD = (float)Math.PI / 180f;
+
     ////////////////////////////////////////////////////////////////////////////
     // Real-time steps - CRITICAL:
     ////////////////////////////////////////////////////////////////////////////
@@ -24,6 +25,8 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Game control modes - CRITICAL:
     //////////////////////////////////////////////////////////////////////////// 
+
+    public const bool USE_CONSTRAINED_STEER = false;
 
     public const int CTRL_ASSISTED            = 1;
     public const int CTRL_AUTO_STEER_THROTTLE = 2;
@@ -59,7 +62,6 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     public const int NUM_TARGETS = 1;
-
     private byte IDX_TARG_BASE = 1;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -440,7 +442,7 @@ public class ReHandyBotController : MonoBehaviour
         float switch_radial = 1.0f;
 
         // ROTATIONAL parameters:
-        float ANGLE_ROT_LIM = ANGLE_ROT_LIM_DEG * (float)Math.PI / 180f;
+        float ANGLE_ROT_LIM = FACT_DEG_2_RAD * ANGLE_ROT_LIM_DEG;
 
         float pos_eq_rot_curr;
         float k_rot_curr;
