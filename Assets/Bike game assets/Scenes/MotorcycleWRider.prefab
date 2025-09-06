@@ -4422,6 +4422,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   MasterVolume: -15
+  audioSource: {fileID: 0}
+  audioSource2: {fileID: 0}
+  audioSourceWind: {fileID: 0}
   Samples:
   - {fileID: 8300000, guid: d2e0fd566f298f44ca34fe01f75d16e8, type: 3}
   - {fileID: 8300000, guid: a917f471c687ee6429c3df1df668d029, type: 3}
@@ -4429,6 +4432,8 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 6e835f1a5b6f5314e9c57e129da61f72, type: 3}
   - {fileID: 8300000, guid: ed5b66dac6639e74c8bee138949ad5ce, type: 3}
   - {fileID: 8300000, guid: 3db63eb6bd1ff7846bfc0cddbdbc1bfe, type: 3}
+  motorbikeController: {fileID: 0}
+  r_body: {fileID: 0}
   EngineRpm:
     serializedVersion: 2
     m_Curve:
@@ -4570,6 +4575,11 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  changed: 0
+  prevPitch: 0
+  prevPitch2: 0
+  prevVol: 0
+  prevVol2: 0
   revLimiter: 1
   revValue: 0
   EngineFlow: 50
@@ -5025,9 +5035,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56717b2fd6707fa48890f733b8ade5df, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  FACTOR_ANGLE_STEER: 56
-  SPEED_M_PER_SEC_LOW: 8
-  SPEED_M_PER_SEC_HIGH: 50
+  DT_PREVIEW: 2
+  P_GAIN_ERR_POS_TARG: 0.06
+  D_GAIN_ERR_POS_TARG: 0
+  I_GAIN_ERR_POS_TARG: 0
+  P_GAIN_ANGLE_INPUT: 3.5
+  D_GAIN_ANGLE_INPUT: 0
+  I_GAIN_ANGLE_INPUT: 0
+  SPEED_REF_LOW: 8
+  SPEED_REF_HIGH: 25
+  rpm_value: 0
+  velocity_rel_collision: {x: 0, y: 0, z: 0}
+  bike_fallen: 0
+  gear_curr: 1
   wheel_coll_fwd: {fileID: 7137930303441131198}
   wheel_coll_back: {fileID: 7137930303468806254}
   wheelF: {fileID: 7137930301995232032}
@@ -5036,11 +5056,7 @@ MonoBehaviour:
   RearMudGuard: {fileID: 7137930302186188136}
   RearMudGuardSusOffset: {x: 0, y: 0, z: 0}
   com: {x: 0, y: 1.5, z: 0}
-  rpm_value: 0
-  velocity_rel_collision: {x: 0, y: 0, z: 0}
-  bike_fallen: 0
-  gear_curr: 1
-  STOPPIE_AMOUNT: 0.3
   Rider: {fileID: 7137930303220897052}
   RagdollAnimation: {fileID: 7985579707336744918, guid: a940ea4ebb45c9b45b7cf112fa49b7ae, type: 3}
   Ragdoll: {fileID: 3092097735282227737, guid: cd9e90ccf08bae74aa61d8797586998f, type: 3}
+  SpeedTxt: {fileID: 0}

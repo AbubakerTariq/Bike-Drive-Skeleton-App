@@ -26,7 +26,7 @@ public class ReHandyBotController : MonoBehaviour
     // Game control modes - CRITICAL:
     //////////////////////////////////////////////////////////////////////////// 
 
-    public const bool USE_CONSTRAINED_STEER = false;
+    // public const bool USE_CONSTRAINED_STEER = false; // TODO: keep or discard
 
     public const int CTRL_ASSISTED            = 1;
     public const int CTRL_AUTO_STEER_THROTTLE = 2;
@@ -39,10 +39,10 @@ public class ReHandyBotController : MonoBehaviour
     // User-based game parameters - CRITICAL (30.08.2025):
     //////////////////////////////////////////////////////////////////////////// 
 
-    public const float FACT_ASSIST_STEER    = 0.0f;  
-    public const float FACT_ASSIST_THROTTLE = 1.0f;
+    public float FACT_ASSIST_STEER    = -1f;  
+    public float FACT_ASSIST_THROTTLE = 1f;
 
-    public const float FRAC_POS_ROT_INPUT_USER = 1.0f; // scaling factor for user's rotational inputs (based on user's rom, for example)
+    public float FRAC_POS_ROT_INPUT_USER = 0.5f; // scaling factor for user's rotational inputs (based on user's ROM, for example)
 
     ////////////////////////////////////////////////////////////////////////////
     // SetExercise() parameters - CRITICAL:
@@ -102,7 +102,7 @@ public class ReHandyBotController : MonoBehaviour
     private float B_DAMP_ROT_BASE_STEER = 0f; // rely on embedded HL_SetTarget stability
 
     // Stiffness for tracking control;
-    float K_STIFF_TRACKING = 2.0f; // rely on embedded HL_SetTarget stability
+    float K_ROT_STIFF_TRACKING = 1.0f; // rely on embedded HL_SetTarget stability
 
     ////////////////////////////////////////////////////////////////////////////
     // Impedance for RHB motion limits:
@@ -188,6 +188,8 @@ public class ReHandyBotController : MonoBehaviour
     private Thread connectionThread;
     private Tween connectionTween;
 
+    private bool allowSelectFactAssist = false;
+
     private bool isCalibrated = false;
     private bool allowCalibration = false;
 
@@ -258,8 +260,6 @@ public class ReHandyBotController : MonoBehaviour
 
         // Start is only called once as this is a singleton object so we will only connect once at the beginning
         ConnectRHB();
-
-        // Setup Set Target events process SetupSetTargetEvents() - removed 30.08.2025
     }
 
     private void OnApplicationQuit()
@@ -283,7 +283,7 @@ public class ReHandyBotController : MonoBehaviour
     #endregion
 
     ////////////////////////////////////////////////////////////////////////////
-    // Timed update:
+    // Real-time update:
     ////////////////////////////////////////////////////////////////////////////
 
     private void Update()
@@ -301,8 +301,11 @@ public class ReHandyBotController : MonoBehaviour
         // Allow the user to press Y to calibrate the robot:
         ////////////////////////////////////////////////////////////////////////////
 
-        if (allowCalibration && Input.GetKeyDown(KeyCode.Y))
-            Calibrate(OnCalibrate);
+        if (allowSelectFactAssist)
+            SelectFactAssist(OnSelectFactAssist);            
+
+        if (!allowSelectFactAssist && allowCalibration && Input.GetKeyDown(KeyCode.Y))
+            Calibrate(OnCalibrate); // OnCalibrate() sets allowCalibration to false, launches StartExercise()
 
         ////////////////////////////////////////////////////////////////////////////
         // Thread sleep & time elapsed computation:
@@ -337,7 +340,7 @@ public class ReHandyBotController : MonoBehaviour
         //////////////////////////////////////////////////////////////////////////// 
 
         float pos_radial = ReHandyBotController.instance.distal_data.PositionR;
-        float pos_rot = ReHandyBotController.instance.distal_data.PositionP;
+        float pos_rot    = ReHandyBotController.instance.distal_data.PositionP;
 
         ////////////////////////////////////////////////////////////////////////////
         // Retrieve data from bike and track objects:
@@ -380,9 +383,14 @@ public class ReHandyBotController : MonoBehaviour
         switch (case_ctrl_mode)
         {
             case CTRL_ASSISTED:
+                /*
                 SetGain(
                     (1f - FACT_ASSIST_THROTTLE) * FORCE_GAIN_RADIAL, 
                     (1f - FACT_ASSIST_STEER)    * FORCE_GAIN_ROT);
+                */
+                SetGain(
+                    FORCE_GAIN_RADIAL, 
+                    FORCE_GAIN_ROT);
                 break;
 
             case CTRL_AUTO_STEER_THROTTLE:
@@ -406,10 +414,11 @@ public class ReHandyBotController : MonoBehaviour
         switch (case_ctrl_mode)
         {
             case CTRL_ASSISTED:
-
+                /*
                 CmdSetTargetCtrlFeedback(
-                    FRAC_POS_ROT_INPUT_USER* angle_roll_targ_this,
-                    FACT_ASSIST_STEER* K_STIFF_TRACKING); // TODO: add baseline stiffness for zero assist
+                    FRAC_POS_ROT_INPUT_USER* angle_roll_bike_this,
+                    FACT_ASSIST_STEER* K_ROT_STIFF_TRACKING); // TODO: add baseline stiffness for zero assist
+                */
                 break;
 
             case CTRL_AUTO_STEER_THROTTLE:
@@ -417,7 +426,7 @@ public class ReHandyBotController : MonoBehaviour
 
                 CmdSetTargetCtrlFeedback(
                     FRAC_POS_ROT_INPUT_USER* angle_roll_bike_this, // TODO: consider changing to angle_roll_targ_this
-                    K_STIFF_TRACKING);
+                    K_ROT_STIFF_TRACKING);
                 break;
 
             case CTRL_MANUAL_SIMPLE:
@@ -557,7 +566,7 @@ public class ReHandyBotController : MonoBehaviour
                 if (success)
                 {
                     loader.SetActive(false);
-                    StartSystem(OnConnect);
+                    StartSystem(OnSelectFactAssist); // was OnConnect
                 }
                 else
                 {
@@ -576,16 +585,6 @@ public class ReHandyBotController : MonoBehaviour
             return;
         }
         ConnectRHB();
-    }
-
-    private void OnConnect()
-    {
-        SetBrakes(DISENGAGE_BRAKE, DISENGAGE_BRAKE);
-        ExternalConsoleLogger.Log("        OnConnect(): SetBrakes(): cmd DISENGAGE \n");
-
-        loader.SetActive(true);
-        loaderText.text = "Align grippers horizontally and close the grippers\nCLICK on this screen and press Y to calibrate";
-        allowCalibration = true;
     }
 
     private bool EstablishConnection(UnityAction onComplete = null)
@@ -630,6 +629,63 @@ public class ReHandyBotController : MonoBehaviour
                 break;
             }
         }
+    }
+
+    private void OnConnect()
+    {
+        SetBrakes(DISENGAGE_BRAKE, DISENGAGE_BRAKE);
+        ExternalConsoleLogger.Log("        OnConnect(): SetBrakes(): cmd DISENGAGE \n");
+
+        loader.SetActive(true);
+        loaderText.text =
+            "CLICK on this screen and \n" +
+            "Select ASSISTANCE level (0 to 9)";
+
+        allowSelectFactAssist = true; // was allowCalibration = true;
+    }
+
+    private void SelectFactAssist(UnityAction onComplete = null)
+    {
+        if (Input.GetKeyDown(KeyCode.Alpha0))
+            FACT_ASSIST_STEER = 0f;
+        else if (Input.GetKeyDown(KeyCode.Alpha1))
+            FACT_ASSIST_STEER = 1f;
+        else if (Input.GetKeyDown(KeyCode.Alpha2))
+            FACT_ASSIST_STEER = 2f;
+        else if (Input.GetKeyDown(KeyCode.Alpha3))
+            FACT_ASSIST_STEER = 3f;
+        else if (Input.GetKeyDown(KeyCode.Alpha4))
+            FACT_ASSIST_STEER = 4f;
+        else if (Input.GetKeyDown(KeyCode.Alpha5))
+            FACT_ASSIST_STEER = 5f;
+        else if (Input.GetKeyDown(KeyCode.Alpha6))
+            FACT_ASSIST_STEER = 6f;
+        else if (Input.GetKeyDown(KeyCode.Alpha7))
+            FACT_ASSIST_STEER = 7f;
+        else if (Input.GetKeyDown(KeyCode.Alpha8))
+            FACT_ASSIST_STEER = 8f;
+        else if (Input.GetKeyDown(KeyCode.Alpha9))
+            FACT_ASSIST_STEER = 9f;
+        else
+            FACT_ASSIST_STEER = -1f;
+
+        if (FACT_ASSIST_STEER >= 0)
+        {
+            FACT_ASSIST_STEER /= 10f;
+            onComplete.Invoke();
+        }
+    }
+
+    private void OnSelectFactAssist()
+    {
+        allowSelectFactAssist = false;
+        allowCalibration = true;
+
+        loader.SetActive(true);
+        loaderText.text =
+            "STEER ASSISTANCE FACTOR = " + FACT_ASSIST_STEER + "\n\n" +
+            "Align grippers horizontally and close the grippers \n\n" +
+            "Press Y to calibrate";
     }
 
     private void Calibrate(UnityAction onComplete = null)

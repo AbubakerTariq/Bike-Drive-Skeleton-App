@@ -130,7 +130,6 @@ public class DataManager : MonoBehaviour
             "steer update 1",
             "steer update 2",
             "steer update 3",
-            "steer update 4",
             */
 
             "factor steer bike speed",
@@ -221,7 +220,6 @@ public class DataManager : MonoBehaviour
                 $"{steer_calc_data.steer_update[1]}," +   
                 $"{steer_calc_data.steer_update[2]}," +   
                 $"{steer_calc_data.steer_update[3]}," +   
-                $"{steer_calc_data.steer_update[4]}," +
                 */
 
                 $"{steer_calc_data.factor_steer_bike_speed}," +
