@@ -5035,13 +5035,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56717b2fd6707fa48890f733b8ade5df, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  DT_PREVIEW: 2
-  P_GAIN_ERR_POS_TARG: 0.06
-  D_GAIN_ERR_POS_TARG: 0
-  I_GAIN_ERR_POS_TARG: 0
-  P_GAIN_ANGLE_INPUT: 3.5
-  D_GAIN_ANGLE_INPUT: 0
-  I_GAIN_ANGLE_INPUT: 0
   SPEED_REF_LOW: 8
   SPEED_REF_HIGH: 25
   rpm_value: 0

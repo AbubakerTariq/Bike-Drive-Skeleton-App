@@ -48,14 +48,14 @@ public class ReHandyBotController : MonoBehaviour
     // SetExercise() parameters - CRITICAL:
     //////////////////////////////////////////////////////////////////////////// 
 
-    float OFFS_FORCE_RADIAL_INIT = 0f;
-    float OFFS_TORQUE_ROT_INIT   = 0f;
+    private float OFFS_FORCE_RADIAL_INIT = 0f;
+    private float OFFS_TORQUE_ROT_INIT   = 0f;
 
     private bool SAFETY_TCP_APP_ON     = false;
     private bool STABILITY_SET_TARG_ON = true;  
 
-    const bool ENGAGE_BRAKE    = false;
-    const bool DISENGAGE_BRAKE = true;
+    private const bool ENGAGE_BRAKE    = false;
+    private const bool DISENGAGE_BRAKE = true;
 
     ////////////////////////////////////////////////////////////////////////////
     // Target indices:
@@ -92,17 +92,17 @@ public class ReHandyBotController : MonoBehaviour
     private float POS_ROT_MAX =  Mathf.PI / 2f;
 
     // Throttle - BASELINE haptics settings:
-    public const float POS_RADIAL_BASE_THROT = 0.029f;
-    private float K_STIFF_RADIAL_BASE_THROT = 2500f;
-    private float B_DAMP_RADIAL_BASE_THROT = 0f; // rely on embedded HL_SetTarget stability 
+    public const float POS_RADIAL_BASE_THROT = 0.029f; // used by MotorbikeController
+    private float K_STIFF_RADIAL_BASE_THROT  = 2500f;
+    private float B_DAMP_RADIAL_BASE_THROT   = 0f; // rely on embedded HL_SetTarget stability 
 
     // Steering - BASELINE haptics settings:
-    public const float POS_ROT_BASE_STEER = 0f;
-    private float K_STIFF_ROT_BASE_STEER = 0.05f;  
-    private float B_DAMP_ROT_BASE_STEER = 0f; // rely on embedded HL_SetTarget stability
+    private const float POS_ROT_BASE_STEER = 0f;
+    private float K_STIFF_ROT_BASE_STEER   = 0.05f;  
+    private float B_DAMP_ROT_BASE_STEER    = 0f; // rely on embedded HL_SetTarget stability
 
     // Stiffness for tracking control;
-    float K_ROT_STIFF_TRACKING = 1.0f; // rely on embedded HL_SetTarget stability
+    private float K_ROT_STIFF_TRACKING = 1.0f; // rely on embedded HL_SetTarget stability
 
     ////////////////////////////////////////////////////////////////////////////
     // Impedance for RHB motion limits:
@@ -118,23 +118,23 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     static Vector3 NULL_VECTOR3 = Vector3.zero;
-    const float NULL_VALUE      = 0f;
+    private const float NULL_VALUE      = 0f;
 
     // Track coordinates:
     private Vector3 pos_ctrline_near   = NULL_VECTOR3;
     private Vector3 vect_ctrline_tang  = NULL_VECTOR3;
-    private float curv_ctrline_near    = NULL_VALUE;
-    private float ang_ctrline_tang     = NULL_VALUE;
-    private float dist_ctrline_near    = NULL_VALUE; 
+    // private float curv_ctrline_near    = NULL_VALUE; // TODO: keep or discard
+    // private float ang_ctrline_tang     = NULL_VALUE;
+    // private float dist_ctrline_near    = NULL_VALUE; 
 
     // Bike pose:
     private float angle_roll_bike      = NULL_VALUE;
-    private float dt_angle_roll_bike   = NULL_VALUE;
-    private float angle_ctrl_signed    = NULL_VALUE;
-    private float dt_angle_ctrl_signed = NULL_VALUE;
+    // private float dt_angle_roll_bike   = NULL_VALUE;
+    // private float angle_ctrl_signed    = NULL_VALUE;
+    // private float dt_angle_ctrl_signed = NULL_VALUE;
 
     // Feedback control:
-    private float input_steer_targ = NULL_VALUE;
+    // private float input_steer_targ = NULL_VALUE;
     private float angle_roll_targ  = NULL_VALUE;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -157,8 +157,8 @@ public class ReHandyBotController : MonoBehaviour
     // Exercise-related variables:
     ////////////////////////////////////////////////////////////////////////////
 
-    private bool isSystemStarted = false;
-    public bool isExerciseStarted = false; // changed to public for access by DataManager (27.08.2025)
+    private bool isSystemStarted    = false;
+    public bool  isExerciseStarted  = false; // changed to public for access by DataManager (27.08.2025)
     private bool isExerciseStopping = false;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -222,8 +222,8 @@ public class ReHandyBotController : MonoBehaviour
     // Data display:
     ////////////////////////////////////////////////////////////////////////////
 
-    private int  DT_DISP_DATA_MSEC      = 1000;
-    private bool DISP_TIMER_ACTIVITY_ON = true;
+    // private int  DT_DISP_DATA_MSEC      = 1000;
+    // private bool DISP_TIMER_ACTIVITY_ON = true;
 
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////

@@ -50,7 +50,7 @@ public class MotorbikeController : MonoBehaviour
     const float FACTOR_STEER_INPUT = 7.0e-2f; // 3.5e-2f; // was 23f before factor_steer_bike_speed was removed
 
     // Steer factor control angle:
-    public const float FACTOR_STEER_ANGLE_CTRL = 8.4e-2f; // was 56f before factor_steer_bike_speed was removed
+    const float FACTOR_STEER_ANGLE_CTRL = 8.4e-2f; // was 56f before factor_steer_bike_speed was removed
 
     // Steer factor for control angular speed - higher values stabilize bike:
     const float FACTOR_STEER_DT_ANGLE_CTRL = 12.0e-2f; // was 80f before factor_steer_bike_speed was removed
@@ -100,7 +100,7 @@ public class MotorbikeController : MonoBehaviour
     const float ANGLE_ROLL_NONSLIP_MAX_DEG = 50f;
 
     // Refernce speeds:
-    public float SPEED_REF_LOW  =  8.0f;
+    public float SPEED_REF_LOW  =  8.0f; // used by EngineSoundManager
     public float SPEED_REF_HIGH = 25.0f;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -117,8 +117,8 @@ public class MotorbikeController : MonoBehaviour
     public Vector3 velocity_rel_collision;
 
     // Error of preview position wrt target position:
-    float err_pos_targ_prev = 0f;
-    float int_err_pos_targ = 0f;
+    private float err_pos_preview_targ_prev = 0f;
+    private float int_err_pos_preview_targ = 0f;
 
     // TARGET bike roll angle / ang vel / integral for steering - CRITICAL:
     private float angle_roll_targ_prev    = 0f;
@@ -263,7 +263,7 @@ public class MotorbikeController : MonoBehaviour
     {
         public Vector3 pos_ctrline_near;
         public Vector3 vect_ctrline_tang;
-        public float curv_ctrline_near;
+        // public float curv_ctrline_near;
         public float ang_ctrline_tang;
         public float dist_ctrline_near;
     }
@@ -303,9 +303,11 @@ public class MotorbikeController : MonoBehaviour
         public float angle_roll_targ;
         public float dt_angle_roll_targ;
         public float input_steer_targ;
-        public float curv_ctrline_targ;
+        // public float curv_ctrline_targ;
         public float sin_dev_targ;
         public Vector3 vect_ctrline_tang_target;
+        public Vector3 err_pos_preview_targ_vect;
+        public float   err_pos_preview_targ_val;
     }
 
     /////////////////////////////////////////////////////////////
@@ -442,8 +444,8 @@ public class MotorbikeController : MonoBehaviour
         // Update text for speed display in Unity (21.08.2025):
         ////////////////////////////////////////////////////////////////       
 
-        // rigid_body.velocity.magnitude shows speed meters per second (m/s):     
-        SpeedTxt.text = ConvertSpeedMStoKMH(rigid_body.velocity.magnitude).ToString("F0");
+        // rigid_body.velocity magnitude shows speed meters per second (m/s):     
+        SpeedTxt.text = ConvertSpeedMStoKMH(MagnitudeXZ(rigid_body.velocity)).ToString("F0");
 
         ////////////////////////////////////////////////////////////////////////////
         // Display section:
@@ -728,7 +730,7 @@ public class MotorbikeController : MonoBehaviour
         Vector3 pos_track_targ     = NULL_VECTOR3;
         float angle_roll_targ      = NULL_VALUE;
         float dt_angle_roll_targ   = NULL_VALUE;
-        float curv_ctrline_targ = NULL_VALUE;
+        // float curv_ctrline_targ    = NULL_VALUE;
         float sin_dev_targ         = NULL_VALUE; // angular deviation of bike's heading wrt to target
         Vector3 vect_ctrline_tangent_targ = NULL_VECTOR3;
 
@@ -746,8 +748,7 @@ public class MotorbikeController : MonoBehaviour
             pos_bike, dt_pos_bike, dir_unit_bike,
             DT_PREVIEW, Track.instance,
             out pos_preview, 
-            out pos_track_targ,
-            out curv_ctrline_targ, 
+            out pos_track_targ, // out curv_ctrline_targ, 
             out vect_ctrline_tangent_targ);
 
         ////////////////////////////////////////////////////////////////////////////
@@ -759,28 +760,28 @@ public class MotorbikeController : MonoBehaviour
         sin_dev_targ = vect_unit_dev_tangent.y;
 
         // Deviation relative to target point on track:
-        Vector3 err_pos_targ_vect = pos_track_targ - pos_preview;
+        Vector3 err_pos_preview_targ_vect = pos_track_targ - pos_preview;
 
-        Vector3 vect_unit_turn_targ = Vector3.Cross(dir_unit_bike, err_pos_targ_vect.normalized); // test vector to establish turn direction
-        float sgn_turn_targ = (float)Math.Sign(-vect_unit_turn_targ.y);
+        Vector3 vect_unit_turn_targ = Vector3.Cross(dir_unit_bike, err_pos_preview_targ_vect.normalized); // test vector to establish turn direction
+        int sgn_turn_targ = Math.Sign(-vect_unit_turn_targ.y);
 
         // Error of preview position wrt target position:
-        float err_pos_targ = sgn_turn_targ * err_pos_targ_vect.magnitude;
+        float err_pos_preview_targ = sgn_turn_targ * MagnitudeXZ(err_pos_preview_targ_vect);
 
         // Error of preview position: time derivative:
-        float dt_err_pos_targ = (err_pos_targ - err_pos_targ_prev) / dt_step;
+        float dt_err_pos_preview_targ = (err_pos_preview_targ - err_pos_preview_targ_prev) / dt_step;
 
         // Error of preview position: integral
-        int_err_pos_targ += err_pos_targ * dt_step;
+        int_err_pos_preview_targ += err_pos_preview_targ * dt_step;
 
         // Store error for next iteration:
-        err_pos_targ_prev = err_pos_targ;
+        err_pos_preview_targ_prev = err_pos_preview_targ;
 
         // Target roll angle:
         angle_roll_targ =
-            P_GAIN_ERR_POS_TARG   * err_pos_targ
-            + D_GAIN_ERR_POS_TARG * dt_err_pos_targ
-            + I_GAIN_ERR_POS_TARG * int_err_pos_targ;
+            P_GAIN_ERR_POS_TARG   * err_pos_preview_targ
+            + D_GAIN_ERR_POS_TARG * dt_err_pos_preview_targ
+            + I_GAIN_ERR_POS_TARG * int_err_pos_preview_targ;
 
         // Target roll angular velocity:
         dt_angle_roll_targ = (angle_roll_targ - angle_roll_targ_prev) / dt_step;
@@ -804,14 +805,16 @@ public class MotorbikeController : MonoBehaviour
         // Update data variables' struct for sharing among other classes (for atomicity & real-time updating):
         ////////////////////////////////////////////////////////////////    
 
-        fbk_ctrl.pos_preview = pos_preview;
-        fbk_ctrl.pos_track_targ = pos_track_targ;
-        fbk_ctrl.angle_roll_targ = angle_roll_targ;
+        fbk_ctrl.pos_preview        = pos_preview;
+        fbk_ctrl.pos_track_targ     = pos_track_targ;
+        fbk_ctrl.angle_roll_targ    = angle_roll_targ;
         fbk_ctrl.dt_angle_roll_targ = dt_angle_roll_targ;
         fbk_ctrl.input_steer_targ = input_steer_targ;
-        fbk_ctrl.curv_ctrline_targ = curv_ctrline_targ;
-        fbk_ctrl.sin_dev_targ = sin_dev_targ;
+        // fbk_ctrl.curv_ctrline_targ = curv_ctrline_targ;
+        fbk_ctrl.sin_dev_targ       = sin_dev_targ;
         fbk_ctrl.vect_ctrline_tang_target = vect_ctrline_tangent_targ;
+        fbk_ctrl.err_pos_preview_targ_vect  = err_pos_preview_targ_vect;
+        fbk_ctrl.err_pos_preview_targ_val   = err_pos_preview_targ;
 
         return input_steer_targ;
     }
@@ -871,7 +874,7 @@ public class MotorbikeController : MonoBehaviour
         Vector3 dir_unit_bike = GetBikeDirectionVector();
 
         pos_bike_prev = pos_bike;
-        dt_pos_bike_magn = dt_pos_bike.magnitude;
+        dt_pos_bike_magn = MagnitudeXZ(dt_pos_bike);
 
         ////////////////////////////////////////////////////////////////
         // Bike roll angle (rad) - super CRITICAL:
@@ -991,12 +994,11 @@ public class MotorbikeController : MonoBehaviour
         Vector3 pos_bike, Vector3 dt_pos_bike, Vector3 dir_unit_bike,
         float dt_preview, Track track_this,
         out Vector3 pos_preview_this, 
-        out Vector3 pos_track_targ_this, // ref Vector3 pos_track_near_this,
-        out float curv_ctrline_targ_this, 
+        out Vector3 pos_track_targ_this, // ref Vector3 pos_track_near_this, out float curv_ctrline_targ_this, 
         out Vector3 vect_ctrline_tang_target_this)
     {
         // Obtain preview point:
-        float dist_preview = dt_pos_bike.magnitude * dt_preview; // distance to preview point ahead
+        float dist_preview = MagnitudeXZ(dt_pos_bike) * dt_preview; // distance to preview point ahead
 
         pos_preview_this   = pos_bike + dist_preview * dir_unit_bike;
 
@@ -1004,7 +1006,7 @@ public class MotorbikeController : MonoBehaviour
         pos_track_targ_this = track_this.GetClosestPointOnCenterLine(pos_preview_this);
 
         // Curvature of centerline at target point:
-        curv_ctrline_targ_this = track_this.GetCurvatureAtPosition(pos_track_targ_this);
+        // curv_ctrline_targ_this = track_this.GetCurvatureAtPosition(pos_track_targ_this);
 
         // Tangent vector at target point:
         vect_ctrline_tang_target_this = track_this.GetTangentAtPosition(pos_track_targ_this);
@@ -1291,7 +1293,7 @@ public class MotorbikeController : MonoBehaviour
   
         track_coords.pos_ctrline_near  = Track.instance.GetClosestPointOnCenterLine(pos_bike);
         track_coords.vect_ctrline_tang = Track.instance.GetTangentAtPosition(pos_bike);
-        track_coords.curv_ctrline_near = Track.instance.GetCurvatureAtPosition(pos_bike);
+        // track_coords.curv_ctrline_near = Track.instance.GetCurvatureAtPosition(pos_bike);
         track_coords.ang_ctrline_tang  = FACT_DEG_2_RAD * Track.instance.GetTangentAngleAtPosition(pos_bike);
         track_coords.dist_ctrline_near = Track.instance.GetDistanceAtPosition(pos_bike);
 
@@ -1301,6 +1303,11 @@ public class MotorbikeController : MonoBehaviour
     public float ConvertSpeedMStoKMH(float speed_mpersec)
     {
         return speed_mpersec * 3.6f;
+    }
+
+    public float MagnitudeXZ(Vector3 vect)
+    {
+        return (float)Math.Sqrt(vect.x*vect.x + vect.z*vect.z);
     }
 
     ///////////////////////////////////////////////////////////

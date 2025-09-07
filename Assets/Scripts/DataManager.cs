@@ -83,7 +83,6 @@ public class DataManager : MonoBehaviour
 
             "pos radial",
             "dt pos radial",
-
             "pos rot",
             "dt pos rot",
 
@@ -98,8 +97,7 @@ public class DataManager : MonoBehaviour
             "pos ctrline near z",
             "vect ctrline tang x",
             "vect ctrline tang z",
-
-            "curv ctrline near",
+            // "curv ctrline near",
             "ang ctrline tang",
             "dist ctrline near",
 
@@ -109,8 +107,6 @@ public class DataManager : MonoBehaviour
 
             "bike pose ang roll",
             "bike pose dt ang roll",
-            // "bike pose ang ctrl",
-            // "bike pose dt ang ctrl",
             "bike pose ang steer wheel",
 
             "pos preview x",
@@ -120,18 +116,18 @@ public class DataManager : MonoBehaviour
             "angle roll targ",
             "dt angle roll targ",
             "input steer targ",
-            "curv ctrline targ",
+            // "curv ctrline targ",
             "sin dev targ",
             "vect ctrline tangent targ x",
             "vect ctrline tangent targ z",
+            "err pos preview targ x",
+            "err pos preview targ z",
+            "err pos preview targ val",
 
-            /*
-            "steer update 0",
-            "steer update 1",
-            "steer update 2",
-            "steer update 3",
-            */
-
+            // "steer update 0",
+            // "steer update 1",
+            // "steer update 2",
+            // "steer update 3",
             "factor steer bike speed",
             "steer term input",
             "steer term angle ctrl",
@@ -171,9 +167,9 @@ public class DataManager : MonoBehaviour
             string output =
                 t_step_str + "," +
                 dt_step_str + "," +
+
                 $"{distal_data.PositionR}," +
                 $"{distal_data.VelocityR}," +
-
                 $"{distal_data.PositionP}," +
                 $"{distal_data.VelocityP}," +
 
@@ -188,8 +184,7 @@ public class DataManager : MonoBehaviour
                 $"{track_coords_data.pos_ctrline_near.z}," +
                 $"{track_coords_data.vect_ctrline_tang.x}," +
                 $"{track_coords_data.vect_ctrline_tang.z}," +
-
-                $"{track_coords_data.curv_ctrline_near}," +
+                // $"{track_coords_data.curv_ctrline_near}," +
                 $"{track_coords_data.ang_ctrline_tang}," +
                 $"{track_coords_data.dist_ctrline_near}," +
 
@@ -199,8 +194,6 @@ public class DataManager : MonoBehaviour
 
                 $"{bike_pose_data.angle_roll_bike}," +
                 $"{bike_pose_data.dt_angle_roll_bike}," +
-                // $"{bike_pose_data.angle_ctrl}," +
-                // $"{bike_pose_data.dt_angle_ctrl}," +
                 $"{bike_pose_data.angle_steer_wheel_fwd}," +
 
                 $"{fbk_ctrl_data.pos_preview.x}," +
@@ -210,18 +203,18 @@ public class DataManager : MonoBehaviour
                 $"{fbk_ctrl_data.angle_roll_targ}," +
                 $"{fbk_ctrl_data.dt_angle_roll_targ}," +
                 $"{fbk_ctrl_data.input_steer_targ}," +
-                $"{fbk_ctrl_data.curv_ctrline_targ}," +
+                // $"{fbk_ctrl_data.curv_ctrline_targ}," +
                 $"{fbk_ctrl_data.sin_dev_targ}," +
                 $"{fbk_ctrl_data.vect_ctrline_tang_target.x}," +
-                $"{fbk_ctrl_data.vect_ctrline_tang_target.z}," +
-                
-                /*
-                $"{steer_calc_data.steer_update[0]}," +   
-                $"{steer_calc_data.steer_update[1]}," +   
-                $"{steer_calc_data.steer_update[2]}," +   
-                $"{steer_calc_data.steer_update[3]}," +   
-                */
+                $"{fbk_ctrl_data.vect_ctrline_tang_target.z}," +                
+                $"{fbk_ctrl_data.err_pos_preview_targ_vect.x}," +
+                $"{fbk_ctrl_data.err_pos_preview_targ_vect.z}," +
+                $"{fbk_ctrl_data.err_pos_preview_targ_val}," +
 
+                // $"{steer_calc_data.steer_update[0]}," +   
+                // $"{steer_calc_data.steer_update[1]}," +   
+                // $"{steer_calc_data.steer_update[2]}," +   
+                // $"{steer_calc_data.steer_update[3]}," +   
                 $"{steer_calc_data.factor_steer_bike_speed}," +
                 $"{steer_calc_data.steer_term_input}," +
                 $"{steer_calc_data.steer_term_angle_ctrl}," +

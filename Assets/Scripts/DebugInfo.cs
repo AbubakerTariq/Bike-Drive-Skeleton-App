@@ -26,5 +26,6 @@ public class DebugInfo : MonoBehaviour
                         $"\nCenterline tangent direction at bike position: {track.GetTangentAtPosition(bikePos).ToString("F2")}" +
                         $"\nCenterline tangent angle at bike position: {track.GetTangentAngleAtPosition(bikePos).ToString("F2")}°";
         */
+        debugText.text = $" ";
     }
 }
