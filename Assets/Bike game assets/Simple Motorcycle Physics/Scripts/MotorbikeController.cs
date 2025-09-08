@@ -507,7 +507,7 @@ public class MotorbikeController : MonoBehaviour
         float pos_radial = distal_this.PositionR;
 
         if (ReHandyBotController.instance.ExerciseActive)
-            bike_input.throttle = InputThrottleCases(pos_radial, MotorbikeController.instance, ReHandyBotController.CASE_CTRL_MODE);
+            bike_input.throttle = InputThrottleCases(pos_radial, MotorbikeController.instance, ReHandyBotController.instance.CASE_CTRL_MODE);
         else
             bike_input.throttle = 0f;
 
@@ -546,7 +546,7 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
 
         if (ReHandyBotController.instance.ExerciseActive)
-            bike_input.steer_scaled = InputSteerCases(pos_rot, input_steer_targ, scale_steer, ReHandyBotController.CASE_CTRL_MODE);
+            bike_input.steer_scaled = InputSteerCases(pos_rot, input_steer_targ, scale_steer, ReHandyBotController.instance.CASE_CTRL_MODE);
         else
             bike_input.steer_scaled = 0f;
 

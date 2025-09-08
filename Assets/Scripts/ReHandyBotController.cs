@@ -23,8 +23,10 @@ public class ReHandyBotController : MonoBehaviour
     public const int DT_STEP_APP_MSEC = 25;
 
     ////////////////////////////////////////////////////////////////////////////
-    // Game control modes - CRITICAL:
+    // Game control modes:
     //////////////////////////////////////////////////////////////////////////// 
+
+    const int NULL_SETTING = -1;
 
     // public const bool USE_CONSTRAINED_STEER = false; // TODO: keep or discard
 
@@ -33,19 +35,31 @@ public class ReHandyBotController : MonoBehaviour
     public const int CTRL_AUTO_STEER_MANUAL_THROT = 3;
     public const int CTRL_MANUAL_SIMPLE           = 4;
 
-    public const int CASE_CTRL_MODE = CTRL_ASSISTED;
+    public int CASE_CTRL_MODE = CTRL_MANUAL_SIMPLE; // DEFAULT setting before selection
 
     ////////////////////////////////////////////////////////////////////////////
     // User-based game parameters - CRITICAL (30.08.2025):
     //////////////////////////////////////////////////////////////////////////// 
 
-    public float FACT_ASSIST_STEER       = -1f; // initial dummy value
-    public float FACT_ASSIST_THROTTLE    =  1f;
+    public float FACT_ASSIST_STEER       = 0f; // DEFAULT setting before selection
+    public float FACT_ASSIST_THROTTLE    = 0f; // DEFAULT setting before selection
 
-    public float FRAC_POS_ROT_INPUT_USER = 0.5f; // scaling factor for user's rotational inputs (based on user's ROM, for example)
+    // Scaling factor for user's rotational inputs (based on user's ROM, for example)
+    public float FRAC_POS_ROT_INPUT_USER = 0.5f;  // DEFAULT setting before selection
 
     ////////////////////////////////////////////////////////////////////////////
-    // SetExercise() parameters - CRITICAL:
+    // Pre-game procedures stated - CRITICAL:
+    //////////////////////////////////////////////////////////////////////////// 
+
+    private const int ST_SET_CTRL_MODE            = 1;
+    private const int ST_SET_FACT_ASSIST_STEER    = 2;
+    private const int ST_SET_FACT_ASSIST_THROTTLE = 3;
+    private const int ST_CALIBRATE                = 4;
+
+    private int STATE_PREGAME = ST_SET_CTRL_MODE; // initial state
+
+    ////////////////////////////////////////////////////////////////////////////
+    // SetExercise() parameters:
     //////////////////////////////////////////////////////////////////////////// 
 
     private float OFFS_FORCE_RADIAL_INIT = 0f;
@@ -98,7 +112,7 @@ public class ReHandyBotController : MonoBehaviour
 
     // Steering - BASELINE haptics settings:
     private const float POS_ROT_BASE = 0f;
-    private float K_STIFF_ROT_BASE   = 0.1f; // 0.05f; //
+    private float K_STIFF_ROT_BASE   = 0.05f; // 0.1f; // 
     private float B_DAMP_ROT_BASE    = 0f; // rely on embedded HL_SetTarget stability
 
     // Stiffness for tracking control;
@@ -188,10 +202,8 @@ public class ReHandyBotController : MonoBehaviour
     private Thread connectionThread;
     private Tween connectionTween;
 
-    private bool allowSelectFactAssist = false;
-
     private bool isCalibrated = false;
-    private bool allowCalibration = false;
+    private bool allowCalibrate = false;
 
     public Action OnExerciseStart;
     public Action OnExerciseStop;
@@ -232,10 +244,8 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     ////////////////////////////////////////////////////////////////////////////
-    // Basic methods:
+    // Application start / stop functions:
     ////////////////////////////////////////////////////////////////////////////
-
-    #region MonoBehavior Functions
 
     private void Awake()
     {
@@ -280,32 +290,317 @@ public class ReHandyBotController : MonoBehaviour
         distalRobot = null;
         instance = null;
     }
-    #endregion
+
+    private void Destroy()
+    {
+        // StopSetTargetEvents() - removed 30.08.2025
+    }
+
+    private void ConnectRHB()
+    {
+        connectionTween?.Kill();
+        connectionTween = DOVirtual.DelayedCall(10f, ReConnectRHB);
+
+        connectionThread?.Abort();
+        connectionThread = new Thread(() =>
+        {
+            MainThreadActionQueue.Enqueue(() =>
+            {
+                loader.SetActive(true);
+            });
+
+            bool success = EstablishConnection();
+
+            MainThreadActionQueue.Enqueue(() =>
+            {
+                connectionTween.Kill();
+
+                if (success)
+                {
+                    loader.SetActive(false);
+                    StartSystem(OnConnect);
+                }
+                else
+                {
+                    ReConnectRHB();
+                }
+            });
+        });
+        connectionThread.Start();
+    }
+
+    private void ReConnectRHB()
+    {
+        if (RHBConnected)
+        {
+            StartSystem(OnConnect);
+            return;
+        }
+        ConnectRHB();
+    }
+
+    private bool EstablishConnection(UnityAction onComplete = null)
+    {
+        if (RHBConnected)
+        {
+            onComplete?.Invoke();
+            return true;
+        }
+
+        for (int i = 0; i < MaxAttempts; i++)
+        {
+            bool success = distalRobot.EstablishConnection(ServerIP, ServerPort);
+
+            if (success)
+            {
+                onComplete?.Invoke();
+                break;
+            }
+        }
+        return RHBConnected;
+    }
+
+    private void StartSystem(UnityAction onComplete = null)
+    {
+        if (isSystemStarted)
+        {
+            distalRobot.SetSafety(SAFETY_TCP_APP_ON);
+            onComplete?.Invoke();
+            return;
+        }
+
+        for (int i = 0; i < MaxAttempts; i++)
+        {
+            bool success = distalRobot.StartSystem();
+
+            if (success)
+            {
+                distalRobot.SetSafety(SAFETY_TCP_APP_ON);
+                isSystemStarted = true;
+                onComplete?.Invoke();
+                break;
+            }
+        }
+    }
 
     ////////////////////////////////////////////////////////////////////////////
-    // Real-time update:
+    // Pre-game 'on complete" actions:
+    ////////////////////////////////////////////////////////////////////////////
+    
+    private void OnConnect()
+    {
+        SetBrakes(DISENGAGE_BRAKE, DISENGAGE_BRAKE);
+        ExternalConsoleLogger.Log("        OnConnect(): SetBrakes(): cmd DISENGAGE \n");
+
+        loader.SetActive(true);
+
+        if (STATE_PREGAME == ST_SET_CTRL_MODE)
+        {
+            loaderText.text =
+               "CLICK on this screen and \n\n" +
+               "Select CONTROL MODE: \n\n" +
+               "(1) ASSISTED CONTROL \n" +
+               "(2) AUTO STEER / AUTO THROTTLE \n" +
+               "(3) AUTO STEER / MANUAL THROTTLE \n" +
+               "(4) PURE MANUAL";
+        }
+
+        loaderText.alignment = TextAlignmentOptions.MidlineLeft;
+    }
+
+    private void OnSelectGameSettings()
+    {
+
+        if (STATE_PREGAME == ST_SET_FACT_ASSIST_STEER) 
+        {
+            loaderText.text =
+                "Select STEER ASSISTANCE level (0 to 9) \n";
+        }
+
+        else if (STATE_PREGAME == ST_SET_FACT_ASSIST_THROTTLE)
+        {
+            loaderText.text =
+                "Select THROTTLE mode: \n" +
+                "(0) MANUAL throttle \n" +
+                "(1) AUTO throttle \n";
+        }
+
+        else if (STATE_PREGAME == ST_CALIBRATE)
+        {
+            string str_fact_assist;
+
+            if (CASE_CTRL_MODE == CTRL_ASSISTED)
+                str_fact_assist = 
+                    "Assist factor STEERING = " + FACT_ASSIST_STEER + "\n" +                    
+                    "Assist factor THROTTLE = " + FACT_ASSIST_THROTTLE;
+            else
+                str_fact_assist = " ";
+
+            loaderText.text =
+            "CONTROL MODE [" + CASE_CTRL_MODE + "]\n" +
+             str_fact_assist + "\n\n" +
+            "Align grippers horizontally and close the grippers \n\n" +
+            "Press Y to CALIBRATE";
+        }
+    }
+
+    private void OnCalibrate_CmdStartExercise()
+    {
+        allowCalibrate = false;
+
+        StartExercise(ENGAGE_BRAKE, ENGAGE_BRAKE, () =>
+        {
+            DOVirtual.DelayedCall(0.1f, () =>
+            {
+                loader.SetActive(false);
+                pos_radial_min = distal_data.PositionR;
+                pos_radial_min = Math.Clamp(pos_radial_min, POS_RADIAL_MIN, POS_RADIAL_MAX);
+
+                for (int i = 0; i < MaxAttempts; i++)
+                {
+                    bool success = distalRobot.StopExercise();
+
+                    if (success)
+                    {
+                        SetBrakes(ENGAGE_BRAKE, ENGAGE_BRAKE);
+                        ExternalConsoleLogger.Log("        OnCalibrate(): SetBrakes(): cmd ENGAGE \n");
+
+                        isExerciseStarted = false;
+                        isCalibrated = true;
+                        SceneManager.LoadScene(PrototypeSceneName);
+                        exerciseGuidelineText.SetActive(true);
+                        break;
+                    }
+                }
+            });
+        });
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Pre-game actions (Obtain game modes / Calibrate):
+    ////////////////////////////////////////////////////////////////////////////
+
+    private void SelectGameSettings(UnityAction onComplete = null)
+    {
+        ////////////////////////////////////////////////
+        // Select CONTROL MODE:
+        ////////////////////////////////////////////////
+
+        if (STATE_PREGAME == ST_SET_CTRL_MODE)
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha1))
+                CASE_CTRL_MODE = CTRL_ASSISTED;
+            else if (Input.GetKeyDown(KeyCode.Alpha2))
+                CASE_CTRL_MODE = CTRL_AUTO_STEER_AUTO_THROT;
+            else if (Input.GetKeyDown(KeyCode.Alpha3))
+                CASE_CTRL_MODE = CTRL_AUTO_STEER_MANUAL_THROT;
+            else if (Input.GetKeyDown(KeyCode.Alpha4))
+                CASE_CTRL_MODE = CTRL_MANUAL_SIMPLE;
+            else
+                return;
+
+            if (CASE_CTRL_MODE == CTRL_ASSISTED)
+                STATE_PREGAME = ST_SET_FACT_ASSIST_STEER;
+            else
+                STATE_PREGAME = ST_CALIBRATE;
+
+            onComplete.Invoke();
+        }
+
+        ////////////////////////////////////////////////
+        // Select STEERING assistance factor:
+        ////////////////////////////////////////////////
+
+        else if (STATE_PREGAME == ST_SET_FACT_ASSIST_STEER)
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha0))
+                FACT_ASSIST_STEER = 0f;
+            else if (Input.GetKeyDown(KeyCode.Alpha1))
+                FACT_ASSIST_STEER = 1f;
+            else if (Input.GetKeyDown(KeyCode.Alpha2))
+                FACT_ASSIST_STEER = 2f;
+            else if (Input.GetKeyDown(KeyCode.Alpha3))
+                FACT_ASSIST_STEER = 3f;
+            else if (Input.GetKeyDown(KeyCode.Alpha4))
+                FACT_ASSIST_STEER = 4f;
+            else if (Input.GetKeyDown(KeyCode.Alpha5))
+                FACT_ASSIST_STEER = 5f;
+            else if (Input.GetKeyDown(KeyCode.Alpha6))
+                FACT_ASSIST_STEER = 6f;
+            else if (Input.GetKeyDown(KeyCode.Alpha7))
+                FACT_ASSIST_STEER = 7f;
+            else if (Input.GetKeyDown(KeyCode.Alpha8))
+                FACT_ASSIST_STEER = 8f;
+            else if (Input.GetKeyDown(KeyCode.Alpha9))
+                FACT_ASSIST_STEER = 9f;
+            else
+                return;
+
+            // Convert assistance factor to fraction:
+            FACT_ASSIST_STEER /= 10f;
+
+            STATE_PREGAME = ST_SET_FACT_ASSIST_THROTTLE;
+            onComplete.Invoke();
+        }
+
+        ////////////////////////////////////////////////
+        // Select STEERING assistance factor:
+        ////////////////////////////////////////////////
+
+        else if (STATE_PREGAME == ST_SET_FACT_ASSIST_THROTTLE)
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha0))
+                FACT_ASSIST_THROTTLE = 0f;
+            else if (Input.GetKeyDown(KeyCode.Alpha1))
+                FACT_ASSIST_THROTTLE = 1f;
+            else
+                return;
+
+            STATE_PREGAME = ST_CALIBRATE;
+            onComplete.Invoke();
+        }
+    }
+
+    private void Calibrate(UnityAction onComplete = null)
+    {
+        for (int i = 0; i < MaxAttempts; i++)
+            if (distalRobot.Calibration(DistalComm.CalibrationType.AxisCalib)) break;
+
+        /*
+        for (int i = 0; i < MaxAttempts; i++)
+            if (distalRobot.Calibration(DistalComm.CalibrationType.AllForceSensorsZeroCalib)) break;
+        */
+
+        onComplete.Invoke();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    // Real-time update - CRITICAL:
+    ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
 
     private void Update()
-    {
+    {   
         ////////////////////////////////////////////////////////////////////////////
-        // State check:
+        // Allow the user to select game modes:
         ////////////////////////////////////////////////////////////////////////////
 
-        // If robot is calibrated and user presses Enter, exercise state will be toggled
-        // The exercise will start now if it hasn't started already
+        if (STATE_PREGAME != ST_CALIBRATE)
+            SelectGameSettings(OnSelectGameSettings);            
+
+        else if (Input.GetKeyDown(KeyCode.Y))
+            Calibrate(OnCalibrate_CmdStartExercise);  
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Toggle Exercise state:
+        ////////////////////////////////////////////////////////////////////////////
+
+        // If robot is calibrated and user presses Enter, Exercise state is be toggled
+        // Exercise will start now if not already running
+
         if (isCalibrated && Input.GetKeyDown(KeyCode.Return))
             ToggleExerciseState();
-
-        ////////////////////////////////////////////////////////////////////////////
-        // Allow the user to press Y to calibrate the robot:
-        ////////////////////////////////////////////////////////////////////////////
-
-        if (allowSelectFactAssist)
-            SelectFactAssist(OnSelectFactAssist);            
-
-        if (!allowSelectFactAssist && allowCalibration && Input.GetKeyDown(KeyCode.Y))
-            Calibrate(OnCalibrate); // OnCalibrate() sets allowCalibration to false, launches StartExercise()
 
         ////////////////////////////////////////////////////////////////////////////
         // Thread sleep & time elapsed computation:
@@ -416,27 +711,24 @@ public class ReHandyBotController : MonoBehaviour
         switch (case_ctrl_mode)
         {
             case CTRL_ASSISTED:
-                /*
-                CmdSetTargetCtrlFeedback(
-                    FRAC_POS_ROT_INPUT_USER* angle_roll_bike_this,
-                    FACT_ASSIST_STEER* K_ROT_STIFF_TRACKING); // TODO: add baseline stiffness for zero assist
-                */
+
+                const float FRAC_ROT_EXCESS = 0.5f; 
+
+                float pos_rot_eq_ref    = FRAC_POS_ROT_INPUT_USER * angle_roll_targ_this;
+                float k_stiff_rot_steer = FACT_ASSIST_STEER * K_ROT_STIFF_TRACKING;
+
+                // Reduce tracking stiffness if user exceeds reference position:
+                if (Math.Abs(pos_rot) > Math.Abs(pos_rot_eq_ref))
+                    k_stiff_rot_steer *= FRAC_ROT_EXCESS;
 
                 CmdSetTarget_FeedbackCtrl_WithLimit(
                     pos_rot,
-                    FRAC_POS_ROT_INPUT_USER * angle_roll_targ_this, 
-                    FACT_ASSIST_STEER* K_ROT_STIFF_TRACKING);
+                    pos_rot_eq_ref, 
+                    k_stiff_rot_steer);
                 break;
 
             case CTRL_AUTO_STEER_AUTO_THROT:
             case CTRL_AUTO_STEER_MANUAL_THROT:
-
-                // TODO: keep or discard:
-                /*
-                CmdSetTarget_FeedbackCtrl(
-                    FRAC_POS_ROT_INPUT_USER* angle_roll_bike_this,  
-                    K_ROT_STIFF_TRACKING);
-                */
 
                 CmdSetTarget_AutoSteer(
                     FRAC_POS_ROT_INPUT_USER * angle_roll_bike_this,
@@ -444,8 +736,6 @@ public class ReHandyBotController : MonoBehaviour
                 break;
 
             case CTRL_MANUAL_SIMPLE:
-                // TODO: keep or discard:
-                // CmdSetTargetCtrl_ManualSimple_WithLimit(pos_rot);
 
                 CmdSetTarget_FeedbackCtrl_WithLimit(
                     pos_rot,
@@ -661,201 +951,6 @@ public class ReHandyBotController : MonoBehaviour
     // Ancillary functions - RHB control:
     ////////////////////////////////////////////////////////////////////////////
 
-    #region RHB control functions
-
-    private void ConnectRHB()
-    {
-        connectionTween?.Kill();
-        connectionTween = DOVirtual.DelayedCall(10f, ReConnect);
-
-        connectionThread?.Abort();
-        connectionThread = new Thread(() =>
-        {
-            MainThreadActionQueue.Enqueue(() =>
-            {
-                loader.SetActive(true);
-            });
-
-            bool success = EstablishConnection();
-
-            MainThreadActionQueue.Enqueue(() =>
-            {
-                connectionTween.Kill();
-
-                if (success)
-                {
-                    loader.SetActive(false);
-                    StartSystem(OnSelectFactAssist); // was OnConnect
-                }
-                else
-                {
-                    ReConnect();
-                }
-            });
-        });
-        connectionThread.Start();
-    }
-
-    private void ReConnect()
-    {
-        if (RHBConnected)
-        {
-            StartSystem(OnConnect);
-            return;
-        }
-        ConnectRHB();
-    }
-
-    private bool EstablishConnection(UnityAction onComplete = null)
-    {
-        if (RHBConnected)
-        {
-            onComplete?.Invoke();
-            return true;
-        }
-
-        for (int i = 0; i < MaxAttempts; i++)
-        {
-            bool success = distalRobot.EstablishConnection(ServerIP, ServerPort);
-
-            if (success)
-            {
-                onComplete?.Invoke();
-                break;
-            }
-        }
-        return RHBConnected;
-    }
-
-    private void StartSystem(UnityAction onComplete = null)
-    {
-        if (isSystemStarted)
-        {
-            distalRobot.SetSafety(SAFETY_TCP_APP_ON);
-            onComplete?.Invoke();
-            return;
-        }
-
-        for (int i = 0; i < MaxAttempts; i++)
-        {
-            bool success = distalRobot.StartSystem();
-
-            if (success)
-            {
-                distalRobot.SetSafety(SAFETY_TCP_APP_ON);
-                isSystemStarted = true;
-                onComplete?.Invoke();
-                break;
-            }
-        }
-    }
-
-    private void OnConnect()
-    {
-        SetBrakes(DISENGAGE_BRAKE, DISENGAGE_BRAKE);
-        ExternalConsoleLogger.Log("        OnConnect(): SetBrakes(): cmd DISENGAGE \n");
-
-        loader.SetActive(true);
-        loaderText.text =
-            "CLICK on this screen and \n" +
-            "Select ASSISTANCE level (0 to 9)";
-
-        allowSelectFactAssist = true; // was allowCalibration = true;
-    }
-
-    private void SelectFactAssist(UnityAction onComplete = null)
-    {
-        if (Input.GetKeyDown(KeyCode.Alpha0))
-            FACT_ASSIST_STEER = 0f;
-        else if (Input.GetKeyDown(KeyCode.Alpha1))
-            FACT_ASSIST_STEER = 1f;
-        else if (Input.GetKeyDown(KeyCode.Alpha2))
-            FACT_ASSIST_STEER = 2f;
-        else if (Input.GetKeyDown(KeyCode.Alpha3))
-            FACT_ASSIST_STEER = 3f;
-        else if (Input.GetKeyDown(KeyCode.Alpha4))
-            FACT_ASSIST_STEER = 4f;
-        else if (Input.GetKeyDown(KeyCode.Alpha5))
-            FACT_ASSIST_STEER = 5f;
-        else if (Input.GetKeyDown(KeyCode.Alpha6))
-            FACT_ASSIST_STEER = 6f;
-        else if (Input.GetKeyDown(KeyCode.Alpha7))
-            FACT_ASSIST_STEER = 7f;
-        else if (Input.GetKeyDown(KeyCode.Alpha8))
-            FACT_ASSIST_STEER = 8f;
-        else if (Input.GetKeyDown(KeyCode.Alpha9))
-            FACT_ASSIST_STEER = 9f;
-        else
-            FACT_ASSIST_STEER = -1f;
-
-        if (FACT_ASSIST_STEER >= 0)
-        {
-            FACT_ASSIST_STEER /= 10f;
-            onComplete.Invoke();
-        }
-    }
-
-    private void OnSelectFactAssist()
-    {
-        allowSelectFactAssist = false;
-        allowCalibration = true;
-
-        loader.SetActive(true);
-        loaderText.text =
-            "STEER ASSISTANCE FACTOR = " + FACT_ASSIST_STEER + "\n\n" +
-            "Align grippers horizontally and close the grippers \n\n" +
-            "Press Y to calibrate";
-    }
-
-    private void Calibrate(UnityAction onComplete = null)
-    {
-        for (int i = 0; i < MaxAttempts; i++)
-        {
-            if (distalRobot.Calibration(DistalComm.CalibrationType.AxisCalib)) break;
-        }
-
-        /*
-        for (int i = 0; i < MaxAttempts; i++)
-        {
-            if (distalRobot.Calibration(DistalComm.CalibrationType.AllForceSensorsZeroCalib)) break;
-        }
-        */
-
-        onComplete.Invoke();
-    }
-
-    private void OnCalibrate()
-    {
-        allowCalibration = false;
-
-        StartExercise(ENGAGE_BRAKE, ENGAGE_BRAKE, () =>
-        {
-            DOVirtual.DelayedCall(0.1f, () =>
-            {
-                loader.SetActive(false);
-                pos_radial_min = distal_data.PositionR;
-                pos_radial_min = Math.Clamp(pos_radial_min, POS_RADIAL_MIN, POS_RADIAL_MAX);
-
-                for (int i = 0; i < MaxAttempts; i++)
-                {
-                    bool success = distalRobot.StopExercise();
-
-                    if (success)
-                    {
-                        SetBrakes(ENGAGE_BRAKE, ENGAGE_BRAKE);
-                        ExternalConsoleLogger.Log("        OnCalibrate(): SetBrakes(): cmd ENGAGE \n");
-
-                        isExerciseStarted = false;
-                        isCalibrated = true;
-                        SceneManager.LoadScene(PrototypeSceneName);
-                        exerciseGuidelineText.SetActive(true);
-                        break;
-                    }
-                }
-            });
-        });
-    }
-
     private void ToggleExerciseState()
     {
         // Start exercise:
@@ -1035,15 +1130,10 @@ public class ReHandyBotController : MonoBehaviour
         motionRoutineRotational = StartCoroutine(MotionRoutineRotationalRHB(0f, () =>
         {
             motionRoutineRadial = StartCoroutine(MotionRoutineRadialRHB(POS_RADIAL_MIN, () =>
-            {
+            { ...
         */
     }
 
-    /// <summary>
-    /// Sets ReHandyBot brakes, False = Engage, True = Disengage
-    /// </summary>
-    /// <param name="unlockRadial">Horizontal Axis</param>
-    /// <param name="unlockRotational">Vertical Axis</param>
     private void SetBrakes(bool unlockRadial, bool unlockRotational, UnityAction onComplete = null)
     {
         bool success = false;
@@ -1201,18 +1291,13 @@ public class ReHandyBotController : MonoBehaviour
         return success_all;
     }
 
-    #endregion
-
     // This is for usage for SetOffsetForces command, currently being called with dummy values
     private void SetOffsetForces()
     {
         ReHandyBotController.instance.SetOffsetForces(0f, 0f);
     }
 
-    private void Destroy()
-    {
-        // StopSetTargetEvents() - removed 30.08.2025
-    }
+
 
     // SetTarget functions removed 30.08.2025:
     /*
@@ -1225,11 +1310,4 @@ public class ReHandyBotController : MonoBehaviour
     private void SendCmdSetTargetSteerLimit(object sender, ElapsedEventArgs e)
     */
 
-    ////////////////////////////////////////////////////////////////////////////
-    // Ancillary functions:
-    ////////////////////////////////////////////////////////////////////////////
-    private Vector2 VectorXZ(Vector3 vect)
-    {
-        return new Vector2(vect.x, vect.x);
-    }
 }
