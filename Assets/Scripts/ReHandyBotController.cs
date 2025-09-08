@@ -20,7 +20,7 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     // Application time step:
-    public const int DT_STEP_APP_MSEC = 25;
+    public const int DT_STEP_APP_MSEC = 10; // 25; // 
 
     ////////////////////////////////////////////////////////////////////////////
     // Game control modes:
@@ -94,10 +94,10 @@ public class ReHandyBotController : MonoBehaviour
     private float FORCE_GAIN_ROT = 14f;
 
     private float K_STIFF_RADIAL_WALL = 2500f; // use with zero feedback gain
-    private float B_DAMP_RADIAL_WALL  = 0f; // 40f; // rely on embedded HL_SetTarget stability
+    private float B_DAMP_RADIAL_WALL  = 0f; // rely on embedded HL_SetTarget stability
 
     private float K_STIFF_ROT_WALL    = 1.2f; // use with zero feedback gain
-    private float B_DAMP_ROT_WALL     = 0f; // 0.092f; // rely on embedded HL_SetTarget stability
+    private float B_DAMP_ROT_WALL     = 0f; // rely on embedded HL_SetTarget stability
 
     private float POS_RADIAL_MIN      = 0.0145f;
     private float POS_RADIAL_MAX      = 0.06f;  
@@ -106,9 +106,10 @@ public class ReHandyBotController : MonoBehaviour
     private float POS_ROT_MAX =  Mathf.PI / 2f;
 
     // Throttle - BASELINE haptics settings:
-    public const float POS_RADIAL_BASE = 0.029f; // used by MotorbikeController
-    private float K_STIFF_RADIAL_BASE  = 2500f;
-    private float B_DAMP_RADIAL_BASE   = 0f; // rely on embedded HL_SetTarget stability 
+    public const float POS_RADIAL_BASE        = 0.029f; // used by MotorbikeController
+    private float K_STIFF_RADIAL_THROT_MANUAL = 2500f;
+    private float K_STIFF_RADIAL_THROT_AUTO   = 5000f; // makes handles essentially rigid
+    private float B_DAMP_RADIAL_BASE          = 0f; // rely on embedded HL_SetTarget stability 
 
     // Steering - BASELINE haptics settings:
     private const float POS_ROT_BASE = 0f;
@@ -137,18 +138,11 @@ public class ReHandyBotController : MonoBehaviour
     // Track coordinates:
     private Vector3 pos_ctrline_near   = NULL_VECTOR3;
     private Vector3 vect_ctrline_tang  = NULL_VECTOR3;
-    // private float curv_ctrline_near    = NULL_VALUE; // TODO: keep or discard
-    // private float ang_ctrline_tang     = NULL_VALUE;
-    // private float dist_ctrline_near    = NULL_VALUE; 
 
     // Bike pose:
     private float angle_roll_bike      = NULL_VALUE;
-    // private float dt_angle_roll_bike   = NULL_VALUE;
-    // private float angle_ctrl_signed    = NULL_VALUE;
-    // private float dt_angle_ctrl_signed = NULL_VALUE;
 
     // Feedback control:
-    // private float input_steer_targ = NULL_VALUE;
     private float angle_roll_targ  = NULL_VALUE;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -229,13 +223,6 @@ public class ReHandyBotController : MonoBehaviour
 
     private System.Timers.Timer timerSetTarget;
     private Thread threadTimerSetTarget;
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Data display:
-    ////////////////////////////////////////////////////////////////////////////
-
-    // private int  DT_DISP_DATA_MSEC      = 1000;
-    // private bool DISP_TIMER_ACTIVITY_ON = true;
 
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -477,7 +464,7 @@ public class ReHandyBotController : MonoBehaviour
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    // Pre-game actions (Obtain game modes / Calibrate):
+    // Pre-game actions (Obtain game modes, calibrate):
     ////////////////////////////////////////////////////////////////////////////
 
     private void SelectGameSettings(UnityAction onComplete = null)
@@ -721,18 +708,34 @@ public class ReHandyBotController : MonoBehaviour
                 if (Math.Abs(pos_rot) > Math.Abs(pos_rot_eq_ref))
                     k_stiff_rot_steer *= FRAC_ROT_EXCESS;
 
+                float k_stiff_radial_throt;
+
+                if (FACT_ASSIST_THROTTLE > 0f)
+                    k_stiff_radial_throt = K_STIFF_RADIAL_THROT_AUTO;
+                else
+                    k_stiff_radial_throt = K_STIFF_RADIAL_THROT_MANUAL;
+
                 CmdSetTarget_FeedbackCtrl_WithLimit(
                     pos_rot,
                     pos_rot_eq_ref, 
-                    k_stiff_rot_steer);
+                    k_stiff_rot_steer,
+                    k_stiff_radial_throt );
                 break;
 
             case CTRL_AUTO_STEER_AUTO_THROT:
+
+                CmdSetTarget_AutoSteer(
+                    FRAC_POS_ROT_INPUT_USER * angle_roll_bike_this,
+                    K_ROT_STIFF_TRACKING,
+                    K_STIFF_RADIAL_THROT_AUTO);
+                break;
+
             case CTRL_AUTO_STEER_MANUAL_THROT:
 
                 CmdSetTarget_AutoSteer(
                     FRAC_POS_ROT_INPUT_USER * angle_roll_bike_this,
-                    K_ROT_STIFF_TRACKING);
+                    K_ROT_STIFF_TRACKING,
+                    K_STIFF_RADIAL_THROT_MANUAL);
                 break;
 
             case CTRL_MANUAL_SIMPLE:
@@ -740,7 +743,8 @@ public class ReHandyBotController : MonoBehaviour
                 CmdSetTarget_FeedbackCtrl_WithLimit(
                     pos_rot,
                     0f, 
-                    K_STIFF_ROT_BASE);
+                    K_STIFF_ROT_BASE,
+                    K_STIFF_RADIAL_THROT_MANUAL);
                 break;
 
             default: // no command
@@ -752,76 +756,7 @@ public class ReHandyBotController : MonoBehaviour
     // Control commands using Set Target - functions:
     ////////////////////////////////////////////////////////////////////////////
 
-    // TODO: keep or discard:
-    /*
-    private void CmdSetTargetCtrl_ManualSimple_WithLimit(float pos_rot)
-    {
-        ////////////////////////////////////////////////////////////////////////////
-        // Impedance parameters for rotation angle limit:
-        ////////////////////////////////////////////////////////////////////////////
-
-        // RADIAL parameters:
-        float switch_radial = 1.0f;
-
-        // ROTATIONAL parameters:
-        float ANGLE_ROT_LIM = FACT_DEG_2_RAD * ANGLE_ROT_LIM_DEG;
-
-        float pos_rot_eq_curr;
-        float k_stiff_rot_curr;
-        float b_damp_rot_curr;
-
-        float switch_rot = 1.0f;
-
-        ////////////////////////////////////////////////////////////////////////////
-        // Compute impedance parameters:
-        // If rotation limit is exceeded, apply limit values to rotational stiffness and damping:
-        ////////////////////////////////////////////////////////////////////////////
-
-        // NEW IMPLEMENTATION:
-        // Compute equivalent stiffnes & equilibrium point for the combined steering stiffness and limit-position stiffness
-        // Overcomes the limitation of RHB only allowing a single target (22.08.2025):
-
-        float pos_rot_eq_lim_plus  =  ANGLE_ROT_LIM;
-        float pos_rot_eq_lim_minus = -ANGLE_ROT_LIM;
-
-        if (pos_rot > pos_rot_eq_lim_plus)
-        {
-            k_stiff_rot_curr = K_STIFF_ROT_BASE_STEER + K_STIFF_ROT_LIM;
-            pos_rot_eq_curr = (K_STIFF_ROT_LIM * pos_rot_eq_lim_plus) / k_stiff_rot_curr;
-        }
-
-        else if (pos_rot < pos_rot_eq_lim_minus)
-        {
-            k_stiff_rot_curr = K_STIFF_ROT_BASE_STEER + K_STIFF_ROT_LIM;
-            pos_rot_eq_curr = (K_STIFF_ROT_LIM * pos_rot_eq_lim_minus) / k_stiff_rot_curr;
-        }
-        else
-        {
-            k_stiff_rot_curr = K_STIFF_ROT_BASE_STEER;
-            pos_rot_eq_curr = 0f;
-        }
-
-        // Assumes that damping is provided by embedded HL_SetTarget stability (22.08.2025):
-        b_damp_rot_curr = 0f;
-
-        ////////////////////////////////////////////////////////////////////////////
-        // Send limit force commands to RHB firmware:
-        ////////////////////////////////////////////////////////////////////////////
-
-        bool success_set_target;
-
-        if (ExerciseActive)
-            success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
-                POS_RADIAL_BASE_THROT, pos_rot_eq_curr,
-                K_STIFF_RADIAL_BASE_THROT, k_stiff_rot_curr,
-                B_DAMP_RADIAL_BASE_THROT, b_damp_rot_curr,
-                switch_radial, switch_rot);
-        else
-            success_set_target = false;
-    }
-    */
-
-    private void CmdSetTarget_AutoSteer(float pos_rot_eq_ref, float k_stiff_rot_steer)
+    private void CmdSetTarget_AutoSteer(float pos_rot_eq_ref, float k_stiff_rot_steer, float k_stiff_radial_throt)
     {
         ////////////////////////////////////////////////////////////////////////////
         // Impedance parameters for rotation angle limit:
@@ -843,14 +778,14 @@ public class ReHandyBotController : MonoBehaviour
         if (ExerciseActive)
             success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
                 POS_RADIAL_BASE, pos_rot_eq_ref,
-                K_STIFF_RADIAL_BASE, k_stiff_rot_steer,
+                k_stiff_radial_throt, k_stiff_rot_steer,
                 B_DAMP_RADIAL_BASE, b_damp_rot_steer,
                 SWITCH_RADIAL, SWITCH_ROT);
         else
             success_set_target = false;        
     }
 
-    private void CmdSetTarget_FeedbackCtrl_WithLimit(float pos_rot, float pos_rot_eq_ref, float k_stiff_rot_steer)
+    private void CmdSetTarget_FeedbackCtrl_WithLimit(float pos_rot, float pos_rot_eq_ref, float k_stiff_rot_steer, float k_stiff_radial_throt)
     {
         ////////////////////////////////////////////////////////////////////////////
         // RADIAL parameters:
@@ -874,33 +809,6 @@ public class ReHandyBotController : MonoBehaviour
         ////////////////////////////////////////////////////////////////////////////
         // Compute equivalent impedance parameters:
         ////////////////////////////////////////////////////////////////////////////
-
-        // TODO: remove at a later date:
-        /*
-        float pos_rot_eq_lim_plus  =  ANGLE_ROT_LIM;
-        float pos_rot_eq_lim_minus = -ANGLE_ROT_LIM;
-
-        if (pos_rot > pos_rot_eq_lim_plus)
-        {
-            k_stiff_rot_equiv = k_stiff_rot_steer + K_STIFF_ROT_LIM;
-
-            pos_eq_rot_equiv  = (k_stiff_rot_steer * pos_rot_eq_ref + K_STIFF_ROT_LIM * pos_rot_eq_lim_plus) 
-                / k_stiff_rot_equiv;
-        }
-
-        else if (pos_rot < pos_rot_eq_lim_minus)
-        {
-            k_stiff_rot_equiv = k_stiff_rot_steer + K_STIFF_ROT_LIM;
-
-            pos_eq_rot_equiv  = (k_stiff_rot_steer * pos_rot_eq_ref + K_STIFF_ROT_LIM * pos_rot_eq_lim_minus) 
-                / k_stiff_rot_equiv;
-        }
-        else
-        {
-            k_stiff_rot_equiv = k_stiff_rot_steer;
-            pos_eq_rot_equiv  = pos_rot_eq_ref;
-        }
-        */
 
         float pos_rot_eq_lim;
         float k_stiff_rot_lim;
@@ -940,7 +848,7 @@ public class ReHandyBotController : MonoBehaviour
         if (ExerciseActive)
             success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
                 POS_RADIAL_BASE, pos_eq_rot_equiv,
-                K_STIFF_RADIAL_BASE, k_stiff_rot_equiv,
+                k_stiff_radial_throt, k_stiff_rot_equiv,
                 B_DAMP_RADIAL_BASE, b_damp_rot_equiv,
                 SWITCH_RADIAL, SWITCH_ROT);
         else
@@ -1146,16 +1054,6 @@ public class ReHandyBotController : MonoBehaviour
                 break;
         }
 
-        // Display section:
-        /*
-        if (success && unlockRadial)
-            ExternalConsoleLogger.Log("        SetBrakes(): SUCCESS - DISENGAGE \n");
-        else if (success && !unlockRadial)
-            ExternalConsoleLogger.Log("        SetBrakes(): SUCCESS - ENGAGE \n");        
-        else
-            ExternalConsoleLogger.Log("        SetBrakes(): FAIL \n");
-        */
-
         onComplete?.Invoke();
     }
 
@@ -1270,7 +1168,7 @@ public class ReHandyBotController : MonoBehaviour
             bool success_step = SetTargetValidated(
                 IDX_TARG_BASE,
                 POS_RADIAL_BASE, POS_ROT_BASE,
-                K_STIFF_RADIAL_BASE, K_STIFF_ROT_BASE,
+                K_STIFF_RADIAL_THROT_MANUAL, K_STIFF_ROT_BASE,
                 B_DAMP_RADIAL_BASE, B_DAMP_ROT_BASE,
                 switch_var, 1f);
 
@@ -1282,32 +1180,12 @@ public class ReHandyBotController : MonoBehaviour
             switch_var += 1f / N_STEPS_MOTION_BASE;
         }
 
-        /*
-        ExternalConsoleLogger.Log(" ");
-        ExternalConsoleLogger.Log("--------------------------------------------------------------------");
-        ExternalConsoleLogger.Log("MotionRoutineRadialRHBBaseline() EXECUTED, success_all [" + success_all + "] \n");
-        */
-
         return success_all;
     }
 
-    // This is for usage for SetOffsetForces command, currently being called with dummy values
+    // This is for usage for SetOffsetForces command, currently being called with dummy values:
     private void SetOffsetForces()
     {
         ReHandyBotController.instance.SetOffsetForces(0f, 0f);
     }
-
-
-
-    // SetTarget functions removed 30.08.2025:
-    /*
-    private void SetupSetTargetEvents()
-   
-    private void StartSetTargetEvents()
-
-    private void StopSetTargetEvents()
-
-    private void SendCmdSetTargetSteerLimit(object sender, ElapsedEventArgs e)
-    */
-
 }

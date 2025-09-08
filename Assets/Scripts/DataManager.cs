@@ -97,7 +97,6 @@ public class DataManager : MonoBehaviour
             "pos ctrline near z",
             "vect ctrline tang x",
             "vect ctrline tang z",
-            // "curv ctrline near",
             "ang ctrline tang",
             "dist ctrline near",
 
@@ -116,7 +115,6 @@ public class DataManager : MonoBehaviour
             "angle roll targ",
             "dt angle roll targ",
             "input steer targ",
-            // "curv ctrline targ",
             "sin dev targ",
             "vect ctrline tangent targ x",
             "vect ctrline tangent targ z",
@@ -184,7 +182,6 @@ public class DataManager : MonoBehaviour
                 $"{track_coords_data.pos_ctrline_near.z}," +
                 $"{track_coords_data.vect_ctrline_tang.x}," +
                 $"{track_coords_data.vect_ctrline_tang.z}," +
-                // $"{track_coords_data.curv_ctrline_near}," +
                 $"{track_coords_data.ang_ctrline_tang}," +
                 $"{track_coords_data.dist_ctrline_near}," +
 
@@ -203,7 +200,6 @@ public class DataManager : MonoBehaviour
                 $"{fbk_ctrl_data.angle_roll_targ}," +
                 $"{fbk_ctrl_data.dt_angle_roll_targ}," +
                 $"{fbk_ctrl_data.input_steer_targ}," +
-                // $"{fbk_ctrl_data.curv_ctrline_targ}," +
                 $"{fbk_ctrl_data.sin_dev_targ}," +
                 $"{fbk_ctrl_data.vect_ctrline_tang_target.x}," +
                 $"{fbk_ctrl_data.vect_ctrline_tang_target.z}," +                
