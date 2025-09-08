@@ -38,7 +38,7 @@ public class MotorbikeController : MonoBehaviour
     const float I_GAIN_ERR_POS_TARG = 0f;
 
     // Gain(s) for tracking reference roll angle - CRITICAL:
-    const float P_GAIN_ANGLE_INPUT  = 3.5f; // 
+    const float P_GAIN_ANGLE_INPUT  = 3.5f; 
     const float D_GAIN_ANGLE_INPUT  = 0f;
     const float I_GAIN_ANGLE_INPUT  = 0f;
 
@@ -83,7 +83,7 @@ public class MotorbikeController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - Motor torque & acceleration:
     ////////////////////////////////////////////////////////////////////////////
-    ///
+    
     const float TORQUE_MOTOR_MAX = 600f; // 500f;
 
     // Acceleration factor: CRITICAL value - increases top speed but can make turning harder
@@ -118,7 +118,7 @@ public class MotorbikeController : MonoBehaviour
 
     // Error of preview position wrt target position:
     private float err_pos_preview_targ_prev = 0f;
-    private float int_err_pos_preview_targ = 0f;
+    private float int_err_pos_preview_targ  = 0f;
 
     // TARGET bike roll angle / ang vel / integral for steering - CRITICAL:
     private float angle_roll_targ_prev    = 0f;
@@ -603,7 +603,7 @@ public class MotorbikeController : MonoBehaviour
         float input_throttle;
 
         float pos_throttle = pos_radial;
-        float pos_throttle_zero = ReHandyBotController.POS_RADIAL_BASE_THROT;
+        float pos_throttle_zero = ReHandyBotController.POS_RADIAL_BASE;
 
         ////////////////////////////////////////////////////////////////
         // Deviation from centerline target (several uses):  
@@ -640,12 +640,12 @@ public class MotorbikeController : MonoBehaviour
                     + (1f - ReHandyBotController.instance.FACT_ASSIST_THROTTLE) * input_throttle_manual;
                 break;
 
-            case ReHandyBotController.CTRL_AUTO_STEER_THROTTLE:
+            case ReHandyBotController.CTRL_AUTO_STEER_AUTO_THROT:
 
                 input_throttle = input_throttle_fbk;
                 break;
 
-            case ReHandyBotController.CTRL_AUTO_STEER:
+            case ReHandyBotController.CTRL_AUTO_STEER_MANUAL_THROT:
             case ReHandyBotController.CTRL_MANUAL_SIMPLE:
 
                 input_throttle = input_throttle_manual;
@@ -686,8 +686,8 @@ public class MotorbikeController : MonoBehaviour
                    + (1f - ReHandyBotController.instance.FACT_ASSIST_STEER) * input_steer_manual;
                 break;
 
-            case ReHandyBotController.CTRL_AUTO_STEER_THROTTLE:
-            case ReHandyBotController.CTRL_AUTO_STEER:
+            case ReHandyBotController.CTRL_AUTO_STEER_AUTO_THROT:
+            case ReHandyBotController.CTRL_AUTO_STEER_MANUAL_THROT:
 
                 input_steer_ref = input_steer_targ;
                 break;
@@ -997,6 +997,16 @@ public class MotorbikeController : MonoBehaviour
         out Vector3 pos_track_targ_this, // ref Vector3 pos_track_near_this, out float curv_ctrline_targ_this, 
         out Vector3 vect_ctrline_tang_target_this)
     {
+        // Project bike vectors onto the track (xz) plane - TODO: this may be redundant with uses of Magnitude_XZ() elsewhere
+        const bool ENFORCE_XZ_PROJECTION = true;
+
+        if (ENFORCE_XZ_PROJECTION)
+        {
+            pos_bike      = Vector_XZ(pos_bike);
+            dt_pos_bike   = Vector_XZ(dt_pos_bike);
+            dir_unit_bike = Vector_XZ(dir_unit_bike);
+        }
+
         // Obtain preview point:
         float dist_preview = MagnitudeXZ(dt_pos_bike) * dt_preview; // distance to preview point ahead
 
@@ -1300,14 +1310,26 @@ public class MotorbikeController : MonoBehaviour
         return track_coords;
     }
 
-    public float ConvertSpeedMStoKMH(float speed_mpersec)
+    ///////////////////////////////////////////////////////////
+    // Ancillary functions:
+    //////////////////////////////////////////////////////////
+    
+    public Vector3 Vector_XZ(Vector3 vect)
     {
-        return speed_mpersec * 3.6f;
+        // Project 3D vector on the xz plane:
+        Vector3 vect_xz = new Vector3(vect.x, 0f, vect.z);
+
+        return vect_xz;
     }
 
     public float MagnitudeXZ(Vector3 vect)
     {
         return (float)Math.Sqrt(vect.x*vect.x + vect.z*vect.z);
+    }
+
+    public float ConvertSpeedMStoKMH(float speed_mpersec)
+    {
+        return speed_mpersec * 3.6f;
     }
 
     ///////////////////////////////////////////////////////////

@@ -28,10 +28,10 @@ public class ReHandyBotController : MonoBehaviour
 
     // public const bool USE_CONSTRAINED_STEER = false; // TODO: keep or discard
 
-    public const int CTRL_ASSISTED            = 1;
-    public const int CTRL_AUTO_STEER_THROTTLE = 2;
-    public const int CTRL_AUTO_STEER          = 3;
-    public const int CTRL_MANUAL_SIMPLE       = 4;
+    public const int CTRL_ASSISTED                = 1;
+    public const int CTRL_AUTO_STEER_AUTO_THROT   = 2;
+    public const int CTRL_AUTO_STEER_MANUAL_THROT = 3;
+    public const int CTRL_MANUAL_SIMPLE           = 4;
 
     public const int CASE_CTRL_MODE = CTRL_ASSISTED;
 
@@ -39,8 +39,8 @@ public class ReHandyBotController : MonoBehaviour
     // User-based game parameters - CRITICAL (30.08.2025):
     //////////////////////////////////////////////////////////////////////////// 
 
-    public float FACT_ASSIST_STEER    = -1f;  
-    public float FACT_ASSIST_THROTTLE = 1f;
+    public float FACT_ASSIST_STEER       = -1f; // initial dummy value
+    public float FACT_ASSIST_THROTTLE    =  1f;
 
     public float FRAC_POS_ROT_INPUT_USER = 0.5f; // scaling factor for user's rotational inputs (based on user's ROM, for example)
 
@@ -51,18 +51,18 @@ public class ReHandyBotController : MonoBehaviour
     private float OFFS_FORCE_RADIAL_INIT = 0f;
     private float OFFS_TORQUE_ROT_INIT   = 0f;
 
-    private bool SAFETY_TCP_APP_ON     = false;
-    private bool STABILITY_SET_TARG_ON = true;  
+    private bool SAFETY_TCP_APP_ON       = false;
+    private bool STABILITY_SET_TARG_ON   = true;  
 
-    private const bool ENGAGE_BRAKE    = false;
-    private const bool DISENGAGE_BRAKE = true;
+    private const bool ENGAGE_BRAKE      = false;
+    private const bool DISENGAGE_BRAKE   = true;
 
     ////////////////////////////////////////////////////////////////////////////
     // Target indices:
     ////////////////////////////////////////////////////////////////////////////
 
     public const int NUM_TARGETS = 1;
-    private byte IDX_TARG_BASE = 1;
+    private byte IDX_TARG_BASE   = 1;
 
     ////////////////////////////////////////////////////////////////////////////
     // Object instances:
@@ -82,24 +82,24 @@ public class ReHandyBotController : MonoBehaviour
     private float K_STIFF_RADIAL_WALL = 2500f; // use with zero feedback gain
     private float B_DAMP_RADIAL_WALL  = 0f; // 40f; // rely on embedded HL_SetTarget stability
 
-    private float K_STIFF_ROT_WALL = 1.2f; // use with zero feedback gain
-    private float B_DAMP_ROT_WALL  = 0f; // 0.092f; // rely on embedded HL_SetTarget stability
+    private float K_STIFF_ROT_WALL    = 1.2f; // use with zero feedback gain
+    private float B_DAMP_ROT_WALL     = 0f; // 0.092f; // rely on embedded HL_SetTarget stability
 
-    private float POS_RADIAL_MIN = 0.0145f;
-    private float POS_RADIAL_MAX = 0.06f;  
+    private float POS_RADIAL_MIN      = 0.0145f;
+    private float POS_RADIAL_MAX      = 0.06f;  
 
     private float POS_ROT_MIN = -Mathf.PI / 2f;
     private float POS_ROT_MAX =  Mathf.PI / 2f;
 
     // Throttle - BASELINE haptics settings:
-    public const float POS_RADIAL_BASE_THROT = 0.029f; // used by MotorbikeController
-    private float K_STIFF_RADIAL_BASE_THROT  = 2500f;
-    private float B_DAMP_RADIAL_BASE_THROT   = 0f; // rely on embedded HL_SetTarget stability 
+    public const float POS_RADIAL_BASE = 0.029f; // used by MotorbikeController
+    private float K_STIFF_RADIAL_BASE  = 2500f;
+    private float B_DAMP_RADIAL_BASE   = 0f; // rely on embedded HL_SetTarget stability 
 
     // Steering - BASELINE haptics settings:
-    private const float POS_ROT_BASE_STEER = 0f;
-    private float K_STIFF_ROT_BASE_STEER   = 0.05f;  
-    private float B_DAMP_ROT_BASE_STEER    = 0f; // rely on embedded HL_SetTarget stability
+    private const float POS_ROT_BASE = 0f;
+    private float K_STIFF_ROT_BASE   = 0.1f; // 0.05f; //
+    private float B_DAMP_ROT_BASE    = 0f; // rely on embedded HL_SetTarget stability
 
     // Stiffness for tracking control;
     private float K_ROT_STIFF_TRACKING = 1.0f; // rely on embedded HL_SetTarget stability
@@ -108,10 +108,10 @@ public class ReHandyBotController : MonoBehaviour
     // Impedance for RHB motion limits:
     ////////////////////////////////////////////////////////////////////////////   
 
-    private float K_STIFF_ROT_LIM = 0.6f;
-    private float B_DAMP_ROT_LIM = 0f; // rely on embedded HL_SetTarget stability
+    private float K_STIFF_ROT_LIM  = 0.6f;
+    private float B_DAMP_ROT_LIM   = 0f; // rely on embedded HL_SetTarget stability
 
-    public float ANGLE_ROT_LIM_DEG = 45.0f;
+    public float ANGLE_ROT_LIM_DEG = 60.0f; // TODO: revise this value (too large?)
 
     ////////////////////////////////////////////////////////////////////////////
     // Data structures from bike and track objects:
@@ -383,25 +383,26 @@ public class ReHandyBotController : MonoBehaviour
         switch (case_ctrl_mode)
         {
             case CTRL_ASSISTED:
-                /*
-                SetGain(
-                    (1f - FACT_ASSIST_THROTTLE) * FORCE_GAIN_RADIAL, 
-                    (1f - FACT_ASSIST_STEER)    * FORCE_GAIN_ROT);
-                */
+
                 SetGain(
                     FORCE_GAIN_RADIAL, 
                     FORCE_GAIN_ROT);
                 break;
 
-            case CTRL_AUTO_STEER_THROTTLE:
-            case CTRL_AUTO_STEER:
+            case CTRL_AUTO_STEER_AUTO_THROT:
+            case CTRL_AUTO_STEER_MANUAL_THROT:
 
                 SetGain(0f, 0f);
                 break;
 
             case CTRL_MANUAL_SIMPLE:
 
-                SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
+                SetGain(
+                    FORCE_GAIN_RADIAL, 
+                    FORCE_GAIN_ROT);
+                break;
+
+            default: // no command
                 break;
         }
     }
@@ -410,7 +411,8 @@ public class ReHandyBotController : MonoBehaviour
     // Control commands using Set Target - CASES:
     ////////////////////////////////////////////////////////////////////////////
 
-    void CmdSetTargetSteerAndThrottleCases(float pos_rot, float angle_roll_targ_this, float angle_roll_bike_this, int case_ctrl_mode) { 
+    void CmdSetTargetSteerAndThrottleCases(float pos_rot, float angle_roll_targ_this, float angle_roll_bike_this, int case_ctrl_mode) {
+
         switch (case_ctrl_mode)
         {
             case CTRL_ASSISTED:
@@ -419,19 +421,39 @@ public class ReHandyBotController : MonoBehaviour
                     FRAC_POS_ROT_INPUT_USER* angle_roll_bike_this,
                     FACT_ASSIST_STEER* K_ROT_STIFF_TRACKING); // TODO: add baseline stiffness for zero assist
                 */
+
+                CmdSetTarget_FeedbackCtrl_WithLimit(
+                    pos_rot,
+                    FRAC_POS_ROT_INPUT_USER * angle_roll_targ_this, 
+                    FACT_ASSIST_STEER* K_ROT_STIFF_TRACKING);
                 break;
 
-            case CTRL_AUTO_STEER_THROTTLE:
-            case CTRL_AUTO_STEER:
+            case CTRL_AUTO_STEER_AUTO_THROT:
+            case CTRL_AUTO_STEER_MANUAL_THROT:
 
-                CmdSetTargetCtrlFeedback(
-                    FRAC_POS_ROT_INPUT_USER* angle_roll_bike_this, // TODO: consider changing to angle_roll_targ_this
+                // TODO: keep or discard:
+                /*
+                CmdSetTarget_FeedbackCtrl(
+                    FRAC_POS_ROT_INPUT_USER* angle_roll_bike_this,  
+                    K_ROT_STIFF_TRACKING);
+                */
+
+                CmdSetTarget_AutoSteer(
+                    FRAC_POS_ROT_INPUT_USER * angle_roll_bike_this,
                     K_ROT_STIFF_TRACKING);
                 break;
 
             case CTRL_MANUAL_SIMPLE:
+                // TODO: keep or discard:
+                // CmdSetTargetCtrl_ManualSimple_WithLimit(pos_rot);
 
-                CmdSetTargetCtrlManualSimpleWithLimit(pos_rot);
+                CmdSetTarget_FeedbackCtrl_WithLimit(
+                    pos_rot,
+                    0f, 
+                    K_STIFF_ROT_BASE);
+                break;
+
+            default: // no command
                 break;
         }
     }
@@ -440,8 +462,9 @@ public class ReHandyBotController : MonoBehaviour
     // Control commands using Set Target - functions:
     ////////////////////////////////////////////////////////////////////////////
 
-    #region Exercise tasks
-    private void CmdSetTargetCtrlManualSimpleWithLimit(float pos_rot)
+    // TODO: keep or discard:
+    /*
+    private void CmdSetTargetCtrl_ManualSimple_WithLimit(float pos_rot)
     {
         ////////////////////////////////////////////////////////////////////////////
         // Impedance parameters for rotation angle limit:
@@ -453,9 +476,9 @@ public class ReHandyBotController : MonoBehaviour
         // ROTATIONAL parameters:
         float ANGLE_ROT_LIM = FACT_DEG_2_RAD * ANGLE_ROT_LIM_DEG;
 
-        float pos_eq_rot_curr;
-        float k_rot_curr;
-        float b_rot_curr;
+        float pos_rot_eq_curr;
+        float k_stiff_rot_curr;
+        float b_damp_rot_curr;
 
         float switch_rot = 1.0f;
 
@@ -468,28 +491,28 @@ public class ReHandyBotController : MonoBehaviour
         // Compute equivalent stiffnes & equilibrium point for the combined steering stiffness and limit-position stiffness
         // Overcomes the limitation of RHB only allowing a single target (22.08.2025):
 
-        float pos_eq_rot_lim_plus  =  ANGLE_ROT_LIM;
-        float pos_eq_rot_lim_minus = -ANGLE_ROT_LIM;
+        float pos_rot_eq_lim_plus  =  ANGLE_ROT_LIM;
+        float pos_rot_eq_lim_minus = -ANGLE_ROT_LIM;
 
-        if (pos_rot > pos_eq_rot_lim_plus)
+        if (pos_rot > pos_rot_eq_lim_plus)
         {
-            k_rot_curr = K_STIFF_ROT_BASE_STEER + K_STIFF_ROT_LIM;
-            pos_eq_rot_curr = (K_STIFF_ROT_LIM * pos_eq_rot_lim_plus) / k_rot_curr;
+            k_stiff_rot_curr = K_STIFF_ROT_BASE_STEER + K_STIFF_ROT_LIM;
+            pos_rot_eq_curr = (K_STIFF_ROT_LIM * pos_rot_eq_lim_plus) / k_stiff_rot_curr;
         }
 
-        else if (pos_rot < pos_eq_rot_lim_minus)
+        else if (pos_rot < pos_rot_eq_lim_minus)
         {
-            k_rot_curr = K_STIFF_ROT_BASE_STEER + K_STIFF_ROT_LIM;
-            pos_eq_rot_curr = (K_STIFF_ROT_LIM * pos_eq_rot_lim_minus) / k_rot_curr;
+            k_stiff_rot_curr = K_STIFF_ROT_BASE_STEER + K_STIFF_ROT_LIM;
+            pos_rot_eq_curr = (K_STIFF_ROT_LIM * pos_rot_eq_lim_minus) / k_stiff_rot_curr;
         }
         else
         {
-            k_rot_curr = K_STIFF_ROT_BASE_STEER;
-            pos_eq_rot_curr = 0f;
+            k_stiff_rot_curr = K_STIFF_ROT_BASE_STEER;
+            pos_rot_eq_curr = 0f;
         }
 
         // Assumes that damping is provided by embedded HL_SetTarget stability (22.08.2025):
-        b_rot_curr = 0f;
+        b_damp_rot_curr = 0f;
 
         ////////////////////////////////////////////////////////////////////////////
         // Send limit force commands to RHB firmware:
@@ -499,26 +522,27 @@ public class ReHandyBotController : MonoBehaviour
 
         if (ExerciseActive)
             success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
-                POS_RADIAL_BASE_THROT, pos_eq_rot_curr,
-                K_STIFF_RADIAL_BASE_THROT, k_rot_curr,
-                B_DAMP_RADIAL_BASE_THROT, b_rot_curr,
+                POS_RADIAL_BASE_THROT, pos_rot_eq_curr,
+                K_STIFF_RADIAL_BASE_THROT, k_stiff_rot_curr,
+                B_DAMP_RADIAL_BASE_THROT, b_damp_rot_curr,
                 switch_radial, switch_rot);
         else
             success_set_target = false;
     }
+    */
 
-    private void CmdSetTargetCtrlFeedback(float pos_eq_rot_ref, float k_rot_steer)
+    private void CmdSetTarget_AutoSteer(float pos_rot_eq_ref, float k_stiff_rot_steer)
     {
         ////////////////////////////////////////////////////////////////////////////
         // Impedance parameters for rotation angle limit:
         ////////////////////////////////////////////////////////////////////////////
 
         // RADIAL parameters:
-        float switch_radial = 1f;
+        float SWITCH_RADIAL = 1f;
 
         // ROTATIONAL parameters:
-        float b_rot_steer = 0f; // Assumes that damping is provided by embedded HL_SetTarget stability
-        float switch_rot = 1;
+        float SWITCH_ROT = 1;
+        float b_damp_rot_steer = 0f; // Assumes that damping is provided by embedded HL_SetTarget stability
 
         ////////////////////////////////////////////////////////////////////////////
         // Send limit force commands to RHB firmware:
@@ -528,15 +552,110 @@ public class ReHandyBotController : MonoBehaviour
 
         if (ExerciseActive)
             success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
-                POS_RADIAL_BASE_THROT, pos_eq_rot_ref,
-                K_STIFF_RADIAL_BASE_THROT, k_rot_steer,
-                B_DAMP_RADIAL_BASE_THROT, b_rot_steer,
-                switch_radial, switch_rot);
+                POS_RADIAL_BASE, pos_rot_eq_ref,
+                K_STIFF_RADIAL_BASE, k_stiff_rot_steer,
+                B_DAMP_RADIAL_BASE, b_damp_rot_steer,
+                SWITCH_RADIAL, SWITCH_ROT);
         else
             success_set_target = false;        
     }
 
-    #endregion
+    private void CmdSetTarget_FeedbackCtrl_WithLimit(float pos_rot, float pos_rot_eq_ref, float k_stiff_rot_steer)
+    {
+        ////////////////////////////////////////////////////////////////////////////
+        // RADIAL parameters:
+        ////////////////////////////////////////////////////////////////////////////
+        
+        const float SWITCH_RADIAL = 1.0f;
+
+        ////////////////////////////////////////////////////////////////////////////
+        // ROTATIONAL parameters:
+        ////////////////////////////////////////////////////////////////////////////        
+
+        const float SWITCH_ROT = 1.0f;
+
+        float ANGLE_ROT_LIM = FACT_DEG_2_RAD * ANGLE_ROT_LIM_DEG;
+
+        // Equivalent impedance - combining reference (trajectory) equilibrium position and rotation limit position:
+        float pos_eq_rot_equiv;
+        float k_stiff_rot_equiv;
+        float b_damp_rot_equiv;
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Compute equivalent impedance parameters:
+        ////////////////////////////////////////////////////////////////////////////
+
+        // TODO: remove at a later date:
+        /*
+        float pos_rot_eq_lim_plus  =  ANGLE_ROT_LIM;
+        float pos_rot_eq_lim_minus = -ANGLE_ROT_LIM;
+
+        if (pos_rot > pos_rot_eq_lim_plus)
+        {
+            k_stiff_rot_equiv = k_stiff_rot_steer + K_STIFF_ROT_LIM;
+
+            pos_eq_rot_equiv  = (k_stiff_rot_steer * pos_rot_eq_ref + K_STIFF_ROT_LIM * pos_rot_eq_lim_plus) 
+                / k_stiff_rot_equiv;
+        }
+
+        else if (pos_rot < pos_rot_eq_lim_minus)
+        {
+            k_stiff_rot_equiv = k_stiff_rot_steer + K_STIFF_ROT_LIM;
+
+            pos_eq_rot_equiv  = (k_stiff_rot_steer * pos_rot_eq_ref + K_STIFF_ROT_LIM * pos_rot_eq_lim_minus) 
+                / k_stiff_rot_equiv;
+        }
+        else
+        {
+            k_stiff_rot_equiv = k_stiff_rot_steer;
+            pos_eq_rot_equiv  = pos_rot_eq_ref;
+        }
+        */
+
+        float pos_rot_eq_lim;
+        float k_stiff_rot_lim;
+
+        if (pos_rot > ANGLE_ROT_LIM) 
+        {
+            pos_rot_eq_lim  = ANGLE_ROT_LIM;
+            k_stiff_rot_lim = K_STIFF_ROT_LIM;
+        }
+
+        else if (pos_rot < -ANGLE_ROT_LIM) 
+        { 
+            pos_rot_eq_lim  = -ANGLE_ROT_LIM;
+            k_stiff_rot_lim = K_STIFF_ROT_LIM;
+        }
+
+        else 
+        {
+            pos_rot_eq_lim  = 0f; // dummy value
+            k_stiff_rot_lim = 0f; // true value
+        }
+
+        k_stiff_rot_equiv = k_stiff_rot_steer + k_stiff_rot_lim + K_STIFF_ROT_BASE;
+
+        pos_eq_rot_equiv = (k_stiff_rot_steer*pos_rot_eq_ref + k_stiff_rot_lim*pos_rot_eq_lim)
+             / k_stiff_rot_equiv;
+
+        // Assumes that damping is provided by embedded HL_SetTarget stability (22.08.2025):
+        b_damp_rot_equiv = 0f;
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Send limit force commands to RHB firmware:
+        ////////////////////////////////////////////////////////////////////////////
+
+        bool success_set_target;
+
+        if (ExerciseActive)
+            success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
+                POS_RADIAL_BASE, pos_eq_rot_equiv,
+                K_STIFF_RADIAL_BASE, k_stiff_rot_equiv,
+                B_DAMP_RADIAL_BASE, b_damp_rot_equiv,
+                SWITCH_RADIAL, SWITCH_ROT);
+        else
+            success_set_target = false;
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     // Ancillary functions - RHB control:
@@ -1060,9 +1179,9 @@ public class ReHandyBotController : MonoBehaviour
             // Note use of baseline impedance:
             bool success_step = SetTargetValidated(
                 IDX_TARG_BASE,
-                POS_RADIAL_BASE_THROT, POS_ROT_BASE_STEER,
-                K_STIFF_RADIAL_BASE_THROT, K_STIFF_ROT_BASE_STEER,
-                B_DAMP_RADIAL_BASE_THROT, B_DAMP_ROT_BASE_STEER,
+                POS_RADIAL_BASE, POS_ROT_BASE,
+                K_STIFF_RADIAL_BASE, K_STIFF_ROT_BASE,
+                B_DAMP_RADIAL_BASE, B_DAMP_ROT_BASE,
                 switch_var, 1f);
 
             if (success_all && !success_step)
