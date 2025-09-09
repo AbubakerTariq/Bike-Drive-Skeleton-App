@@ -28,7 +28,7 @@ public class ReHandyBotController : MonoBehaviour
 
     const int NULL_SETTING = -1;
 
-    public const bool USE_BEGINNER_BIKE_CONSTR = false; // TODO: keep or discard
+    public bool USE_BEGINNER_BIKE_CONSTR = false;  // DEFAULT setting before selection
 
     public const int CTRL_ASSISTED                = 1;
     public const int CTRL_AUTO_STEER_AUTO_THROT   = 2;
@@ -54,12 +54,13 @@ public class ReHandyBotController : MonoBehaviour
     // Pre-game procedures stated - CRITICAL:
     //////////////////////////////////////////////////////////////////////////// 
 
-    private const int ST_SET_CTRL_MODE            = 1;
-    private const int ST_SET_FACT_ASSIST_STEER    = 2;
-    private const int ST_SET_FACT_ASSIST_THROTTLE = 3;
-    private const int ST_CALIBRATE                = 4;
+    private const int ST_SELECT_BIKE_TYPE         = 1;
+    private const int ST_SET_CTRL_MODE            = 2;
+    private const int ST_SET_FACT_ASSIST_STEER    = 3;
+    private const int ST_SET_FACT_ASSIST_THROTTLE = 4;
+    private const int ST_CALIBRATE                = 5;
 
-    private int STATE_PREGAME = ST_SET_CTRL_MODE; // initial state
+    private int STATE_PREGAME = ST_SELECT_BIKE_TYPE; // initial state
 
     ////////////////////////////////////////////////////////////////////////////
     // SetExercise() parameters:
@@ -390,15 +391,13 @@ public class ReHandyBotController : MonoBehaviour
 
         loader.SetActive(true);
 
-        if (STATE_PREGAME == ST_SET_CTRL_MODE)
+        if (STATE_PREGAME == ST_SELECT_BIKE_TYPE)
         {
             loaderText.text =
                "CLICK on this screen and \n\n" +
-               "Select CONTROL MODE: \n\n" +
-               "(1) ASSISTED CONTROL \n" +
-               "(2) AUTO STEER / AUTO THROTTLE \n" +
-               "(3) AUTO STEER / MANUAL THROTTLE \n" +
-               "(4) PURE MANUAL";
+               "Select BIKE TYPE: \n\n" +
+               "PRO bike: hit [Enter] \n" +
+               "Beginner: hit [B]";
         }
 
         loaderText.alignment = TextAlignmentOptions.MidlineLeft;
@@ -406,8 +405,17 @@ public class ReHandyBotController : MonoBehaviour
 
     private void OnSelectGameSettings()
     {
+        if (STATE_PREGAME == ST_SET_CTRL_MODE)
+        {
+            loaderText.text =
+               "Select CONTROL MODE: \n\n" +
+               "(1) ASSISTED CONTROL \n" +
+               "(2) AUTO STEER / AUTO THROTTLE \n" +
+               "(3) AUTO STEER / MANUAL THROTTLE \n" +
+               "(4) PURE MANUAL";
+        }
 
-        if (STATE_PREGAME == ST_SET_FACT_ASSIST_STEER) 
+        else if (STATE_PREGAME == ST_SET_FACT_ASSIST_STEER) 
         {
             loaderText.text =
                 "Select STEER ASSISTANCE level (0 to 9) \n";
@@ -423,7 +431,13 @@ public class ReHandyBotController : MonoBehaviour
 
         else if (STATE_PREGAME == ST_CALIBRATE)
         {
+            string str_bike_type;
             string str_fact_assist;
+
+            if (USE_BEGINNER_BIKE_CONSTR) 
+                str_bike_type = "Bike type: BEGINNER";
+            else
+                str_bike_type = "Bike type: PRO" ;
 
             if (CASE_CTRL_MODE == CTRL_ASSISTED)
                 str_fact_assist = 
@@ -433,10 +447,11 @@ public class ReHandyBotController : MonoBehaviour
                 str_fact_assist = " ";
 
             loaderText.text =
-            "CONTROL MODE [" + CASE_CTRL_MODE + "]\n" +
-             str_fact_assist + "\n\n" +
-            "Align grippers horizontally and close the grippers \n\n" +
-            "Press Y to CALIBRATE";
+                str_bike_type +"\n\n" +
+                "CONTROL MODE [" + CASE_CTRL_MODE + "]\n" +
+                 str_fact_assist + "\n\n" +
+                "Align grippers horizontally and close the grippers \n\n" +
+                "Press Y to CALIBRATE";
         }
     }
 
@@ -478,6 +493,25 @@ public class ReHandyBotController : MonoBehaviour
 
     private void SelectGameSettings(UnityAction onComplete = null)
     {
+
+        ////////////////////////////////////////////////
+        // Select BIKE TYPE:
+        ////////////////////////////////////////////////
+        
+        if (STATE_PREGAME == ST_SELECT_BIKE_TYPE)
+        {
+            if (Input.GetKeyDown(KeyCode.Return))
+                USE_BEGINNER_BIKE_CONSTR = false;
+            else if (Input.GetKeyDown(KeyCode.B))
+                USE_BEGINNER_BIKE_CONSTR = true;
+            else
+                return;
+
+            STATE_PREGAME = ST_SET_CTRL_MODE;
+
+            onComplete.Invoke();
+        }
+
         ////////////////////////////////////////////////
         // Select CONTROL MODE:
         ////////////////////////////////////////////////
@@ -704,7 +738,7 @@ public class ReHandyBotController : MonoBehaviour
 
     void CmdSetTargetSteerAndThrottleCases(float pos_rot, float angle_roll_targ_this, float angle_roll_bike_this, int case_ctrl_mode) {
 
-        const bool USE_ASSIST_TORQUE_LIMIT     = true;
+        const bool USE_ASSIST_TORQUE_LIMIT     = true; // TODO: make the 'true' case permanent
         const float FACT_CORRECT_TORQUE_OFFSET = 8.0f; // TODO: offset torque generated by RHB is not consistent with SetTarget torque (!)
 
         switch (case_ctrl_mode)

@@ -48,7 +48,7 @@ public class MotorbikeController : MonoBehaviour
     const float FACTOR_ANGLE_WHEEL_FWD = 60f;
 
     const float RATIO_ANG_ROLL_2_ANG_WHEEL = 0.030f; // for USE_CONSTRAINED_STEER option
-    const float SPEED_TRANSITION_UPRIGHT = 5.0f; // transition speed for wheel steering angle behavior
+    const float SPEED_TRANSITION_UPRIGHT = 2.0f; // transition speed for wheel steering angle behavior
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - Steering - RHB input scaling (TODO: keep or discard):
@@ -325,14 +325,18 @@ public class MotorbikeController : MonoBehaviour
     private Vector3 dt_pos_bike = NULL_VECTOR3;
     private Vector3 dir_unit_bike = NULL_VECTOR3;
 
+    private float dt_pos_bike_magn = NULL_VALUE;
+
     /////////////////////////////////////////////////////////////
-    // Previous kinematic states:
+    // Previous states:
     /////////////////////////////////////////////////////////////
 
-    private Vector3 pos_bike_prev = new();
-
-    private float dt_pos_bike_magn = 0;
+    private Vector3 pos_bike_prev = new();  
     private float input_steer_prev = 0f;
+
+    // Detect exercise stop and enforce upright position:
+    private bool exercise_active_prev = false; // used to detect when exercise stops
+    private bool enforce_upright = false;
 
     /////////////////////////////////////////////////////////////
     // Display settings:
@@ -551,14 +555,18 @@ public class MotorbikeController : MonoBehaviour
         // NOTE: this is an artificial input for game play purposes, not a realistic condition
         ////////////////////////////////////////////////////////////////
 
-        uprightForce(bike_input.throttle);
+        // uprightForce(bike_input.throttle);
+        uprightForceSimple(ReHandyBotController.instance.ExerciseActive);
+
+        exercise_active_prev = ReHandyBotController.instance.ExerciseActive;
 
         ////////////////////////////////////////////////////////////////
         // Bike control commands - CRITICAL:
         ////////////////////////////////////////////////////////////////            
 
-        MotorbikeControl(bike_input, step_count, out bike_coords_this, out bike_pose_this, ref steer_calc_this);
 
+        MotorbikeControl(bike_input, step_count, out bike_coords_this, out bike_pose_this, ref steer_calc_this);
+ 
         ////////////////////////////////////////////////////////////////
         // Adjust torque (key input mode only) and wheel sideways friction:
         ////////////////////////////////////////////////////////////////
@@ -867,9 +875,8 @@ public class MotorbikeController : MonoBehaviour
         // Bike roll angle (rad) - super CRITICAL:
         ////////////////////////////////////////////////////////////////
 
-        // TODO: keep or discard:
-        // If required. enforce z-axis rotation to target roll angle value:
-        if (ReHandyBotController.USE_BEGINNER_BIKE_CONSTR)
+        // If Beginner bike is selected, enforce z-axis rotation to target roll angle value:
+        if (ReHandyBotController.instance.USE_BEGINNER_BIKE_CONSTR)
             thisTransform.rotation = Quaternion.Euler(
                 thisTransform.rotation.eulerAngles.x,
                 thisTransform.rotation.eulerAngles.y,
@@ -912,8 +919,8 @@ public class MotorbikeController : MonoBehaviour
 
         if (dt_pos_bike_magn > SPEED_TRANSITION_UPRIGHT)
         {
-            // TODO: keep or discard
-            if (ReHandyBotController.USE_BEGINNER_BIKE_CONSTR)
+            // Ig Beginner bike is selected, override dynamics-based steering:
+            if (ReHandyBotController.instance.USE_BEGINNER_BIKE_CONSTR)
                 wheel_coll_fwd.steerAngle = -1f / FACT_DEG_2_RAD * RATIO_ANG_ROLL_2_ANG_WHEEL * angle_roll_bike;
             else
                 wheel_coll_fwd.steerAngle = FACTOR_ANGLE_WHEEL_FWD * bike_input.steer_scaled; 
@@ -1126,6 +1133,8 @@ public class MotorbikeController : MonoBehaviour
         Rider.SetActive(true);
     }
 
+    // TODO: keep or discard
+    /*
     private void uprightForce(float input_throttle)
     {
         bool input_force_trq_on;
@@ -1138,12 +1147,31 @@ public class MotorbikeController : MonoBehaviour
         // rigid_body.angularDrag -= 100f * Time.deltaTime;
         // rigid_body.angularDrag = Mathf.Clamp(rigid_body.angularDrag, 0.1f, 100f);
 
-        if (dt_pos_bike_magn < SPEED_TRANSITION_UPRIGHT && !input_force_trq_on)  
+        if (dt_pos_bike_magn < SPEED_TRANSITION_UPRIGHT && !input_force_trq_on)
         {
             // Enforce roll angle zero:
             thisTransform.rotation = Quaternion.Euler(
-                thisTransform.rotation.eulerAngles.x, 
-                thisTransform.rotation.eulerAngles.y, 
+                thisTransform.rotation.eulerAngles.x,
+                thisTransform.rotation.eulerAngles.y,
+                0);
+
+            rigid_body.constraints = RigidbodyConstraints.FreezeAll;
+        }
+        else
+            rigid_body.constraints = RigidbodyConstraints.None;
+    }
+    */
+
+    private void uprightForceSimple(bool exercise_active)
+    {
+        if (!exercise_active && exercise_active_prev)
+            enforce_upright = true;
+
+        if (enforce_upright) {
+            // Enforce roll angle zero:
+            thisTransform.rotation = Quaternion.Euler(
+                thisTransform.rotation.eulerAngles.x,
+                thisTransform.rotation.eulerAngles.y,
                 0);
 
             rigid_body.constraints = RigidbodyConstraints.FreezeAll;
