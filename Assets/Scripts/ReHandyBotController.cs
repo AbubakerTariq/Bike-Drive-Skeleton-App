@@ -28,7 +28,7 @@ public class ReHandyBotController : MonoBehaviour
 
     const int NULL_SETTING = -1;
 
-    // public const bool USE_CONSTRAINED_STEER = false; // TODO: keep or discard
+    public const bool USE_BEGINNER_BIKE_CONSTR = false; // TODO: keep or discard
 
     public const int CTRL_ASSISTED                = 1;
     public const int CTRL_AUTO_STEER_AUTO_THROT   = 2;
@@ -38,14 +38,17 @@ public class ReHandyBotController : MonoBehaviour
     public int CASE_CTRL_MODE = CTRL_MANUAL_SIMPLE; // DEFAULT setting before selection
 
     ////////////////////////////////////////////////////////////////////////////
-    // User-based game parameters - CRITICAL (30.08.2025):
+    // Patient-based game parameters - CRITICAL (30.08.2025):
     //////////////////////////////////////////////////////////////////////////// 
 
     public float FACT_ASSIST_STEER       = 0f; // DEFAULT setting before selection
     public float FACT_ASSIST_THROTTLE    = 0f; // DEFAULT setting before selection
 
-    // Scaling factor for user's rotational inputs (based on user's ROM, for example)
-    public float FRAC_POS_ROT_INPUT_USER = 0.5f;  // DEFAULT setting before selection
+    // Scaling factor for Patient's rotational inputs (based on Patient's ROM, for example)
+    public float FRAC_POS_ROT_INPUT_PATIENT = 0.5f;  // DEFAULT setting before selection
+
+    // Maximum assistive torque:
+    const float TORQUE_ASSIST_MAX_PATIENT = 0.2f;  
 
     ////////////////////////////////////////////////////////////////////////////
     // Pre-game procedures stated - CRITICAL:
@@ -113,11 +116,11 @@ public class ReHandyBotController : MonoBehaviour
 
     // Steering - BASELINE haptics settings:
     private const float POS_ROT_BASE = 0f;
-    private float K_STIFF_ROT_BASE   = 0.05f; // 0.1f; // 
+    private float K_STIFF_ROT_BASE   = 0.1f; // 0.05f; // 
     private float B_DAMP_ROT_BASE    = 0f; // rely on embedded HL_SetTarget stability
 
     // Stiffness for tracking control;
-    private float K_ROT_STIFF_TRACKING = 1.0f; // rely on embedded HL_SetTarget stability
+    private float K_ROT_STIFF_TRACKING = 1.2f;  
 
     ////////////////////////////////////////////////////////////////////////////
     // Impedance for RHB motion limits:
@@ -126,24 +129,30 @@ public class ReHandyBotController : MonoBehaviour
     private float K_STIFF_ROT_LIM  = 0.6f;
     private float B_DAMP_ROT_LIM   = 0f; // rely on embedded HL_SetTarget stability
 
-    public float ANGLE_ROT_LIM_DEG = 60.0f; // TODO: revise this value (too large?)
+    public float ANGLE_ROT_LIM_DEG = 45f;  
 
     ////////////////////////////////////////////////////////////////////////////
-    // Data structures from bike and track objects:
+    // Kinematic & force data variables:
     ////////////////////////////////////////////////////////////////////////////
 
     static Vector3 NULL_VECTOR3 = Vector3.zero;
-    private const float NULL_VALUE      = 0f;
+    private const float NULL_VALUE = 0f;
 
     // Track coordinates:
-    private Vector3 pos_ctrline_near   = NULL_VECTOR3;
-    private Vector3 vect_ctrline_tang  = NULL_VECTOR3;
+    private Vector3 pos_ctrline_near  = NULL_VECTOR3;
+    private Vector3 vect_ctrline_tang = NULL_VECTOR3;
 
     // Bike pose:
-    private float angle_roll_bike      = NULL_VALUE;
+    private float angle_roll_bike = NULL_VALUE;
 
     // Feedback control:
-    private float angle_roll_targ  = NULL_VALUE;
+    private float angle_roll_targ = NULL_VALUE;
+
+    // Trajectory tracking: reference equilibrium position:
+    public float pos_rot_eq_ref  = NULL_VALUE;
+
+    // Assistive torque:
+    public float torque_assist = NULL_VALUE;
 
     ////////////////////////////////////////////////////////////////////////////
     // Loader:
@@ -196,7 +205,7 @@ public class ReHandyBotController : MonoBehaviour
     private Thread connectionThread;
     private Tween connectionTween;
 
-    private bool isCalibrated = false;
+    private bool isCalibrated   = false;
     private bool allowCalibrate = false;
 
     public Action OnExerciseStart;
@@ -208,9 +217,9 @@ public class ReHandyBotController : MonoBehaviour
     // Control loop timers:
     ////////////////////////////////////////////////////////////////////////////
 
-    private bool timerActive = false;
+    private bool timerActive     = false;
     private bool timerActivePrev = false;
-    private bool timerLocked = false;
+    private bool timerLocked     = false;
     // private bool timerLockDetected = false;
 
     public float timeElapsedValue = 0f;
@@ -570,7 +579,7 @@ public class ReHandyBotController : MonoBehaviour
     private void Update()
     {   
         ////////////////////////////////////////////////////////////////////////////
-        // Allow the user to select game modes:
+        // Allow the Patient to select game modes:
         ////////////////////////////////////////////////////////////////////////////
 
         if (STATE_PREGAME != ST_CALIBRATE)
@@ -583,7 +592,7 @@ public class ReHandyBotController : MonoBehaviour
         // Toggle Exercise state:
         ////////////////////////////////////////////////////////////////////////////
 
-        // If robot is calibrated and user presses Enter, Exercise state is be toggled
+        // If robot is calibrated and Patient presses Enter, Exercise state is be toggled
         // Exercise will start now if not already running
 
         if (isCalibrated && Input.GetKeyDown(KeyCode.Return))
@@ -695,19 +704,14 @@ public class ReHandyBotController : MonoBehaviour
 
     void CmdSetTargetSteerAndThrottleCases(float pos_rot, float angle_roll_targ_this, float angle_roll_bike_this, int case_ctrl_mode) {
 
+        const bool USE_ASSIST_TORQUE_LIMIT     = true;
+        const float FACT_CORRECT_TORQUE_OFFSET = 8.0f; // TODO: offset torque generated by RHB is not consistent with SetTarget torque (!)
+
         switch (case_ctrl_mode)
         {
             case CTRL_ASSISTED:
 
-                const float FRAC_ROT_EXCESS = 0.5f; 
-
-                float pos_rot_eq_ref    = FRAC_POS_ROT_INPUT_USER * angle_roll_targ_this;
-                float k_stiff_rot_steer = FACT_ASSIST_STEER * K_ROT_STIFF_TRACKING;
-
-                // Reduce tracking stiffness if user exceeds reference position:
-                if (Math.Abs(pos_rot) > Math.Abs(pos_rot_eq_ref))
-                    k_stiff_rot_steer *= FRAC_ROT_EXCESS;
-
+                // Radial stiffness (throttle):
                 float k_stiff_radial_throt;
 
                 if (FACT_ASSIST_THROTTLE > 0f)
@@ -715,27 +719,62 @@ public class ReHandyBotController : MonoBehaviour
                 else
                     k_stiff_radial_throt = K_STIFF_RADIAL_THROT_MANUAL;
 
-                CmdSetTarget_FeedbackCtrl_WithLimit(
-                    pos_rot,
-                    pos_rot_eq_ref, 
-                    k_stiff_rot_steer,
-                    k_stiff_radial_throt );
+                // Reference equilibrium position:
+                pos_rot_eq_ref = FRAC_POS_ROT_INPUT_PATIENT * angle_roll_targ_this;
+
+                if (!USE_ASSIST_TORQUE_LIMIT)
+                {
+                    // Rotational stiffness (steering):
+                    const float FRAC_ROT_EXCESS = 0.5f;
+
+                    float k_stiff_rot_steer = FACT_ASSIST_STEER * K_ROT_STIFF_TRACKING;
+
+                    if (Math.Abs(pos_rot) > Math.Abs(pos_rot_eq_ref))
+                        k_stiff_rot_steer *= FRAC_ROT_EXCESS; // reduce tracking stiffness if RHB exceeds reference position
+
+                    // Set target command:
+                    CmdSetTarget_FeedbackCtrl_WithLimit(
+                        pos_rot,
+                        pos_rot_eq_ref,
+                        k_stiff_rot_steer,
+                        k_stiff_radial_throt);
+                }
+                else 
+                { 
+                    float TORQUE_ASSIST_LIM = FACT_ASSIST_STEER * TORQUE_ASSIST_MAX_PATIENT;
+                    float torque_assist_raw = K_ROT_STIFF_TRACKING * (pos_rot_eq_ref - pos_rot);                    
+
+                    // Assistive torque - apply limits:
+                    torque_assist = Math.Clamp(torque_assist_raw, -TORQUE_ASSIST_LIM, TORQUE_ASSIST_LIM);
+
+                    // Set target command:
+                    CmdSetTarget_FeedbackCtrl_WithLimit(
+                        pos_rot,
+                        pos_rot_eq_ref,
+                        0f,
+                        k_stiff_radial_throt);
+
+                    // Command offset forces:
+                    SetOffsetForces(0f, FACT_CORRECT_TORQUE_OFFSET * torque_assist);
+                }
                 break;
 
             case CTRL_AUTO_STEER_AUTO_THROT:
-
-                CmdSetTarget_AutoSteer(
-                    FRAC_POS_ROT_INPUT_USER * angle_roll_bike_this,
-                    K_ROT_STIFF_TRACKING,
-                    K_STIFF_RADIAL_THROT_AUTO);
-                break;
-
             case CTRL_AUTO_STEER_MANUAL_THROT:
 
+                // Rotational stiffness (steering):
+                if (case_ctrl_mode == CTRL_AUTO_STEER_AUTO_THROT)
+                    k_stiff_radial_throt = K_STIFF_RADIAL_THROT_AUTO;
+                else
+                    k_stiff_radial_throt = K_STIFF_RADIAL_THROT_MANUAL;
+
+                // Reference equilibrium position:
+                pos_rot_eq_ref = FRAC_POS_ROT_INPUT_PATIENT * angle_roll_bike_this;
+
                 CmdSetTarget_AutoSteer(
-                    FRAC_POS_ROT_INPUT_USER * angle_roll_bike_this,
+                    pos_rot_eq_ref,
                     K_ROT_STIFF_TRACKING,
-                    K_STIFF_RADIAL_THROT_MANUAL);
+                    k_stiff_radial_throt);
                 break;
 
             case CTRL_MANUAL_SIMPLE:
@@ -1181,11 +1220,5 @@ public class ReHandyBotController : MonoBehaviour
         }
 
         return success_all;
-    }
-
-    // This is for usage for SetOffsetForces command, currently being called with dummy values:
-    private void SetOffsetForces()
-    {
-        ReHandyBotController.instance.SetOffsetForces(0f, 0f);
     }
 }

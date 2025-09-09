@@ -45,18 +45,18 @@ public class MotorbikeController : MonoBehaviour
     // const float FACTOR_DT_ANGLE_CTRL_RETURN = 1.0f; // 1.25f; //  
 
     // Forward wheel control:
-    const float FACTOR_ANGLE_WHEEL_FWD = 60f;  
+    const float FACTOR_ANGLE_WHEEL_FWD = 60f;
 
-    // const float RATIO_ANG_ROLL_2_ANG_WHEEL = 0.030f;
+    const float RATIO_ANG_ROLL_2_ANG_WHEEL = 0.030f; // for USE_CONSTRAINED_STEER option
     const float SPEED_TRANSITION_UPRIGHT = 5.0f; // transition speed for wheel steering angle behavior
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - Steering - RHB input scaling (TODO: keep or discard):
     ////////////////////////////////////////////////////////////////////////////
 
-    // const float SCALE_STEER_RHB_MIN  = 0.2f; // for angular deviation of bike's heading wrt to target 
+    const float SCALE_STEER_RHB_MIN  = 0.2f; // for angular deviation of bike's heading wrt to target 
     const float SCALE_STEER_RHB_BASE = 1.0f;
-    const float SCALE_STEER_RHB_MAX = 1.0f; // make this > 1 to reduce the actual range of RHB rotation   
+    const float SCALE_STEER_RHB_MAX  = 1.0f; // make this > 1 to reduce the actual range of RHB rotation   
 
     const float SCALE_POS_ROT_START_DEG = 15f;
     const float SCALE_POS_ROT_END_DEG = 30f;
@@ -69,7 +69,7 @@ public class MotorbikeController : MonoBehaviour
     const float SPEED_AUTO_THROTTLE_MAX_KPH = 125f;
 
     // Throttle - input geometry settings:
-    const float DIST_RADIAL_THROT_FULL_MM = 2.0f; // grippers travel distance for full throttle (mm) // TODO: keep or discard
+    const float DIST_RADIAL_THROT_FULL_MM = 2.0f; // grippers travel distance for full throttle (mm)  
 
     // Throttle input limits - function of RADIAL stiffness
     const float   INPUT_THROT_MAX     = 2.0f; // about 200 kph; was 1.3f; 
@@ -658,7 +658,7 @@ public class MotorbikeController : MonoBehaviour
         float input_steer_scaled;
 
         // Steering input - sources: 
-        float input_steer_manual = 1.0f / ReHandyBotController.instance.FRAC_POS_ROT_INPUT_USER * pos_rot;
+        float input_steer_manual = 1.0f / ReHandyBotController.instance.FRAC_POS_ROT_INPUT_PATIENT * pos_rot;
 
         ////////////////////////////////////////////////////////////////
         // Reference steering input (several cases):
@@ -869,13 +869,11 @@ public class MotorbikeController : MonoBehaviour
 
         // TODO: keep or discard:
         // If required. enforce z-axis rotation to target roll angle value:
-        /*
-        if (ReHandyBotController.USE_CONSTRAINED_STEER)
+        if (ReHandyBotController.USE_BEGINNER_BIKE_CONSTR)
             thisTransform.rotation = Quaternion.Euler(
                 thisTransform.rotation.eulerAngles.x,
                 thisTransform.rotation.eulerAngles.y,
                 1f / FACT_DEG_2_RAD * fbk_ctrl_data.angle_roll_targ);
-        */
 
         // Assign z rotation value to bike roll angle:
         if (thisTransform.eulerAngles.z > 180f)
@@ -915,12 +913,10 @@ public class MotorbikeController : MonoBehaviour
         if (dt_pos_bike_magn > SPEED_TRANSITION_UPRIGHT)
         {
             // TODO: keep or discard
-            /*
-            if (ReHandyBotController.USE_CONSTRAINED_STEER)
+            if (ReHandyBotController.USE_BEGINNER_BIKE_CONSTR)
                 wheel_coll_fwd.steerAngle = -1f / FACT_DEG_2_RAD * RATIO_ANG_ROLL_2_ANG_WHEEL * angle_roll_bike;
             else
                 wheel_coll_fwd.steerAngle = FACTOR_ANGLE_WHEEL_FWD * bike_input.steer_scaled; 
-            */
 
             wheel_coll_fwd.steerAngle = FACTOR_ANGLE_WHEEL_FWD * bike_input.steer_scaled; 
         }
@@ -945,7 +941,7 @@ public class MotorbikeController : MonoBehaviour
         
         float scale_factor_accel;
 
-        // For cases involving throttle feedback control, limit acceleration capability at high speeds (TODO: keep or discard):
+        // For cases involving throttle feedback control, limit acceleration capability at high speeds:
         if (   ReHandyBotController.instance.CASE_CTRL_MODE == ReHandyBotController.CTRL_ASSISTED
             && ReHandyBotController.instance.FACT_ASSIST_THROTTLE > 0
             && dt_pos_bike_magn > SPEED_REF_HIGH)
@@ -1180,13 +1176,6 @@ public class MotorbikeController : MonoBehaviour
 
     private void updateWheels(ref WheelData wheel_struct_this, float dt_step)
     {
-        /*
-        WheelData:
-            wheelTransform
-            wheelCollider
-            wheelStartPos
-            rotation
-        */
 
         ////////////////////////////////////////////////////////////////
         // Update wheel local position:
@@ -1215,14 +1204,6 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
         // Update wheel steering angle:
         ////////////////////////////////////////////////////////////////
-
-        // TODO: keep or discard
-        /*
-        float angle_steer_deg = Mathf.Lerp(
-            wheel_struct_this.wheelTransform.localRotation.y, 
-            wheel_struct_this.wheelCollider.steerAngle, 
-            Time.deltaTime * 10); // TODO: is Time.deltaTime different from dt_step in value?
-        */
         
         float angle_steer_deg = wheel_struct_this.wheelCollider.steerAngle;
 
@@ -1235,12 +1216,6 @@ public class MotorbikeController : MonoBehaviour
 
     private void steerHandles()
     {
-        // TODO: keep or discard:
-        /*
-        handles.transform.localRotation = 
-            Quaternion.Euler(0, Mathf.Lerp(handles.transform.localRotation.y, wheel_coll_fwd.steerAngle, Time.deltaTime * 10), 0);
-        */
-
         handles.transform.localRotation = Quaternion.Euler(
             0, 
             wheel_coll_fwd.steerAngle, 

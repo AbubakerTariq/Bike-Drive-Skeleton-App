@@ -85,6 +85,8 @@ public class DataManager : MonoBehaviour
             "dt pos radial",
             "pos rot",
             "dt pos rot",
+            "pos rot eq ref",
+            "torque assist",
 
             "pos bike x",
             "pos bike z",
@@ -170,6 +172,8 @@ public class DataManager : MonoBehaviour
                 $"{distal_data.VelocityR}," +
                 $"{distal_data.PositionP}," +
                 $"{distal_data.VelocityP}," +
+                $"{ReHandyBotController.instance.pos_rot_eq_ref}," +
+                $"{ReHandyBotController.instance.torque_assist}," +
 
                 $"{bike_coords_data.pos_bike.x}," +
                 $"{bike_coords_data.pos_bike.z}," +
