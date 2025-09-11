@@ -1097,6 +1097,10 @@ public class ReHandyBotController : MonoBehaviour
 
         OnExerciseStop?.Invoke();
         onComplete?.Invoke();
+
+        //Load Main Scene when stop exercise called
+        SceneManager.LoadScene(0);
+
         loader.SetActive(false);
         Time.timeScale = 1f;
         DOTween.PlayAll();
