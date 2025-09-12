@@ -556,14 +556,13 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
 
         // uprightForce(bike_input.throttle);
-        uprightForceSimple(ReHandyBotController.instance.ExerciseActive);
+        uprightForceOnExerciseStop(ReHandyBotController.instance.ExerciseActive);
 
         exercise_active_prev = ReHandyBotController.instance.ExerciseActive;
 
         ////////////////////////////////////////////////////////////////
         // Bike control commands - CRITICAL:
-        ////////////////////////////////////////////////////////////////            
-
+        ////////////////////////////////////////////////////////////////           
 
         MotorbikeControl(bike_input, step_count, out bike_coords_this, out bike_pose_this, ref steer_calc_this);
  
@@ -1110,7 +1109,7 @@ public class MotorbikeController : MonoBehaviour
     // Ancillary functions:
     ////////////////////////////////////////////////////////////////
 
-    private void Reset()
+    public void Reset()
     {
         // Reset bike position to the closest center point to the bike's current position:
         Transform t = GetComponent<Transform>();
@@ -1123,13 +1122,15 @@ public class MotorbikeController : MonoBehaviour
 
         // Reset the bike velocity to 0 (optional):
         rigid_body.velocity = Vector3.zero;
-        rigid_body.angularDrag = 100;
         rigid_body.centerOfMass = com;
+        // rigid_body.angularDrag = 100; // TODO: does this help anything?
 
         HardHit = false;
         bike_fallen = false;
         Destroy(tempRagdollClone);
         Destroy(tempAnimRiderClone);
+        uprightForceDirect(); // added 12.09.2025
+
         Rider.SetActive(true);
     }
 
@@ -1162,7 +1163,7 @@ public class MotorbikeController : MonoBehaviour
     }
     */
 
-    private void uprightForceSimple(bool exercise_active)
+    private void uprightForceOnExerciseStop(bool exercise_active)
     {
         if (!exercise_active && exercise_active_prev)
             enforce_upright = true;
@@ -1178,6 +1179,18 @@ public class MotorbikeController : MonoBehaviour
         }
         else
             rigid_body.constraints = RigidbodyConstraints.None;
+    }
+
+    // TODO: remove at a later date:
+    public void uprightForceDirect()
+    {
+        // Enforce roll angle zero:
+        thisTransform.rotation = Quaternion.Euler(
+            thisTransform.rotation.eulerAngles.x,
+            thisTransform.rotation.eulerAngles.y,
+            0);
+
+        rigid_body.constraints = RigidbodyConstraints.FreezeAll;
     }
 
     void OnCollisionEnter(Collision collision)
@@ -1309,7 +1322,6 @@ public class MotorbikeController : MonoBehaviour
   
         track_coords.pos_ctrline_near  = Track.instance.GetClosestPointOnCenterLine(pos_bike);
         track_coords.vect_ctrline_tang = Track.instance.GetTangentAtPosition(pos_bike);
-        // track_coords.curv_ctrline_near = Track.instance.GetCurvatureAtPosition(pos_bike);
         track_coords.ang_ctrline_tang  = FACT_DEG_2_RAD * Track.instance.GetTangentAngleAtPosition(pos_bike);
         track_coords.dist_ctrline_near = Track.instance.GetDistanceAtPosition(pos_bike);
 

@@ -45,7 +45,7 @@ public class ReHandyBotController : MonoBehaviour
     public float FACT_ASSIST_THROTTLE    = 0f; // DEFAULT setting before selection
 
     // Scaling factor for Patient's rotational inputs (based on Patient's ROM, for example)
-    public float FRAC_POS_ROT_INPUT_PATIENT = 0.5f;  // DEFAULT setting before selection
+    public float FRAC_POS_ROT_INPUT_PATIENT = 0.4f; // 0.5f; // DEFAULT setting before selection
 
     // Maximum assistive torque:
     const float TORQUE_ASSIST_MAX_PATIENT = 0.2f;  
@@ -493,7 +493,6 @@ public class ReHandyBotController : MonoBehaviour
 
     private void SelectGameSettings(UnityAction onComplete = null)
     {
-
         ////////////////////////////////////////////////
         // Select BIKE TYPE:
         ////////////////////////////////////////////////
@@ -611,16 +610,16 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     private void Update()
-    {   
+    {
         ////////////////////////////////////////////////////////////////////////////
         // Allow the Patient to select game modes:
         ////////////////////////////////////////////////////////////////////////////
 
         if (STATE_PREGAME != ST_CALIBRATE)
-            SelectGameSettings(OnSelectGameSettings);            
+            SelectGameSettings(OnSelectGameSettings);
 
-        else if (Input.GetKeyDown(KeyCode.Y))
-            Calibrate(OnCalibrate_CmdStartExercise);  
+        else if (Input.GetKeyDown(KeyCode.Y)) // TODO: implement proper game restart to avoid end effector jump
+            Calibrate(OnCalibrate_CmdStartExercise);
 
         ////////////////////////////////////////////////////////////////////////////
         // Toggle Exercise state:
@@ -671,20 +670,23 @@ public class ReHandyBotController : MonoBehaviour
         // Retrieve data from bike and track objects:
         ////////////////////////////////////////////////////////////////////////////
 
-        if (ExerciseActive && MotorbikeController.instance != null && Track.instance != null)
+        if (MotorbikeController.instance != null && Track.instance != null)
         {
             // Retrieve bike pose coordinates:
             angle_roll_bike = MotorbikeController.instance.bike_pose_data.angle_roll_bike;
 
             // Retrieve fedback control data:
             angle_roll_targ = MotorbikeController.instance.fbk_ctrl_data.angle_roll_targ;
-        }
 
-        ////////////////////////////////////////////////////////////////////////////
-        // Set Target commands for steering and throttle - CRITICAL:
-        //////////////////////////////////////////////////////////////////////////// 
-        
-        CmdSetTargetSteerAndThrottleCases(pos_rot, angle_roll_targ, angle_roll_bike, CASE_CTRL_MODE);
+            ////////////////////////////////////////////////////////////////////////////
+            // Set Target commands for steering and throttle - CRITICAL:
+            //////////////////////////////////////////////////////////////////////////// 
+
+            if (ExerciseActive)
+                CmdSetTargetSteerAndThrottleCases(pos_rot, angle_roll_targ, angle_roll_bike, CASE_CTRL_MODE);
+            else
+                MotorbikeController.instance.uprightForceDirect();
+        }
 
         ////////////////////////////////////////////////////////////////////////////
         // Update step counter:
@@ -939,7 +941,7 @@ public class ReHandyBotController : MonoBehaviour
         {
             StartExercise(DISENGAGE_BRAKE, DISENGAGE_BRAKE, () =>
             {
-                // Added this disengage command becausethe one in StartExercise() apparently has no effect (20.08.2025):
+                // Added this disengage command because the one in StartExercise() apparently has no effect (20.08.2025):
                 SetBrakes(DISENGAGE_BRAKE, DISENGAGE_BRAKE);
                 ExternalConsoleLogger.Log("        StartExercise(): SetBrakes(): before MotionRoutineRHBSimple - cmd DISENGAGE \n");
 
@@ -1052,14 +1054,20 @@ public class ReHandyBotController : MonoBehaviour
         Time.timeScale = 0f;
         DOTween.PauseAll();
 
+        /////////////////////////////////////////////////////////
         // Stop timer:
+        /////////////////////////////////////////////////////////
+        
         timerLocked = true;
         timerActivePrev = timerActive;
         timerActive = false;
         System.Threading.Thread.Sleep(DT_STEP_APP_MSEC);
         timerLocked = false;
 
+        /////////////////////////////////////////////////////////
         // Set default feedback gains:
+        /////////////////////////////////////////////////////////
+        
         SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
 
         // Replaced by MotionRoutineRHBSimple() (22.08.2025):
@@ -1077,7 +1085,10 @@ public class ReHandyBotController : MonoBehaviour
         }
         */
 
+        /////////////////////////////////////////////////////////
         // Move RHB end effector to 'home' position (with minimum radial position);
+        /////////////////////////////////////////////////////////
+        
         SetBrakes(DISENGAGE_BRAKE, DISENGAGE_BRAKE);
         ExternalConsoleLogger.Log("        StopExercise(): SetBrakes(): before MotionRoutineRHBSimple - cmd DISENGAGE \n");
 
@@ -1092,25 +1103,36 @@ public class ReHandyBotController : MonoBehaviour
         isExerciseStarted = false;
         isExerciseStopping = false;
 
+        /////////////////////////////////////////////////////////
         // Set 'race started' flag (27.08.2025):
+        /////////////////////////////////////////////////////////
+        
         DataManager.instance.isRaceStarted = false;
 
         OnExerciseStop?.Invoke();
         onComplete?.Invoke();
 
-        //Load Main Scene when stop exercise called
-        SceneManager.LoadScene(0);
+        /////////////////////////////////////////////////////////
+        // Go back to menu and restart game - TODO: implement proper game restart:
+        /////////////////////////////////////////////////////////
 
-        loader.SetActive(false);
+        isExerciseStarted = false;
+        isCalibrated = false;
+        allowCalibrate = false;
+
+        STATE_PREGAME = ST_SELECT_BIKE_TYPE;
+
+        SceneManager.LoadScene(0);
+        // loader.SetActive(false);
         Time.timeScale = 1f;
         DOTween.PlayAll();
 
-        // Display section:
-        ExternalConsoleLogger.Log(" ");
-        ExternalConsoleLogger.Log("____________________________________________________________________");
-        ExternalConsoleLogger.Log("StopExercise(): timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
+        OnConnect();
 
+        /////////////////////////////////////////////////////////
         // Replaced by MotionRoutineRHBSimple() (22.08.2025):
+        /////////////////////////////////////////////////////////
+        
         /*
         motionRoutineRotational = StartCoroutine(MotionRoutineRotationalRHB(0f, () =>
         {
