@@ -95,7 +95,7 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     private float FORCE_GAIN_RADIAL = 9f;
-    private float FORCE_GAIN_ROT = 14f;
+    private float FORCE_GAIN_ROT    = 14f;
 
     private float K_STIFF_RADIAL_WALL = 2500f; // use with zero feedback gain
     private float B_DAMP_RADIAL_WALL  = 0f; // rely on embedded HL_SetTarget stability
@@ -111,14 +111,16 @@ public class ReHandyBotController : MonoBehaviour
 
     // Throttle - BASELINE haptics settings:
     public const float POS_RADIAL_BASE        = 0.029f; // used by MotorbikeController
+
     private float K_STIFF_RADIAL_THROT_MANUAL = 2500f;
     private float K_STIFF_RADIAL_THROT_AUTO   = 5000f; // makes handles essentially rigid
     private float B_DAMP_RADIAL_BASE          = 0f; // rely on embedded HL_SetTarget stability 
 
     // Steering - BASELINE haptics settings:
-    private const float POS_ROT_BASE = 0f;
-    private float K_STIFF_ROT_BASE   = 0.1f; // 0.05f; // 
-    private float B_DAMP_ROT_BASE    = 0f; // rely on embedded HL_SetTarget stability
+    private const float POS_ROT_BASE   = 0f;
+
+    private float K_STIFF_ROT_BASE     = 0.1f; // 0.05f; // 
+    private float B_DAMP_ROT_BASE      = 0f; // rely on embedded HL_SetTarget stability
 
     // Stiffness for tracking control;
     private float K_ROT_STIFF_TRACKING = 1.2f;  
@@ -128,7 +130,6 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////   
 
     private float K_STIFF_ROT_LIM  = 0.6f;
-    private float B_DAMP_ROT_LIM   = 0f; // rely on embedded HL_SetTarget stability
 
     public float ANGLE_ROT_LIM_DEG = 45f;  
 
@@ -179,13 +180,16 @@ public class ReHandyBotController : MonoBehaviour
     public bool  isExerciseStarted  = false; // changed to public for access by DataManager (27.08.2025)
     private bool isExerciseStopping = false;
 
+    // Flag to maintain 'upright' constraint while exercise is inactive and throttle input is zero:
+    public bool upright_constr_on; // constraint flag (13.09.2025)
+
     ////////////////////////////////////////////////////////////////////////////
     // Constants:
     ////////////////////////////////////////////////////////////////////////////
 
     private const int MaxAttempts = 10;
     private const string ServerIP = "192.168.102.1";
-    private const int ServerPort = 3002;
+    private const int ServerPort  = 3002;
 
     ////////////////////////////////////////////////////////////////////////////
     // Misc. variables:
@@ -206,8 +210,8 @@ public class ReHandyBotController : MonoBehaviour
     private Thread connectionThread;
     private Tween connectionTween;
 
-    private bool isCalibrated   = false;
-    private bool allowCalibrate = false;
+    private bool isCalibrated = false;
+    // private bool allowCalibrate = false; // TODO: keep or discard
 
     public Action OnExerciseStart;
     public Action OnExerciseStop;
@@ -457,7 +461,7 @@ public class ReHandyBotController : MonoBehaviour
 
     private void OnCalibrate_CmdStartExercise()
     {
-        allowCalibrate = false;
+        // allowCalibrate = false; // TODO: keep or discard
 
         StartExercise(ENGAGE_BRAKE, ENGAGE_BRAKE, () =>
         {
@@ -618,9 +622,17 @@ public class ReHandyBotController : MonoBehaviour
         if (STATE_PREGAME != ST_CALIBRATE)
             SelectGameSettings(OnSelectGameSettings);
 
-        else if (Input.GetKeyDown(KeyCode.Y)) // TODO: implement proper game restart to avoid end effector jump
+        else if (Input.GetKeyDown(KeyCode.Y))
+        {
             Calibrate(OnCalibrate_CmdStartExercise);
 
+            MotorbikeController.instance.uprightConstraintEnforce(out upright_constr_on); // constraint flag (13.09.2025) 
+
+            // Display section:
+            ExternalConsoleLogger.Log("_________________________________________________________________");
+            ExternalConsoleLogger.Log("Update(): upright constraint [TRUE] \n");
+        }
+            
         ////////////////////////////////////////////////////////////////////////////
         // Toggle Exercise state:
         ////////////////////////////////////////////////////////////////////////////
@@ -684,8 +696,6 @@ public class ReHandyBotController : MonoBehaviour
 
             if (ExerciseActive)
                 CmdSetTargetSteerAndThrottleCases(pos_rot, angle_roll_targ, angle_roll_bike, CASE_CTRL_MODE);
-            else
-                MotorbikeController.instance.uprightForceDirect();
         }
 
         ////////////////////////////////////////////////////////////////////////////
@@ -818,7 +828,7 @@ public class ReHandyBotController : MonoBehaviour
                 CmdSetTarget_FeedbackCtrl_WithLimit(
                     pos_rot,
                     0f, 
-                    K_STIFF_ROT_BASE,
+                    0f, // NOTE: K_STIFF_ROT_BASE is contained in the function
                     K_STIFF_RADIAL_THROT_MANUAL);
                 break;
 
@@ -943,10 +953,14 @@ public class ReHandyBotController : MonoBehaviour
             {
                 // Added this disengage command because the one in StartExercise() apparently has no effect (20.08.2025):
                 SetBrakes(DISENGAGE_BRAKE, DISENGAGE_BRAKE);
+
+                // Display section:
                 ExternalConsoleLogger.Log("        StartExercise(): SetBrakes(): before MotionRoutineRHBSimple - cmd DISENGAGE \n");
 
+                // Move end effector to radial baseline position:
                 bool success_all = MotionRoutineRadialRHBBaseline();
 
+                // Display section:
                 ExternalConsoleLogger.Log("        --------------------------------------------------------------------");
                 ExternalConsoleLogger.Log("        MotionRoutineRadialRHBBaseline() EXECUTED, success all [" + success_all + "] \n");
             });
@@ -954,17 +968,15 @@ public class ReHandyBotController : MonoBehaviour
 
         // Stop exercise:
         else
+        {
             StopExercise();
+        }
     }
 
     private void StartExercise(bool unlockRadial, bool unlockRotational, UnityAction onComplete = null)
     {
         if (isExerciseStarted)
         {             
-            // Removed 20.08.2025:
-            // SetBrakes(unlockRadial, unlockRotational);
-            // bool success_set_targ_empty = HL_SetTargetEmpty();
-
             ExternalConsoleLogger.Log(" ");
             ExternalConsoleLogger.Log("....................................................................");
             ExternalConsoleLogger.Log("StartExercise(): isExerciseStarted  - return \n");
@@ -978,6 +990,7 @@ public class ReHandyBotController : MonoBehaviour
         }
 
         bool startExerciseSucess = false;
+        const int N_ATTEMPTS_MAX = 50;
 
         int i = 0;
         do
@@ -990,8 +1003,10 @@ public class ReHandyBotController : MonoBehaviour
                FORCE_GAIN_RADIAL, FORCE_GAIN_ROT, STABILITY_SET_TARG_ON);
 
             startExerciseSucess = startExerciseResponse;
+
+            Thread.Sleep(10);
         }
-        while (++i <= MaxAttempts && !startExerciseSucess);
+        while (++i <= N_ATTEMPTS_MAX && !startExerciseSucess);
            
         if (startExerciseSucess) {
             isExerciseStarted = true;
@@ -1104,7 +1119,7 @@ public class ReHandyBotController : MonoBehaviour
         isExerciseStopping = false;
 
         /////////////////////////////////////////////////////////
-        // Set 'race started' flag (27.08.2025):
+        // Set DataManager 'race started' flag (27.08.2025):
         /////////////////////////////////////////////////////////
         
         DataManager.instance.isRaceStarted = false;
@@ -1113,12 +1128,12 @@ public class ReHandyBotController : MonoBehaviour
         onComplete?.Invoke();
 
         /////////////////////////////////////////////////////////
-        // Go back to menu and restart game - TODO: implement proper game restart:
+        // Go back to menu and restart game - TODO: implement proper game restart for Care Platform:
         /////////////////////////////////////////////////////////
 
         isExerciseStarted = false;
         isCalibrated = false;
-        allowCalibrate = false;
+        // allowCalibrate = false; // TODO: keep or discard
 
         STATE_PREGAME = ST_SELECT_BIKE_TYPE;
 
