@@ -131,7 +131,10 @@ public class DataManager : MonoBehaviour
             "factor steer bike speed",
             "steer term input",
             "steer term angle ctrl",
-            "steer term dt angle ctrl"
+            "steer term dt angle ctrl",
+
+            "Force X",
+            "Force Y"
         };
 
         if (!File.Exists(dataFilePath))
@@ -218,8 +221,10 @@ public class DataManager : MonoBehaviour
                 $"{steer_calc_data.factor_steer_bike_speed}," +
                 $"{steer_calc_data.steer_term_input}," +
                 $"{steer_calc_data.steer_term_angle_ctrl}," +
-                $"{steer_calc_data.steer_term_dt_angle_ctrl}" ;
-                
+                $"{steer_calc_data.steer_term_dt_angle_ctrl}, " +
+
+                $"{distal_data.ForceX}," +
+                $"{distal_data.ForceY}";                
 
             lock (fileLock)
             {
