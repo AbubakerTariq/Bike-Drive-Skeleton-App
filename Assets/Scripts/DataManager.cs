@@ -75,8 +75,7 @@ public class DataManager : MonoBehaviour
         string dataFileName = DATA_FILENAME_DEF + DateTimeStamp() + FILE_EXT;
         dataFilePath = DATA_FILE_DIR + dataFileName;
 
-        // Headings to be set up in the data file
-        // Removed "Date Time" (13.08.2025)
+        // Headings for the data file:
         string[] headers = new[] { 
             "t sec", 
             "dt sec", 

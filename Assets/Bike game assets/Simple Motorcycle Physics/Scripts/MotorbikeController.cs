@@ -9,6 +9,14 @@ public class MotorbikeController : MonoBehaviour
     float FACT_DEG_2_RAD = (float)Math.PI / 180f;
 
     ////////////////////////////////////////////////////////////////////////////
+    // CARE_PLATFORM controlled parameters - manual throttle parameters:
+    //////////////////////////////////////////////////////////////////////////// 
+
+    // AUTO throttle speed limit in kph:
+    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM game level)
+    const float SPEED_AUTO_THROTTLE_MAX_KPH = 125f;
+
+    ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - Steering - Feedback control (CRITICAL):
     ////////////////////////////////////////////////////////////////////////////
 
@@ -30,13 +38,13 @@ public class MotorbikeController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     // Factor for steer input - formerly called STEER_INPUT_SENSITIVITY:
-    const float FACTOR_STEER_INPUT = 7.0e-2f; // 3.5e-2f; // was 23f before factor_steer_bike_speed was removed
+    const float FACTOR_STEER_INPUT = 7.0e-2f; // 3.5e-2f;  
 
     // Steer factor control angle:
-    const float FACTOR_STEER_ANGLE_CTRL = 8.4e-2f; // was 56f before factor_steer_bike_speed was removed
+    const float FACTOR_STEER_ANGLE_CTRL = 8.4e-2f;  
 
     // Steer factor for control angular speed - higher values stabilize bike:
-    const float FACTOR_STEER_DT_ANGLE_CTRL = 12.0e-2f; // was 80f before factor_steer_bike_speed was removed
+    const float FACTOR_STEER_DT_ANGLE_CTRL = 12.0e-2f;  
 
     // Steer factor for control angular speed squared:
     const float FACTOR_STEER_ANGLE_CTRL_SQUARED_STEER = 2.3f;
@@ -64,9 +72,6 @@ public class MotorbikeController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - Throttle (CRITICAL):
     ////////////////////////////////////////////////////////////////////////////
-
-    // Throttle feedback control: speed limit in kph - CRITICAL:
-    const float SPEED_AUTO_THROTTLE_MAX_KPH = 125f;
 
     // Throttle - input geometry settings:
     const float DIST_RADIAL_THROT_FULL_MM = 2.0f; // grippers travel distance for full throttle (mm)  
@@ -351,7 +356,9 @@ public class MotorbikeController : MonoBehaviour
     [SerializeField] public Text SpeedTxt;
 
     /////////////////////////////////////////////////////////////
-    // METHODS:
+    /////////////////////////////////////////////////////////////
+    // METHODS START HERE
+    /////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////
 
     void Awake()
@@ -373,9 +380,8 @@ public class MotorbikeController : MonoBehaviour
         rigid_body.centerOfMass = com;
     }
 
-
     ////////////////////////////////////////////////////////////////////////////
-    // Real-time update:
+    // Real-time update (CRITICAL):
     ////////////////////////////////////////////////////////////////////////////
 
     void FixedUpdate()
@@ -452,9 +458,10 @@ public class MotorbikeController : MonoBehaviour
             && DISP_MOTOR_CONTROL_ON)
         {
             // Time elapsed display:
-            float timeElapsedValue = ReHandyBotController.instance.timeElapsedValue;
+            float timeElapsedValue   = ReHandyBotController.instance.timeElapsedValue;
             TimeSpan timeElapsedSpan = TimeSpan.FromSeconds(timeElapsedValue);
-            string timeElapsedText = String.Format("{0:#00}", timeElapsedSpan.Minutes) + ":" + String.Format("{0:#00}", timeElapsedSpan.Seconds);
+
+            string timeElapsedText   = String.Format("{0:#00}", timeElapsedSpan.Minutes) + ":" + String.Format("{0:#00}", timeElapsedSpan.Seconds);
 
             ExternalConsoleLogger.Log("Update(" + step_count + ") t [" + String.Format("{0:#0.000}", timeElapsedValue) + "]:");
             ExternalConsoleLogger.Log("   pos_bike       " + bike_coords_data.pos_bike);
@@ -471,7 +478,7 @@ public class MotorbikeController : MonoBehaviour
     ////////////////////////////////////////////////////////////////
     // Bike state: control inputs and kinematics - CRITICAL:
     ////////////////////////////////////////////////////////////////
-    ///
+    
     void BikeMotionAndControlStates(int step_count, DistalComm.ExerciseData distal_this,
         ref BikeCoords bike_coords_this,
         ref BikeInput bike_input_this,
@@ -565,12 +572,6 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
 
         ////////////////////////////////////////////////////////////////
-        // 'Upright force' for zero/low speed balance (removed 13.09.2025)
-        ////////////////////////////////////////////////////////////////
-
-        // exercise_active_prev = ReHandyBotController.instance.ExerciseActive; // TODO: delete at a later date
-
-        ////////////////////////////////////////////////////////////////
         // Bike control commands - CRITICAL:
         ////////////////////////////////////////////////////////////////           
 
@@ -610,7 +611,7 @@ public class MotorbikeController : MonoBehaviour
         float input_throttle;
 
         float pos_throttle = pos_radial;
-        float pos_throttle_zero = ReHandyBotController.POS_RADIAL_BASE;
+        float pos_throttle_zero = ReHandyBotController.POS_RADIAL_THROT_ZERO;
 
         ////////////////////////////////////////////////////////////////
         // Deviation from centerline target (several uses):  
@@ -940,8 +941,6 @@ public class MotorbikeController : MonoBehaviour
         }
         else
         {
-            // wheel_coll_fwd.steerAngle = Mathf.Clamp(bike_input.steer_scaled, -dt_pos_bike_magn, dt_pos_bike_magn); // TODO: how come there is no scaling of speed?
-
             if (dt_pos_bike_magn < dt_pos_bike_magn_prev && ReHandyBotController.instance.upright_constr_on == false)
             {
                 wheel_coll_fwd.steerAngle = 0f; // Mathf.Clamp(bike_input.steer_scaled, -dt_pos_bike_magn, dt_pos_bike_magn);

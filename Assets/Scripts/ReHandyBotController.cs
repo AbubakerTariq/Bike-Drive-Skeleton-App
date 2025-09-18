@@ -23,35 +23,60 @@ public class ReHandyBotController : MonoBehaviour
     public const int DT_STEP_APP_MSEC = 25;
 
     ////////////////////////////////////////////////////////////////////////////
-    // Game control modes:
+    // CARE_PLATFORM controlled parameters - Game control modes:
     //////////////////////////////////////////////////////////////////////////// 
 
     const int NULL_SETTING = -1;
 
-    public bool USE_BEGINNER_BIKE_CONSTR = false;  // DEFAULT setting before selection
+    // Bike type (BEGINNER or PRO; default is PRO)
+    // To be set by UNITY_GAME or CARE_PLATFORM (no need to implement selection for first CARE_PLATFORM release)
+    public bool USE_BEGINNER_BIKE_CONSTR = false; 
 
     public const int CTRL_ASSISTED                = 1;
     public const int CTRL_AUTO_STEER_AUTO_THROT   = 2;
     public const int CTRL_AUTO_STEER_MANUAL_THROT = 3;
     public const int CTRL_MANUAL_SIMPLE           = 4;
 
-    public int CASE_CTRL_MODE = CTRL_MANUAL_SIMPLE; // DEFAULT setting before selection
+    // Bike control mode (default is ASSISTED)
+    // To be set by UNITY_GAME or CARE_PLATFORM (no need to implement selection now, keep it as CTRL_ASSISTED for first CARE_PLATFORM release)
+    public int CASE_CTRL_MODE = CTRL_ASSISTED;
 
     ////////////////////////////////////////////////////////////////////////////
-    // Patient-based game parameters - CRITICAL (30.08.2025):
+    // CARE_PLATFORM controlled parameters - Patient-dependent game parameters:
     //////////////////////////////////////////////////////////////////////////// 
 
-    public float FACT_ASSIST_STEER       = 0f; // DEFAULT setting before selection
-    public float FACT_ASSIST_THROTTLE    = 0f; // DEFAULT setting before selection
+    // Assistance factor (between 0 and 1.0)
+    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM game level)
+    public float FACT_ASSIST_STEER        = 0f;
 
-    // Scaling factor for Patient's rotational inputs (based on Patient's ROM, for example)
-    public float FRAC_POS_ROT_INPUT_PATIENT = 0.4f; // 0.5f; // DEFAULT setting before selection
+    public const int THROTTLE_MODE_MANUAL = 0;
+    public const int THROTTLE_MODE_AUTO   = 1;
+
+    // Throttle mode (0: MANUAL, 1: AUTO, default is AUTO)
+    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM throttle setting)
+    public float FACT_ASSIST_THROTTLE     = (float)THROTTLE_MODE_AUTO; 
+
+    // Scaling factor for Patient's rotational inputs
+    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient ROM data)
+    public float FRAC_POS_ROT_INPUT_PATIENT = 0.4f; 
 
     // Maximum assistive torque:
-    const float TORQUE_ASSIST_MAX_PATIENT = 0.2f;  
+    const float TORQUE_ASSIST_MAX = 0.2f;
 
     ////////////////////////////////////////////////////////////////////////////
-    // Pre-game procedures stated - CRITICAL:
+    // CARE_PLATFORM controlled parameters - manual throttle parameters:
+    //////////////////////////////////////////////////////////////////////////// 
+
+    // Handles opening distance (meters) for zero throttle input:
+    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient hand opening data; keep default for first CARE_PLATFORM release)
+    public const float POS_RADIAL_THROT_ZERO = 0.029f;
+
+    // Throttle stiffness for MANUAL throttle mode:
+    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient stiffness calibration data; keep default for first CARE_PLATFORM release)
+    private float K_STIFF_RADIAL_THROT_MANUAL = 2500f; 
+
+    ////////////////////////////////////////////////////////////////////////////
+    // UNITY_GAME: states for PRE-GAME procedures:
     //////////////////////////////////////////////////////////////////////////// 
 
     private const int ST_SELECT_BIKE_TYPE         = 1;
@@ -60,7 +85,7 @@ public class ReHandyBotController : MonoBehaviour
     private const int ST_SET_FACT_ASSIST_THROTTLE = 4;
     private const int ST_CALIBRATE                = 5;
 
-    private int STATE_PREGAME = ST_SELECT_BIKE_TYPE; // initial state
+    private int STATE_PREGAME = ST_SELECT_BIKE_TYPE; // initial state for UNITY_GAME procedures
 
     ////////////////////////////////////////////////////////////////////////////
     // SetExercise() parameters:
@@ -94,8 +119,8 @@ public class ReHandyBotController : MonoBehaviour
     // NOTE: use [RHB ctrl params - stability v5b game settings 4-axis.xlsx] to calculate damping as a function of stiffness
     ////////////////////////////////////////////////////////////////////////////
 
-    private float FORCE_GAIN_RADIAL = 9f;
-    private float FORCE_GAIN_ROT    = 14f;
+    private float FORCE_GAIN_RADIAL =  9.0f;
+    private float FORCE_GAIN_ROT    = 14.0f;
 
     private float K_STIFF_RADIAL_WALL = 2500f; // use with zero feedback gain
     private float B_DAMP_RADIAL_WALL  = 0f; // rely on embedded HL_SetTarget stability
@@ -109,10 +134,7 @@ public class ReHandyBotController : MonoBehaviour
     private float POS_ROT_MIN = -Mathf.PI / 2f;
     private float POS_ROT_MAX =  Mathf.PI / 2f;
 
-    // Throttle - BASELINE haptics settings:
-    public const float POS_RADIAL_BASE        = 0.029f; // used by MotorbikeController
-
-    private float K_STIFF_RADIAL_THROT_MANUAL = 2500f;
+    // Throttle - additional haptics settings:
     private float K_STIFF_RADIAL_THROT_AUTO   = 5000f; // makes handles essentially rigid
     private float B_DAMP_RADIAL_BASE          = 0f; // rely on embedded HL_SetTarget stability 
 
@@ -123,7 +145,7 @@ public class ReHandyBotController : MonoBehaviour
     private float B_DAMP_ROT_BASE      = 0f; // rely on embedded HL_SetTarget stability
 
     // Stiffness for tracking control;
-    private float K_ROT_STIFF_TRACKING = 1.2f;  
+    private float K_ROT_STIFF_TRACKING = 1.2f; // 2.0f; // 
 
     ////////////////////////////////////////////////////////////////////////////
     // Impedance for RHB motion limits:
@@ -211,7 +233,6 @@ public class ReHandyBotController : MonoBehaviour
     private Tween connectionTween;
 
     private bool isCalibrated = false;
-    // private bool allowCalibrate = false; // TODO: keep or discard
 
     public Action OnExerciseStart;
     public Action OnExerciseStop;
@@ -225,7 +246,6 @@ public class ReHandyBotController : MonoBehaviour
     private bool timerActive     = false;
     private bool timerActivePrev = false;
     private bool timerLocked     = false;
-    // private bool timerLockDetected = false;
 
     public float timeElapsedValue = 0f;
 
@@ -275,9 +295,7 @@ public class ReHandyBotController : MonoBehaviour
 
     private void OnApplicationQuit()
     {
-        // StopSetTargetEvents() removed 30.08.2025
-
-        // Stop all RHB related processes when the application is closed
+        // Stop all RHB related processes when the application is closed:
         connectionThread?.Abort();
         connectionTween?.Kill();
 
@@ -319,7 +337,7 @@ public class ReHandyBotController : MonoBehaviour
                 if (success)
                 {
                     loader.SetActive(false);
-                    StartSystem(OnConnect);
+                    StartSystem(OnConnect_PreUnityGame);
                 }
                 else
                 {
@@ -334,7 +352,7 @@ public class ReHandyBotController : MonoBehaviour
     {
         if (RHBConnected)
         {
-            StartSystem(OnConnect);
+            StartSystem(OnConnect_PreUnityGame);
             return;
         }
         ConnectRHB();
@@ -384,11 +402,55 @@ public class ReHandyBotController : MonoBehaviour
         }
     }
 
+    private void OnCalibrate_CmdStartExercise()
+    {
+
+        StartExercise(ENGAGE_BRAKE, ENGAGE_BRAKE, () =>
+        {
+            DOVirtual.DelayedCall(0.1f, () =>
+            {
+                loader.SetActive(false);
+                pos_radial_min = distal_data.PositionR;
+                pos_radial_min = Math.Clamp(pos_radial_min, POS_RADIAL_MIN, POS_RADIAL_MAX);
+
+                for (int i = 0; i < MaxAttempts; i++)
+                {
+                    bool success = distalRobot.StopExercise();
+
+                    if (success)
+                    {
+                        SetBrakes(ENGAGE_BRAKE, ENGAGE_BRAKE);
+                        ExternalConsoleLogger.Log("        OnCalibrate(): SetBrakes(): cmd ENGAGE \n");
+
+                        isExerciseStarted = false;
+                        isCalibrated = true;
+                        SceneManager.LoadScene(PrototypeSceneName);
+                        exerciseGuidelineText.SetActive(true);
+                        break;
+                    }
+                }
+            });
+        });
+    }
+
+    private void Calibrate(UnityAction onComplete = null)
+    {
+        for (int i = 0; i < MaxAttempts; i++)
+            if (distalRobot.Calibration(DistalComm.CalibrationType.AxisCalib)) break;
+
+        for (int i = 0; i < MaxAttempts; i++)
+            if (distalRobot.Calibration(DistalComm.CalibrationType.AllForceSensorsZeroCalib)) break;
+
+        onComplete.Invoke();
+    }
+
     ////////////////////////////////////////////////////////////////////////////
-    // Pre-game 'on complete" actions:
     ////////////////////////////////////////////////////////////////////////////
-    
-    private void OnConnect()
+    // UNITY_GAME: Pre-game actions:
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+
+    private void OnConnect_PreUnityGame()
     {
         SetBrakes(DISENGAGE_BRAKE, DISENGAGE_BRAKE);
         ExternalConsoleLogger.Log("        OnConnect(): SetBrakes(): cmd DISENGAGE \n");
@@ -407,7 +469,7 @@ public class ReHandyBotController : MonoBehaviour
         loaderText.alignment = TextAlignmentOptions.MidlineLeft;
     }
 
-    private void OnSelectGameSettings()
+    private void OnSelectGameSettings_PreUnityGame()
     {
         if (STATE_PREGAME == ST_SET_CTRL_MODE)
         {
@@ -459,43 +521,7 @@ public class ReHandyBotController : MonoBehaviour
         }
     }
 
-    private void OnCalibrate_CmdStartExercise()
-    {
-        // allowCalibrate = false; // TODO: keep or discard
-
-        StartExercise(ENGAGE_BRAKE, ENGAGE_BRAKE, () =>
-        {
-            DOVirtual.DelayedCall(0.1f, () =>
-            {
-                loader.SetActive(false);
-                pos_radial_min = distal_data.PositionR;
-                pos_radial_min = Math.Clamp(pos_radial_min, POS_RADIAL_MIN, POS_RADIAL_MAX);
-
-                for (int i = 0; i < MaxAttempts; i++)
-                {
-                    bool success = distalRobot.StopExercise();
-
-                    if (success)
-                    {
-                        SetBrakes(ENGAGE_BRAKE, ENGAGE_BRAKE);
-                        ExternalConsoleLogger.Log("        OnCalibrate(): SetBrakes(): cmd ENGAGE \n");
-
-                        isExerciseStarted = false;
-                        isCalibrated = true;
-                        SceneManager.LoadScene(PrototypeSceneName);
-                        exerciseGuidelineText.SetActive(true);
-                        break;
-                    }
-                }
-            });
-        });
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Pre-game actions (Obtain game modes, calibrate):
-    ////////////////////////////////////////////////////////////////////////////
-
-    private void SelectGameSettings(UnityAction onComplete = null)
+    private void SelectGameSettings_PreUnityGame(UnityAction onComplete = null)
     {
         ////////////////////////////////////////////////
         // Select BIKE TYPE:
@@ -594,19 +620,6 @@ public class ReHandyBotController : MonoBehaviour
         }
     }
 
-    private void Calibrate(UnityAction onComplete = null)
-    {
-        for (int i = 0; i < MaxAttempts; i++)
-            if (distalRobot.Calibration(DistalComm.CalibrationType.AxisCalib)) break;
-
-        /*
-        for (int i = 0; i < MaxAttempts; i++)
-            if (distalRobot.Calibration(DistalComm.CalibrationType.AllForceSensorsZeroCalib)) break;
-        */
-
-        onComplete.Invoke();
-    }
-
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     // Real-time update - CRITICAL:
@@ -620,7 +633,7 @@ public class ReHandyBotController : MonoBehaviour
         ////////////////////////////////////////////////////////////////////////////
 
         if (STATE_PREGAME != ST_CALIBRATE)
-            SelectGameSettings(OnSelectGameSettings);
+            SelectGameSettings_PreUnityGame(OnSelectGameSettings_PreUnityGame);
 
         else if (Input.GetKeyDown(KeyCode.Y))
         {
@@ -751,7 +764,7 @@ public class ReHandyBotController : MonoBehaviour
     void CmdSetTargetSteerAndThrottleCases(float pos_rot, float angle_roll_targ_this, float angle_roll_bike_this, int case_ctrl_mode) {
 
         const bool USE_ASSIST_TORQUE_LIMIT     = true; // TODO: make the 'true' case permanent
-        const float FACT_CORRECT_TORQUE_OFFSET = 8.0f; // TODO: offset torque generated by RHB is not consistent with SetTarget torque (!)
+        const float FACT_CORRECT_TORQUE_OFFSET = 1.0f; // 8.0f; // TODO: offset torque generated by RHB is not consistent with SetTarget torque (!)
 
         switch (case_ctrl_mode)
         {
@@ -767,8 +780,26 @@ public class ReHandyBotController : MonoBehaviour
 
                 // Reference equilibrium position:
                 pos_rot_eq_ref = FRAC_POS_ROT_INPUT_PATIENT * angle_roll_targ_this;
+                
+                if (USE_ASSIST_TORQUE_LIMIT)
+                { 
+                    float TORQUE_ASSIST_LIM = FACT_ASSIST_STEER * TORQUE_ASSIST_MAX;
+                    float torque_assist_raw = K_ROT_STIFF_TRACKING * (pos_rot_eq_ref - pos_rot);                    
 
-                if (!USE_ASSIST_TORQUE_LIMIT)
+                    // Assistive torque - apply limits:
+                    torque_assist = Math.Clamp(torque_assist_raw, -TORQUE_ASSIST_LIM, TORQUE_ASSIST_LIM);
+
+                    // Set target command for baseline state - bias to return rotation angle to zero & physical rotation limits:
+                    CmdSetTarget_FeedbackCtrl_WithLimit(
+                        pos_rot,
+                        pos_rot_eq_ref,
+                        0f,
+                        k_stiff_radial_throt);
+
+                    // Command offset forces for ASSISTANCE - CRITICAL:
+                    SetOffsetForces(0f, FACT_CORRECT_TORQUE_OFFSET * torque_assist);
+                }
+                else
                 {
                     // Rotational stiffness (steering):
                     const float FRAC_ROT_EXCESS = 0.5f;
@@ -784,24 +815,6 @@ public class ReHandyBotController : MonoBehaviour
                         pos_rot_eq_ref,
                         k_stiff_rot_steer,
                         k_stiff_radial_throt);
-                }
-                else 
-                { 
-                    float TORQUE_ASSIST_LIM = FACT_ASSIST_STEER * TORQUE_ASSIST_MAX_PATIENT;
-                    float torque_assist_raw = K_ROT_STIFF_TRACKING * (pos_rot_eq_ref - pos_rot);                    
-
-                    // Assistive torque - apply limits:
-                    torque_assist = Math.Clamp(torque_assist_raw, -TORQUE_ASSIST_LIM, TORQUE_ASSIST_LIM);
-
-                    // Set target command:
-                    CmdSetTarget_FeedbackCtrl_WithLimit(
-                        pos_rot,
-                        pos_rot_eq_ref,
-                        0f,
-                        k_stiff_radial_throt);
-
-                    // Command offset forces:
-                    SetOffsetForces(0f, FACT_CORRECT_TORQUE_OFFSET * torque_assist);
                 }
                 break;
 
@@ -862,7 +875,7 @@ public class ReHandyBotController : MonoBehaviour
 
         if (ExerciseActive)
             success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
-                POS_RADIAL_BASE, pos_rot_eq_ref,
+                POS_RADIAL_THROT_ZERO, pos_rot_eq_ref,
                 k_stiff_radial_throt, k_stiff_rot_steer,
                 B_DAMP_RADIAL_BASE, b_damp_rot_steer,
                 SWITCH_RADIAL, SWITCH_ROT);
@@ -932,7 +945,7 @@ public class ReHandyBotController : MonoBehaviour
 
         if (ExerciseActive)
             success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
-                POS_RADIAL_BASE, pos_eq_rot_equiv,
+                POS_RADIAL_THROT_ZERO, pos_eq_rot_equiv,
                 k_stiff_radial_throt, k_stiff_rot_equiv,
                 B_DAMP_RADIAL_BASE, b_damp_rot_equiv,
                 SWITCH_RADIAL, SWITCH_ROT);
@@ -1048,9 +1061,6 @@ public class ReHandyBotController : MonoBehaviour
     {
         if (!isExerciseStarted)
         {
-            // Removed 20.08.2025:
-            // SetBrakes(ENGAGE_BRAKE, ENGAGE_BRAKE);  
-
             ExternalConsoleLogger.Log(" ");
             ExternalConsoleLogger.Log("....................................................................");
             ExternalConsoleLogger.Log("StopExercise(): !isExerciseStarted  - return \n");
@@ -1133,16 +1143,14 @@ public class ReHandyBotController : MonoBehaviour
 
         isExerciseStarted = false;
         isCalibrated = false;
-        // allowCalibrate = false; // TODO: keep or discard
 
         STATE_PREGAME = ST_SELECT_BIKE_TYPE;
 
         SceneManager.LoadScene(0);
-        // loader.SetActive(false);
         Time.timeScale = 1f;
         DOTween.PlayAll();
 
-        OnConnect();
+        OnConnect_PreUnityGame();
 
         /////////////////////////////////////////////////////////
         // Replaced by MotionRoutineRHBSimple() (22.08.2025):
@@ -1152,7 +1160,7 @@ public class ReHandyBotController : MonoBehaviour
         motionRoutineRotational = StartCoroutine(MotionRoutineRotationalRHB(0f, () =>
         {
             motionRoutineRadial = StartCoroutine(MotionRoutineRadialRHB(POS_RADIAL_MIN, () =>
-            { ...
+            {
         */
     }
 
@@ -1281,7 +1289,7 @@ public class ReHandyBotController : MonoBehaviour
             // Note use of baseline impedance:
             bool success_step = SetTargetValidated(
                 IDX_TARG_BASE,
-                POS_RADIAL_BASE, POS_ROT_BASE,
+                POS_RADIAL_THROT_ZERO, POS_ROT_BASE,
                 K_STIFF_RADIAL_THROT_MANUAL, K_STIFF_ROT_BASE,
                 B_DAMP_RADIAL_BASE, B_DAMP_ROT_BASE,
                 switch_var, 1f);
