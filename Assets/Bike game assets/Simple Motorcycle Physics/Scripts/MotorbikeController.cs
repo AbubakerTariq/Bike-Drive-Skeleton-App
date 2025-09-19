@@ -9,14 +9,6 @@ public class MotorbikeController : MonoBehaviour
     float FACT_DEG_2_RAD = (float)Math.PI / 180f;
 
     ////////////////////////////////////////////////////////////////////////////
-    // CARE_PLATFORM controlled parameters - manual throttle parameters:
-    //////////////////////////////////////////////////////////////////////////// 
-
-    // AUTO throttle speed limit in kph:
-    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM game level)
-    const float SPEED_AUTO_THROTTLE_MAX_KPH = 125f;
-
-    ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - Steering - Feedback control (CRITICAL):
     ////////////////////////////////////////////////////////////////////////////
 
@@ -50,7 +42,7 @@ public class MotorbikeController : MonoBehaviour
     const float FACTOR_STEER_ANGLE_CTRL_SQUARED_STEER = 2.3f;
 
     // Return to vertical: scaling factor for roll angular speed
-    // const float FACTOR_DT_ANGLE_CTRL_RETURN = 1.0f; // 1.25f; //  
+    // const float FACTOR_DT_ANGLE_CTRL_RETURN = 1.0f; // 1.25f; // TODO: keep or discard
 
     // Forward wheel control:
     const float FACTOR_ANGLE_WHEEL_FWD = 60f;
@@ -77,9 +69,7 @@ public class MotorbikeController : MonoBehaviour
     const float DIST_RADIAL_THROT_FULL_MM = 2.0f; // grippers travel distance for full throttle (mm)  
 
     // Throttle input limits - function of RADIAL stiffness
-    const float INPUT_THROT_MAX = 2.0f; // about 200 kph; was 1.3f; 
-    private float INPUT_THROT_FBK_MAX = SPEED_AUTO_THROTTLE_MAX_KPH / 100f;
-
+    const float INPUT_THROT_MAX            = 2.0f; // about 200 kph; was 1.3f; 
     const float INPUT_THROT_UPRIGHT_THRESH = 0.6f; // minimum torque to prevent UprightForce() from kicking in
 
     ////////////////////////////////////////////////////////////////////////////
@@ -514,9 +504,9 @@ public class MotorbikeController : MonoBehaviour
             bike_input.throttle = InputThrottleCases(pos_radial, MotorbikeController.instance, ReHandyBotController.instance.CASE_CTRL_MODE);
 
             if (MagnitudeXZ(bike_coords_this.dt_pos_bike) > SPEED_TRANSITION_UPRIGHT // was bike_input.throttle > 0
-                && ReHandyBotController.instance.upright_constr_on == true) 
+                && ReHandyBotController.instance.UPRIGHT_CONSTR_ON == true) 
             {
-                uprightConstraintRemove(out ReHandyBotController.instance.upright_constr_on); // constraint flag (13.09.2025)
+                uprightConstraintRemove(out ReHandyBotController.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
 
                 // Display section:
                 ExternalConsoleLogger.Log("_________________________________________________________________");
@@ -614,7 +604,7 @@ public class MotorbikeController : MonoBehaviour
         float input_throttle;
 
         float pos_throttle = pos_radial;
-        float pos_throttle_zero = ReHandyBotController.POS_RADIAL_THROT_ZERO;
+        float pos_throttle_zero = ReHandyBotController.instance.POS_RADIAL_THROT_ZERO;
 
         ////////////////////////////////////////////////////////////////
         // Deviation from centerline target (several uses):  
@@ -627,7 +617,8 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
 
         float factor_speed_throttle = 1f - (float)Math.Abs(sin_dev_targ); // was: 1f - sin_dev_targ*sin_dev_targ;
-        float input_throttle_fbk = factor_speed_throttle * INPUT_THROT_FBK_MAX;
+
+        float input_throttle_fbk = factor_speed_throttle * ReHandyBotController.instance.SPEED_AUTO_THROTTLE_MAX_KPH / 100f;
 
         ////////////////////////////////////////////////////////////////
         // Manual throttle input - from RHB:
@@ -944,10 +935,10 @@ public class MotorbikeController : MonoBehaviour
         }
         else
         {
-            if (dt_pos_bike_magn < dt_pos_bike_magn_prev && ReHandyBotController.instance.upright_constr_on == false)
+            if (dt_pos_bike_magn < dt_pos_bike_magn_prev && ReHandyBotController.instance.UPRIGHT_CONSTR_ON == false)
             {
                 wheel_coll_fwd.steerAngle = 0f; // Mathf.Clamp(bike_input.steer_scaled, -dt_pos_bike_magn, dt_pos_bike_magn);
-                uprightConstraintEnforce(out ReHandyBotController.instance.upright_constr_on); // constraint flag (13.09.2025)
+                uprightConstraintEnforce(ref ReHandyBotController.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
 
                 // Display section:
                 ExternalConsoleLogger.Log("_________________________________________________________________");
@@ -1170,7 +1161,7 @@ public class MotorbikeController : MonoBehaviour
         bike_fallen_this = false;
         hard_hit_this    = false;
 
-        uprightConstraintEnforce(out ReHandyBotController.instance.upright_constr_on); // constraint flag (13.09.2025)
+        uprightConstraintEnforce(ref ReHandyBotController.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
 
         //////////////////////////////////////////////////////////////////////////////////////
         // Reset rider states:
@@ -1186,7 +1177,7 @@ public class MotorbikeController : MonoBehaviour
         ExternalConsoleLogger.Log("Reset(): upright constraint [TRUE] \n");
     }
 
-    public void uprightConstraintEnforce(out bool upright_constr_on_this)
+    public void uprightConstraintEnforce(ref bool upright_constr_on_this)
     {
         // Enforce roll angle zero:
         thisTransform.rotation = Quaternion.Euler(

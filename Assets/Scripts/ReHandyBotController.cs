@@ -64,16 +64,24 @@ public class ReHandyBotController : MonoBehaviour
     const float TORQUE_ASSIST_MAX = 0.2f;
 
     ////////////////////////////////////////////////////////////////////////////
-    // CARE_PLATFORM controlled parameters - manual throttle parameters:
+    // CARE_PLATFORM controlled parameters - MANUAL throttle parameters:
     //////////////////////////////////////////////////////////////////////////// 
 
     // Handles opening distance (meters) for zero throttle input:
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient hand opening data; keep default for first CARE_PLATFORM release)
-    public const float POS_RADIAL_THROT_ZERO  = 0.029f;
+    public float POS_RADIAL_THROT_ZERO  = 0.029f;
 
     // Throttle stiffness for MANUAL throttle mode:
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient stiffness calibration data; keep default for first CARE_PLATFORM release)
-    private float K_STIFF_RADIAL_THROT_MANUAL = 2500f; 
+    private float K_STIFF_RADIAL_THROT_MANUAL = 2500f;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // CARE_PLATFORM controlled parameters - AUTO throttle parameters:
+    //////////////////////////////////////////////////////////////////////////// 
+
+    // AUTO throttle speed limit in kph:
+    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM game level)
+    public float SPEED_AUTO_THROTTLE_MAX_KPH = 125f;
 
     ////////////////////////////////////////////////////////////////////////////
     // UNITY_GAME: states for PRE-GAME procedures:
@@ -207,7 +215,7 @@ public class ReHandyBotController : MonoBehaviour
     private bool isExerciseStopping = false;
 
     // Flag to maintain 'upright' constraint while exercise is inactive and throttle input is zero:
-    public bool upright_constr_on; // constraint flag (13.09.2025)
+    public bool UPRIGHT_CONSTR_ON; // constraint flag (13.09.2025)
 
     ////////////////////////////////////////////////////////////////////////////
     // Constants:
@@ -525,18 +533,81 @@ public class ReHandyBotController : MonoBehaviour
         }
     }
 
-    private void SelectGameSettings_PreUnityGame(UnityAction onComplete = null)
+    private void InitUnityGame_StartExercise(
+        ref bool use_beginner_bike_constr,
+        ref int case_ctrl_mode,
+        ref float fact_assist_steer,
+        ref float fact_assist_throttle,
+        ref float frac_pos_rot_input_patient,
+        ref float pos_radial_throt_zero,
+        ref float k_stiff_radial_throt_manual,
+        ref float speed_auto_throttle_max_kph,
+        ref bool upright_constr_on)
+    {
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Fixed settings for UNITY_GAME:
+        ////////////////////////////////////////////////////////////////////////////
+
+        frac_pos_rot_input_patient = 0.4f;
+        pos_radial_throt_zero = 0.029f;
+        k_stiff_radial_throt_manual = 2500f;
+        speed_auto_throttle_max_kph = 125f;
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Selectable settings for UNITY_GAME:
+        ////////////////////////////////////////////////////////////////////////////
+
+        if (STATE_PREGAME != ST_CALIBRATE)
+
+            SelectGameSettings_PreUnityGame(
+                ref use_beginner_bike_constr,
+                ref case_ctrl_mode,
+                ref fact_assist_steer,
+                ref fact_assist_throttle,
+                OnSelectGameSettings_PreUnityGame);
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Toggle Exercise state:
+        ////////////////////////////////////////////////////////////////////////////
+
+        else if (Input.GetKeyDown(KeyCode.Y))
+        {
+            Calibrate(OnCalibrate_CmdStartExercise);
+
+            // Enforce "bike upright" constraint - CRITICAL: 
+            MotorbikeController.instance.uprightConstraintEnforce(ref upright_constr_on); // constraint flag (13.09.2025) 
+
+            // Display section:
+            ExternalConsoleLogger.Log("_________________________________________________________________");
+            ExternalConsoleLogger.Log("Update(): upright constraint [TRUE] \n");
+        }
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Toggle Exercise state:
+        ////////////////////////////////////////////////////////////////////////////
+
+        if (isCalibrated && Input.GetKeyDown(KeyCode.Return))
+            ToggleExerciseState();
+    }
+
+    private void SelectGameSettings_PreUnityGame(
+        ref bool use_beginner_bike_constr,
+        ref int case_ctrl_mode,
+        ref float fact_assist_steer,
+        ref float fact_assist_throttle,
+        UnityAction onComplete = null)
     {
         ////////////////////////////////////////////////
         // Select BIKE TYPE:
         ////////////////////////////////////////////////
-        
+
         if (STATE_PREGAME == ST_SELECT_BIKE_TYPE)
         {
             if (Input.GetKeyDown(KeyCode.Return))
-                USE_BEGINNER_BIKE_CONSTR = false;
+                use_beginner_bike_constr = false;
             else if (Input.GetKeyDown(KeyCode.B))
-                USE_BEGINNER_BIKE_CONSTR = true;
+                use_beginner_bike_constr = true;
             else
                 return;
 
@@ -552,17 +623,17 @@ public class ReHandyBotController : MonoBehaviour
         if (STATE_PREGAME == ST_SET_CTRL_MODE)
         {
             if (Input.GetKeyDown(KeyCode.Alpha1))
-                CASE_CTRL_MODE = CTRL_ASSISTED;
+                case_ctrl_mode = CTRL_ASSISTED;
             else if (Input.GetKeyDown(KeyCode.Alpha2))
-                CASE_CTRL_MODE = CTRL_AUTO_STEER_AUTO_THROT;
+                case_ctrl_mode = CTRL_AUTO_STEER_AUTO_THROT;
             else if (Input.GetKeyDown(KeyCode.Alpha3))
-                CASE_CTRL_MODE = CTRL_AUTO_STEER_MANUAL_THROT;
+                case_ctrl_mode = CTRL_AUTO_STEER_MANUAL_THROT;
             else if (Input.GetKeyDown(KeyCode.Alpha4))
-                CASE_CTRL_MODE = CTRL_MANUAL_SIMPLE;
+                case_ctrl_mode = CTRL_MANUAL_SIMPLE;
             else
                 return;
 
-            if (CASE_CTRL_MODE == CTRL_ASSISTED)
+            if (case_ctrl_mode == CTRL_ASSISTED)
                 STATE_PREGAME = ST_SET_FACT_ASSIST_STEER;
             else
                 STATE_PREGAME = ST_CALIBRATE;
@@ -577,30 +648,30 @@ public class ReHandyBotController : MonoBehaviour
         else if (STATE_PREGAME == ST_SET_FACT_ASSIST_STEER)
         {
             if (Input.GetKeyDown(KeyCode.Alpha0))
-                FACT_ASSIST_STEER = 0f;
+                fact_assist_steer = 0f;
             else if (Input.GetKeyDown(KeyCode.Alpha1))
-                FACT_ASSIST_STEER = 1f;
+                fact_assist_steer = 1f;
             else if (Input.GetKeyDown(KeyCode.Alpha2))
-                FACT_ASSIST_STEER = 2f;
+                fact_assist_steer = 2f;
             else if (Input.GetKeyDown(KeyCode.Alpha3))
-                FACT_ASSIST_STEER = 3f;
+                fact_assist_steer = 3f;
             else if (Input.GetKeyDown(KeyCode.Alpha4))
-                FACT_ASSIST_STEER = 4f;
+                fact_assist_steer = 4f;
             else if (Input.GetKeyDown(KeyCode.Alpha5))
-                FACT_ASSIST_STEER = 5f;
+                fact_assist_steer = 5f;
             else if (Input.GetKeyDown(KeyCode.Alpha6))
-                FACT_ASSIST_STEER = 6f;
+                fact_assist_steer = 6f;
             else if (Input.GetKeyDown(KeyCode.Alpha7))
-                FACT_ASSIST_STEER = 7f;
+                fact_assist_steer = 7f;
             else if (Input.GetKeyDown(KeyCode.Alpha8))
-                FACT_ASSIST_STEER = 8f;
+                fact_assist_steer = 8f;
             else if (Input.GetKeyDown(KeyCode.Alpha9))
-                FACT_ASSIST_STEER = 9f;
+                fact_assist_steer = 9f;
             else
                 return;
 
             // Convert assistance factor to fraction:
-            FACT_ASSIST_STEER /= 10f;
+            fact_assist_steer /= 10f;
 
             STATE_PREGAME = ST_SET_FACT_ASSIST_THROTTLE;
             onComplete.Invoke();
@@ -613,9 +684,9 @@ public class ReHandyBotController : MonoBehaviour
         else if (STATE_PREGAME == ST_SET_FACT_ASSIST_THROTTLE)
         {
             if (Input.GetKeyDown(KeyCode.Alpha0))
-                FACT_ASSIST_THROTTLE = 0f;
+                fact_assist_throttle = 0f;
             else if (Input.GetKeyDown(KeyCode.Alpha1))
-                FACT_ASSIST_THROTTLE = 1f;
+                fact_assist_throttle = 1f;
             else
                 return;
 
@@ -633,32 +704,26 @@ public class ReHandyBotController : MonoBehaviour
     private void Update()
     {
         ////////////////////////////////////////////////////////////////////////////
-        // Allow the Patient to select game modes:
+        // Initialize Unity game & launch exercise (19.09.2025):
+        // This function
+        //      (1) Generates the game settings when UNITY_GAME is used, and
+        //      (2) Toggles the Exercise (i.e. STARTS / STOPS the exercise)
+        // 
+        // InitUnityGame_StartExercise() must be replaced by a different function when CARE_PLATFORM is used 
+        // NOTE: both functions must set th e"bike upright" constraint (UPRIGHT_CONSTR_ON) to true before the exercise is launched:
         ////////////////////////////////////////////////////////////////////////////
 
-        if (STATE_PREGAME != ST_CALIBRATE)
-            SelectGameSettings_PreUnityGame(OnSelectGameSettings_PreUnityGame);
-
-        else if (Input.GetKeyDown(KeyCode.Y))
-        {
-            Calibrate(OnCalibrate_CmdStartExercise);
-
-            MotorbikeController.instance.uprightConstraintEnforce(out upright_constr_on); // constraint flag (13.09.2025) 
-
-            // Display section:
-            ExternalConsoleLogger.Log("_________________________________________________________________");
-            ExternalConsoleLogger.Log("Update(): upright constraint [TRUE] \n");
-        }
-            
-        ////////////////////////////////////////////////////////////////////////////
-        // Toggle Exercise state:
-        ////////////////////////////////////////////////////////////////////////////
-
-        // If robot is calibrated and Patient presses Enter, Exercise state is be toggled
-        // Exercise will start now if not already running
-
-        if (isCalibrated && Input.GetKeyDown(KeyCode.Return))
-            ToggleExerciseState();
+        InitUnityGame_StartExercise(
+            ref USE_BEGINNER_BIKE_CONSTR,
+            ref CASE_CTRL_MODE,
+            ref FACT_ASSIST_STEER,
+            ref FACT_ASSIST_THROTTLE,
+            ref FRAC_POS_ROT_INPUT_PATIENT,
+            ref POS_RADIAL_THROT_ZERO,
+            ref K_STIFF_RADIAL_THROT_MANUAL,
+            ref SPEED_AUTO_THROTTLE_MAX_KPH,
+            ref UPRIGHT_CONSTR_ON
+        );
 
         ////////////////////////////////////////////////////////////////////////////
         // Thread sleep & time elapsed computation:
