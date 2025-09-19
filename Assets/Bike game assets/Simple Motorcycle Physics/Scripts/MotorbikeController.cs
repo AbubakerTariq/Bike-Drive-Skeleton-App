@@ -119,8 +119,8 @@ public class MotorbikeController : MonoBehaviour
     public Vector3 velocity_rel_collision;
 
     // Error of preview position wrt target position:
-    private float err_pos_preview_targ_prev = 0f;
-    private float int_err_pos_preview_targ = 0f;
+    private float err_pos_preview2targ_prev = 0f;
+    private float int_err_pos_preview2targ = 0f;
 
     // TARGET bike roll angle / ang vel / integral for steering - CRITICAL:
     private float angle_roll_targ_prev = 0f;
@@ -306,9 +306,9 @@ public class MotorbikeController : MonoBehaviour
         public float dt_angle_roll_targ;
         public float input_steer_targ;
         public float sin_dev_targ;
-        public Vector3 vect_ctrline_tang_target;
-        public Vector3 err_pos_preview_targ_vect;
-        public float err_pos_preview_targ_val;
+        public Vector3 vect_ctrline_tangent_targ;
+        public Vector3 err_pos_preview2targ_vect;
+        public float err_pos_preview2targ_val;
     }
 
     /////////////////////////////////////////////////////////////
@@ -549,7 +549,7 @@ public class MotorbikeController : MonoBehaviour
         // Steering scaling:
         ////////////////////////////////////////////////////////////////            
 
-        float pos_rot = distal_this.PositionP;
+        float pos_rot    = distal_this.PositionP;
 
         // TODO: keep or discard
         // float scale_steer = ScaleInputSteer(pos_rot, MotorbikeController.instance, ReHandyBotController.CASE_CTRL_MODE);
@@ -561,7 +561,10 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
 
         if (ReHandyBotController.instance.ExerciseActive)
-            bike_input.steer_scaled = InputSteerCases(pos_rot, input_steer_targ, scale_steer, ReHandyBotController.instance.CASE_CTRL_MODE);
+            bike_input.steer_scaled = InputSteerCases(
+                pos_rot,  
+                input_steer_targ, scale_steer, 
+                ReHandyBotController.instance.CASE_CTRL_MODE);
         else
             bike_input.steer_scaled = 0f;
 
@@ -689,7 +692,7 @@ public class MotorbikeController : MonoBehaviour
             case ReHandyBotController.CTRL_ASSISTED:
 
                 input_steer_ref =
-                           ReHandyBotController.instance.FACT_ASSIST_STEER * input_steer_targ
+                           ReHandyBotController.instance.FACT_ASSIST_STEER  * input_steer_targ
                    + (1f - ReHandyBotController.instance.FACT_ASSIST_STEER) * input_steer_manual;
                 break;
 
@@ -766,28 +769,28 @@ public class MotorbikeController : MonoBehaviour
         sin_dev_targ = vect_unit_dev_tangent.y;
 
         // Deviation relative to target point on track:
-        Vector3 err_pos_preview_targ_vect = pos_track_targ - pos_preview;
+        Vector3 err_pos_preview2targ_vect = pos_track_targ - pos_preview;
 
-        Vector3 vect_unit_turn_targ = Vector3.Cross(dir_unit_bike, err_pos_preview_targ_vect.normalized); // test vector to establish turn direction
+        Vector3 vect_unit_turn_targ = Vector3.Cross(dir_unit_bike, err_pos_preview2targ_vect.normalized); // test vector to establish turn direction
         int sgn_turn_targ = Math.Sign(-vect_unit_turn_targ.y);
 
         // Error of preview position wrt target position:
-        float err_pos_preview_targ = sgn_turn_targ * MagnitudeXZ(err_pos_preview_targ_vect);
+        float err_pos_preview2targ = sgn_turn_targ * MagnitudeXZ(err_pos_preview2targ_vect);
 
         // Error of preview position: time derivative:
-        float dt_err_pos_preview_targ = (err_pos_preview_targ - err_pos_preview_targ_prev) / dt_step;
+        float dt_err_pos_preview2targ = (err_pos_preview2targ - err_pos_preview2targ_prev) / dt_step;
 
         // Error of preview position: integral
-        int_err_pos_preview_targ += err_pos_preview_targ * dt_step;
+        int_err_pos_preview2targ += err_pos_preview2targ * dt_step;
 
         // Store error for next iteration:
-        err_pos_preview_targ_prev = err_pos_preview_targ;
+        err_pos_preview2targ_prev = err_pos_preview2targ;
 
         // Target roll angle:
         angle_roll_targ =
-            P_GAIN_ERR_POS_TARG * err_pos_preview_targ
-            + D_GAIN_ERR_POS_TARG * dt_err_pos_preview_targ
-            + I_GAIN_ERR_POS_TARG * int_err_pos_preview_targ;
+            P_GAIN_ERR_POS_TARG * err_pos_preview2targ
+            + D_GAIN_ERR_POS_TARG * dt_err_pos_preview2targ
+            + I_GAIN_ERR_POS_TARG * int_err_pos_preview2targ;
 
         // Target roll angular velocity:
         dt_angle_roll_targ = (angle_roll_targ - angle_roll_targ_prev) / dt_step;
@@ -817,9 +820,9 @@ public class MotorbikeController : MonoBehaviour
         fbk_ctrl.dt_angle_roll_targ = dt_angle_roll_targ;
         fbk_ctrl.input_steer_targ = input_steer_targ;
         fbk_ctrl.sin_dev_targ = sin_dev_targ;
-        fbk_ctrl.vect_ctrline_tang_target = vect_ctrline_tangent_targ;
-        fbk_ctrl.err_pos_preview_targ_vect = err_pos_preview_targ_vect;
-        fbk_ctrl.err_pos_preview_targ_val = err_pos_preview_targ;
+        fbk_ctrl.vect_ctrline_tangent_targ = vect_ctrline_tangent_targ;
+        fbk_ctrl.err_pos_preview2targ_vect = err_pos_preview2targ_vect;
+        fbk_ctrl.err_pos_preview2targ_val = err_pos_preview2targ;
 
         return input_steer_targ;
     }

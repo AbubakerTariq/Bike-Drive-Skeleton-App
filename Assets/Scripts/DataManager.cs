@@ -207,11 +207,11 @@ public class DataManager : MonoBehaviour
                 $"{fbk_ctrl_data.dt_angle_roll_targ}," +
                 $"{fbk_ctrl_data.input_steer_targ}," +
                 $"{fbk_ctrl_data.sin_dev_targ}," +
-                $"{fbk_ctrl_data.vect_ctrline_tang_target.x}," +
-                $"{fbk_ctrl_data.vect_ctrline_tang_target.z}," +                
-                $"{fbk_ctrl_data.err_pos_preview_targ_vect.x}," +
-                $"{fbk_ctrl_data.err_pos_preview_targ_vect.z}," +
-                $"{fbk_ctrl_data.err_pos_preview_targ_val}," +
+                $"{fbk_ctrl_data.vect_ctrline_tangent_targ.x}," +
+                $"{fbk_ctrl_data.vect_ctrline_tangent_targ.z}," +                
+                $"{fbk_ctrl_data.err_pos_preview2targ_vect.x}," +
+                $"{fbk_ctrl_data.err_pos_preview2targ_vect.z}," +
+                $"{fbk_ctrl_data.err_pos_preview2targ_val}," +
 
                 // $"{steer_calc_data.steer_update[0]}," +   
                 // $"{steer_calc_data.steer_update[1]}," +   
