@@ -75,6 +75,10 @@ public class ReHandyBotController : MonoBehaviour
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient stiffness calibration data; keep default for first CARE_PLATFORM release)
     private float K_STIFF_RADIAL_THROT_MANUAL = 2500f;
 
+    // Offset of the THROTTLE zero position to account for initial calibration errors (PD discussion on 20.09.2025)
+    public float OFFSET_CALIB_RADIAL = 0.0005f;
+    public float POS_RADIAL_THROT_ZERO_OFFS;
+
     ////////////////////////////////////////////////////////////////////////////
     // CARE_PLATFORM controlled parameters - AUTO throttle parameters:
     //////////////////////////////////////////////////////////////////////////// 
@@ -138,6 +142,9 @@ public class ReHandyBotController : MonoBehaviour
 
     private float POS_RADIAL_MIN = 0.0145f;
     private float POS_RADIAL_MAX = 0.06f;
+
+    // Offset of the MINIMUM RADIAL position to account for initial calibration errors (PD discussion on 20.09.2025):
+    private float POS_RADIAL_MIN_OFFS;
 
     private float POS_ROT_MIN = -Mathf.PI / 2f;
     private float POS_ROT_MAX = Mathf.PI / 2f;
@@ -442,7 +449,7 @@ public class ReHandyBotController : MonoBehaviour
             {
                 loader.SetActive(false);
                 pos_radial_min = distal_data.PositionR;
-                pos_radial_min = Math.Clamp(pos_radial_min, POS_RADIAL_MIN, POS_RADIAL_MAX);
+                pos_radial_min = Math.Clamp(pos_radial_min, POS_RADIAL_MIN_OFFS, POS_RADIAL_MAX);
 
                 for (int i = 0; i < MaxAttempts; i++)
                 {
@@ -469,11 +476,9 @@ public class ReHandyBotController : MonoBehaviour
         for (int i = 0; i < MaxAttempts; i++)
             if (distalRobot.Calibration(DistalComm.CalibrationType.AxisCalib)) break;
 
-        // TODO: keep or discard
-        /*
+        // NOTE: reinstated this routine after adding offset (OFFSET_CALIB_RADIAL) to the reference RADIAL positions (20.09.2025):
         for (int i = 0; i < MaxAttempts; i++)
             if (distalRobot.Calibration(DistalComm.CalibrationType.AllForceSensorsZeroCalib)) break;
-        */
 
         onComplete.Invoke();
     }
@@ -747,6 +752,10 @@ public class ReHandyBotController : MonoBehaviour
             ref UPRIGHT_CONSTR_ON
         );
 
+        // Offset the RADIAL reference positions to account for initial calibration errors - CRITICAL (20.09.2025):
+        POS_RADIAL_THROT_ZERO_OFFS = POS_RADIAL_THROT_ZERO + OFFSET_CALIB_RADIAL;
+        POS_RADIAL_MIN_OFFS        = POS_RADIAL_MIN        + OFFSET_CALIB_RADIAL;
+
         ////////////////////////////////////////////////////////////////////////////
         // Thread sleep & time elapsed computation:
         ////////////////////////////////////////////////////////////////////////////    
@@ -861,7 +870,7 @@ public class ReHandyBotController : MonoBehaviour
             case CTRL_MANUAL_SIMPLE:
 
                 SetGain(
-                    FORCE_GAIN_RADIAL, 
+                    FORCE_GAIN_RADIAL,
                     FORCE_GAIN_ROT);
                 break;
 
@@ -906,15 +915,21 @@ public class ReHandyBotController : MonoBehaviour
                 // Assistive torque - apply limits:
                 torque_assist = Math.Clamp(torque_assist_raw, -TORQUE_ASSIST_LIM, TORQUE_ASSIST_LIM);
 
+                // Bias rotational stiffness bias to return rotation angle to zero :
+                float k_stiff_rot_base_this = 0f;
+
+                if (FACT_ASSIST_STEER < 0.2f)
+                    k_stiff_rot_base_this = K_STIFF_ROT_BASE;
+                else
+                    k_stiff_rot_base_this = 0f;
+
                 // Set target command for baseline state
                 // (1) Generates physical rotation limits
-                // (2) K_STIFF_ROT_BASE provides bias to return rotation angle to zero 
+                // (2) Provides bias rotation
                 CmdSetTarget_FeedbackCtrl_WithLimit(
-                    pos_rot,
-                    0f,
-                    0f,
-                    k_stiff_radial_throt,
-                    B_DAMP_ROT_TRACKING);
+                    pos_rot, 0f,
+                    0f, k_stiff_radial_throt, B_DAMP_ROT_TRACKING,
+                    K_STIFF_ROT_BASE);
 
                 // Command offset forces for ASSISTANCE - CRITICAL:
                 SetOffsetForces(0f, torque_assist);
@@ -942,11 +957,9 @@ public class ReHandyBotController : MonoBehaviour
             case CTRL_MANUAL_SIMPLE:
 
                 CmdSetTarget_FeedbackCtrl_WithLimit(
-                    pos_rot,
-                    0f, 
-                    0f, // NOTE: K_STIFF_ROT_BASE is contained in the function
-                    K_STIFF_RADIAL_THROT_MANUAL,
-                    0f);
+                    pos_rot, 0f, 
+                    0f, K_STIFF_RADIAL_THROT_MANUAL, 0f,
+                    K_STIFF_ROT_BASE);
                 break;
 
             default: // no command
@@ -979,7 +992,7 @@ public class ReHandyBotController : MonoBehaviour
 
         if (ExerciseActive)
             success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
-                POS_RADIAL_THROT_ZERO, pos_rot_eq_ref,
+                POS_RADIAL_THROT_ZERO_OFFS, pos_rot_eq_ref,
                 k_stiff_radial_throt, k_stiff_rot_steer,
                 B_DAMP_RADIAL_BASE, b_damp_rot_steer,
                 SWITCH_RADIAL, SWITCH_ROT);
@@ -987,7 +1000,10 @@ public class ReHandyBotController : MonoBehaviour
             success_set_target = false;        
     }
 
-    private void CmdSetTarget_FeedbackCtrl_WithLimit(float pos_rot, float pos_rot_eq_ref, float k_stiff_rot_ref, float k_stiff_radial_throt, float b_damp_rot_equiv)
+    private void CmdSetTarget_FeedbackCtrl_WithLimit(
+        float pos_rot, float pos_rot_eq_ref, 
+        float k_stiff_rot_ref, float k_stiff_radial_throt, float b_damp_rot_equiv, 
+        float k_stiff_rot_base)
     {
         ////////////////////////////////////////////////////////////////////////////
         // RADIAL parameters:
@@ -1032,7 +1048,7 @@ public class ReHandyBotController : MonoBehaviour
             k_stiff_rot_lim = 0f; // true value
         }
 
-        k_stiff_rot_equiv = k_stiff_rot_ref + k_stiff_rot_lim + K_STIFF_ROT_BASE;
+        k_stiff_rot_equiv = k_stiff_rot_ref + k_stiff_rot_lim + k_stiff_rot_base;
 
         pos_eq_rot_equiv = (k_stiff_rot_ref*pos_rot_eq_ref + k_stiff_rot_lim*pos_rot_eq_lim)
              / k_stiff_rot_equiv;
@@ -1045,7 +1061,7 @@ public class ReHandyBotController : MonoBehaviour
 
         if (ExerciseActive)
             success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
-                POS_RADIAL_THROT_ZERO, pos_eq_rot_equiv,
+                POS_RADIAL_THROT_ZERO_OFFS, pos_eq_rot_equiv,
                 k_stiff_radial_throt, k_stiff_rot_equiv,
                 B_DAMP_RADIAL_BASE, b_damp_rot_equiv,
                 SWITCH_RADIAL, SWITCH_ROT);
@@ -1217,10 +1233,10 @@ public class ReHandyBotController : MonoBehaviour
         SetBrakes(DISENGAGE_BRAKE, DISENGAGE_BRAKE);
         ExternalConsoleLogger.Log("        StopExercise(): SetBrakes(): before MotionRoutineRHBSimple - cmd DISENGAGE \n");
 
-        bool success_all = MotionRoutineRHBSimple(POS_RADIAL_MIN);
+        bool success_all = MotionRoutineRHBSimple(POS_RADIAL_MIN_OFFS);
 
         ExternalConsoleLogger.Log("        --------------------------------------------------------------------");
-        ExternalConsoleLogger.Log("        MotionRoutineRHBSimple() radial target [" + POS_RADIAL_MIN + "] EXECUTED, success all [" + success_all + "] \n");
+        ExternalConsoleLogger.Log("        MotionRoutineRHBSimple() radial target [" + POS_RADIAL_MIN_OFFS + "] EXECUTED, success all [" + success_all + "] \n");
     
         SetBrakes(ENGAGE_BRAKE, ENGAGE_BRAKE);
         ExternalConsoleLogger.Log("        StopExercise(): SetBrakes(): after MotionRoutineRHBSimple - cmd ENGAGE \n");
@@ -1291,7 +1307,7 @@ public class ReHandyBotController : MonoBehaviour
         if (CHECK_EXERCISE_STATE && (!isExerciseStarted || isExerciseStopping))
             return success;
 
-        radialValue = Mathf.Clamp(radialValue, POS_RADIAL_MIN, POS_RADIAL_MAX);
+        radialValue = Mathf.Clamp(radialValue, POS_RADIAL_MIN_OFFS, POS_RADIAL_MAX);
         rotationValue = Mathf.Clamp(rotationValue, POS_ROT_MIN, POS_ROT_MAX);
 
         for (int i = 0; i < MaxAttempts; i++)
@@ -1317,7 +1333,7 @@ public class ReHandyBotController : MonoBehaviour
     {
         return distalRobot.HL_SetTarget(
             IDX_TARG_BASE,
-            POS_RADIAL_MIN, 0f,
+            POS_RADIAL_MIN_OFFS, 0f,
             0f, 0f,
             0f, 0f,
             0f, 0f);
@@ -1389,7 +1405,7 @@ public class ReHandyBotController : MonoBehaviour
             // Note use of baseline impedance:
             bool success_step = SetTargetValidated(
                 IDX_TARG_BASE,
-                POS_RADIAL_THROT_ZERO, POS_ROT_BASE,
+                POS_RADIAL_THROT_ZERO_OFFS, POS_ROT_BASE,
                 K_STIFF_RADIAL_THROT_MANUAL, K_STIFF_ROT_BASE,
                 B_DAMP_RADIAL_BASE, B_DAMP_ROT_BASE,
                 switch_var, 1f);

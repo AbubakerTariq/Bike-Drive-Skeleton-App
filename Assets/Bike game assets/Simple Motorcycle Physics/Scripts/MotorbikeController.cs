@@ -69,7 +69,7 @@ public class MotorbikeController : MonoBehaviour
     const float DIST_RADIAL_THROT_FULL_MM = 2.0f; // grippers travel distance for full throttle (mm)  
 
     // Throttle input limits - function of RADIAL stiffness
-    const float INPUT_THROT_MAX            = 2.0f; // about 200 kph; was 1.3f; 
+    const float INPUT_THROT_MAX            = 1.0f; // 2.0f // about 300 kph
     const float INPUT_THROT_UPRIGHT_THRESH = 0.6f; // minimum torque to prevent UprightForce() from kicking in
 
     ////////////////////////////////////////////////////////////////////////////
@@ -603,9 +603,6 @@ public class MotorbikeController : MonoBehaviour
     {
         float input_throttle;
 
-        float pos_throttle = pos_radial;
-        float pos_throttle_zero = ReHandyBotController.instance.POS_RADIAL_THROT_ZERO;
-
         ////////////////////////////////////////////////////////////////
         // Deviation from centerline target (several uses):  
         ////////////////////////////////////////////////////////////////    
@@ -624,10 +621,14 @@ public class MotorbikeController : MonoBehaviour
         // Manual throttle input - from RHB:
         ////////////////////////////////////////////////////////////////
 
+        float pos_throttle      = pos_radial;
+        float pos_throttle_zero = ReHandyBotController.instance.POS_RADIAL_THROT_ZERO;
+
         float SCALE_INPUT_THROTTLE = 1000f / DIST_RADIAL_THROT_FULL_MM;
 
         float input_throttle_manual = Mathf.Clamp(
-            SCALE_INPUT_THROTTLE * (pos_throttle_zero - pos_throttle), 0f, INPUT_THROT_MAX);
+            SCALE_INPUT_THROTTLE * (pos_throttle_zero - pos_throttle), 
+            0f, INPUT_THROT_MAX);
 
         ////////////////////////////////////////////////////////////////
         // Select throttle input:
@@ -637,7 +638,7 @@ public class MotorbikeController : MonoBehaviour
         {
             case ReHandyBotController.CTRL_ASSISTED:
                 input_throttle =
-                            ReHandyBotController.instance.FACT_ASSIST_THROTTLE * input_throttle_fbk
+                            ReHandyBotController.instance.FACT_ASSIST_THROTTLE  * input_throttle_fbk
                     + (1f - ReHandyBotController.instance.FACT_ASSIST_THROTTLE) * input_throttle_manual;
                 break;
 
