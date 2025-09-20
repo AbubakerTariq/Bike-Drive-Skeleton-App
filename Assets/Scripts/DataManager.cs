@@ -133,7 +133,10 @@ public class DataManager : MonoBehaviour
             "steer term dt angle ctrl",
 
             "Force X",
-            "Force Y"
+            "Force Y",
+
+            "pos rot kal",
+            "dt pos rot kal"
         };
 
         if (!File.Exists(dataFilePath))
@@ -208,7 +211,7 @@ public class DataManager : MonoBehaviour
                 $"{fbk_ctrl_data.input_steer_targ}," +
                 $"{fbk_ctrl_data.sin_dev_targ}," +
                 $"{fbk_ctrl_data.vect_ctrline_tangent_targ.x}," +
-                $"{fbk_ctrl_data.vect_ctrline_tangent_targ.z}," +                
+                $"{fbk_ctrl_data.vect_ctrline_tangent_targ.z}," +
                 $"{fbk_ctrl_data.err_pos_preview2targ_vect.x}," +
                 $"{fbk_ctrl_data.err_pos_preview2targ_vect.z}," +
                 $"{fbk_ctrl_data.err_pos_preview2targ_val}," +
@@ -223,7 +226,10 @@ public class DataManager : MonoBehaviour
                 $"{steer_calc_data.steer_term_dt_angle_ctrl}, " +
 
                 $"{distal_data.ForceX}," +
-                $"{distal_data.ForceY}";                
+                $"{distal_data.ForceY}," +
+
+                $"{ReHandyBotController.instance.pos_rot_kal}," +
+                $"{ReHandyBotController.instance.dt_pos_rot_kal}";
 
             lock (fileLock)
             {

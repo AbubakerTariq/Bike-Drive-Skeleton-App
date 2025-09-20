@@ -30,12 +30,12 @@ public class ReHandyBotController : MonoBehaviour
 
     // Bike type (BEGINNER or PRO; default is PRO)
     // To be set by UNITY_GAME or CARE_PLATFORM (no need to implement selection for first CARE_PLATFORM release)
-    public bool USE_BEGINNER_BIKE_CONSTR = false; 
+    public bool USE_BEGINNER_BIKE_CONSTR = false;
 
-    public const int CTRL_ASSISTED                = 1;
-    public const int CTRL_AUTO_STEER_AUTO_THROT   = 2;
+    public const int CTRL_ASSISTED = 1;
+    public const int CTRL_AUTO_STEER_AUTO_THROT = 2;
     public const int CTRL_AUTO_STEER_MANUAL_THROT = 3;
-    public const int CTRL_MANUAL_SIMPLE           = 4;
+    public const int CTRL_MANUAL_SIMPLE = 4;
 
     // Bike control mode (default is ASSISTED)
     // To be set by UNITY_GAME or CARE_PLATFORM (no need to implement selection now, keep it as CTRL_ASSISTED for first CARE_PLATFORM release)
@@ -47,18 +47,18 @@ public class ReHandyBotController : MonoBehaviour
 
     // Assistance factor (between 0 and 1.0)
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM game level)
-    public float FACT_ASSIST_STEER        = 0f;
+    public float FACT_ASSIST_STEER = 0f;
 
     public const int THROTTLE_MODE_MANUAL = 0;
-    public const int THROTTLE_MODE_AUTO   = 1;
+    public const int THROTTLE_MODE_AUTO = 1;
 
     // Throttle mode (0: MANUAL, 1: AUTO, default is AUTO)
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM throttle setting)
-    public float FACT_ASSIST_THROTTLE     = (float)THROTTLE_MODE_AUTO; 
+    public float FACT_ASSIST_THROTTLE = (float)THROTTLE_MODE_AUTO;
 
     // Scaling factor for Patient's rotational inputs
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient ROM data)
-    public float FRAC_POS_ROT_INPUT_PATIENT = 0.4f; 
+    public float FRAC_POS_ROT_INPUT_PATIENT = 0.4f;
 
     // Maximum assistive torque:
     const float TORQUE_ASSIST_MAX = 0.2f;
@@ -69,7 +69,7 @@ public class ReHandyBotController : MonoBehaviour
 
     // Handles opening distance (meters) for zero throttle input:
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient hand opening data; keep default for first CARE_PLATFORM release)
-    public float POS_RADIAL_THROT_ZERO  = 0.029f;
+    public float POS_RADIAL_THROT_ZERO = 0.029f;
 
     // Throttle stiffness for MANUAL throttle mode:
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient stiffness calibration data; keep default for first CARE_PLATFORM release)
@@ -87,11 +87,11 @@ public class ReHandyBotController : MonoBehaviour
     // UNITY_GAME: states for PRE-GAME procedures:
     //////////////////////////////////////////////////////////////////////////// 
 
-    private const int ST_SELECT_BIKE_TYPE         = 1;
-    private const int ST_SET_CTRL_MODE            = 2;
-    private const int ST_SET_FACT_ASSIST_STEER    = 3;
+    private const int ST_SELECT_BIKE_TYPE = 1;
+    private const int ST_SET_CTRL_MODE = 2;
+    private const int ST_SET_FACT_ASSIST_STEER = 3;
     private const int ST_SET_FACT_ASSIST_THROTTLE = 4;
-    private const int ST_CALIBRATE                = 5;
+    private const int ST_CALIBRATE = 5;
 
     private int STATE_PREGAME = ST_SELECT_BIKE_TYPE; // initial state for UNITY_GAME procedures
 
@@ -100,20 +100,20 @@ public class ReHandyBotController : MonoBehaviour
     //////////////////////////////////////////////////////////////////////////// 
 
     private float OFFS_FORCE_RADIAL_INIT = 0f;
-    private float OFFS_TORQUE_ROT_INIT   = 0f;
+    private float OFFS_TORQUE_ROT_INIT = 0f;
 
-    private bool SAFETY_TCP_APP_ON       = false;
-    private bool STABILITY_SET_TARG_ON   = true;  
+    private bool SAFETY_TCP_APP_ON = false;
+    private bool STABILITY_SET_TARG_ON = true;
 
-    private const bool ENGAGE_BRAKE      = false;
-    private const bool DISENGAGE_BRAKE   = true;
+    private const bool ENGAGE_BRAKE = false;
+    private const bool DISENGAGE_BRAKE = true;
 
     ////////////////////////////////////////////////////////////////////////////
     // Target indices:
     ////////////////////////////////////////////////////////////////////////////
 
     public const int NUM_TARGETS = 1;
-    private byte IDX_TARG_BASE   = 1;
+    private byte IDX_TARG_BASE = 1;
 
     ////////////////////////////////////////////////////////////////////////////
     // Object instances:
@@ -127,42 +127,42 @@ public class ReHandyBotController : MonoBehaviour
     // NOTE: use [RHB ctrl params - stability v5b game settings 4-axis.xlsx] to calculate damping as a function of stiffness
     ////////////////////////////////////////////////////////////////////////////
 
-    private float FORCE_GAIN_RADIAL =  9.0f;
-    private float FORCE_GAIN_ROT    = 14.0f;
+    private float FORCE_GAIN_RADIAL = 9.0f;
+    private float FORCE_GAIN_ROT = 14.0f;
 
     private float K_STIFF_RADIAL_WALL = 2500f; // use with zero feedback gain
-    private float B_DAMP_RADIAL_WALL  = 0f; // rely on embedded HL_SetTarget stability
+    private float B_DAMP_RADIAL_WALL = 0f; // rely on embedded HL_SetTarget stability
 
-    private float K_STIFF_ROT_WALL    = 1.2f; // use with zero feedback gain
-    private float B_DAMP_ROT_WALL     = 0f; // rely on embedded HL_SetTarget stability
+    private float K_STIFF_ROT_WALL = 1.2f; // use with zero feedback gain
+    private float B_DAMP_ROT_WALL = 0f; // rely on embedded HL_SetTarget stability
 
-    private float POS_RADIAL_MIN      = 0.0145f;
-    private float POS_RADIAL_MAX      = 0.06f;  
+    private float POS_RADIAL_MIN = 0.0145f;
+    private float POS_RADIAL_MAX = 0.06f;
 
     private float POS_ROT_MIN = -Mathf.PI / 2f;
-    private float POS_ROT_MAX =  Mathf.PI / 2f;
+    private float POS_ROT_MAX = Mathf.PI / 2f;
 
     // Throttle - additional haptics settings:
-    private float K_STIFF_RADIAL_THROT_AUTO   = 5000f; // makes handles essentially rigid
-    private float B_DAMP_RADIAL_BASE          = 0f; // rely on embedded HL_SetTarget stability 
+    private float K_STIFF_RADIAL_THROT_AUTO = 5000f; // makes handles essentially rigid
+    private float B_DAMP_RADIAL_BASE = 0f; // rely on embedded HL_SetTarget stability 
 
     // Steering - BASELINE haptics settings:
-    private const float POS_ROT_BASE   = 0f;
+    private const float POS_ROT_BASE = 0f;
 
-    private float K_STIFF_ROT_BASE     = 0.1f; // 0.05f; // 
-    private float B_DAMP_ROT_BASE      = 0f; // rely on embedded HL_SetTarget stability
+    private float K_STIFF_ROT_BASE = 0.1f; // 0.05f; // 
+    private float B_DAMP_ROT_BASE = 0f; // rely on embedded HL_SetTarget stability
 
     // Stiffness for tracking control;
     private float K_STIFF_ROT_TRACKING = 1.6f; // 2.0f; // 
-    private float B_DAMP_ROT_TRACKING  = 0.04f; // TODO: check stabilizing damping for K_STIFF_ROT_TRACKING + K_STIFF_ROT_BASE (use )
-                                                
+    private float B_DAMP_ROT_TRACKING = 0.03f; // 0.04f; // TODO: check stabilizing damping for K_STIFF_ROT_TRACKING + K_STIFF_ROT_BASE (use )
+
     ////////////////////////////////////////////////////////////////////////////
     // Impedance for RHB motion limits:
     ////////////////////////////////////////////////////////////////////////////   
 
-    private float K_STIFF_ROT_LIM  = 0.6f;
+    private float K_STIFF_ROT_LIM = 0.6f;
 
-    public float ANGLE_ROT_LIM_DEG = 45f;  
+    public float ANGLE_ROT_LIM_DEG = 45f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Kinematic & force data variables:
@@ -172,23 +172,42 @@ public class ReHandyBotController : MonoBehaviour
     private const float NULL_VALUE = 0f;
 
     // Track coordinates:
-    private Vector3 pos_ctrline_near  = NULL_VECTOR3;
+    private Vector3 pos_ctrline_near = NULL_VECTOR3;
     private Vector3 vect_ctrline_tang = NULL_VECTOR3;
 
     // Bike pose:
-    private float angle_roll_bike     = NULL_VALUE;
-    private float dt_angle_roll_bike  = NULL_VALUE;
+    private float angle_roll_bike = NULL_VALUE;
+    private float dt_angle_roll_bike = NULL_VALUE;
 
     // Feedback control:
-    private float angle_roll_targ     = NULL_VALUE;
-    private float dt_angle_roll_targ  = NULL_VALUE;
+    private float angle_roll_targ = NULL_VALUE;
+    private float dt_angle_roll_targ = NULL_VALUE;
 
     // Trajectory tracking: reference equilibrium position:
-    public float pos_rot_eq_ref       = NULL_VALUE;
-    public float dt_pos_rot_eq_ref    = NULL_VALUE;
+    public float pos_rot_eq_ref = NULL_VALUE;
+    public float dt_pos_rot_eq_ref = NULL_VALUE;
 
     // Assistive torque:
     public float torque_assist = NULL_VALUE;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Kalman filter for rotation state estimation:
+    ////////////////////////////////////////////////////////////////////////////
+
+    // Values from Maxon motor simulation (including encoder quantization and gear ratio):
+    const float ERR_EST_INIT = 0.1f;
+    private float[] Q_PROC   = {9.43e-9f, 1.005e-4f};
+
+    private float R_MEAS = 4.3e-6f; // 2.15e-6f; // was 2.15e-7
+
+    KalmanFilter2D kal_f = new KalmanFilter2D(ERR_EST_INIT);
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Rotation state estimates using Kalman filter:
+    //////////////////////////////////////////////////////////////////////////// 
+
+    public float pos_rot_kal;
+    public float dt_pos_rot_kal;
 
     ////////////////////////////////////////////////////////////////////////////
     // Loader:
@@ -450,8 +469,11 @@ public class ReHandyBotController : MonoBehaviour
         for (int i = 0; i < MaxAttempts; i++)
             if (distalRobot.Calibration(DistalComm.CalibrationType.AxisCalib)) break;
 
+        // TODO: keep or discard
+        /*
         for (int i = 0; i < MaxAttempts; i++)
             if (distalRobot.Calibration(DistalComm.CalibrationType.AllForceSensorsZeroCalib)) break;
+        */
 
         onComplete.Invoke();
     }
@@ -763,6 +785,20 @@ public class ReHandyBotController : MonoBehaviour
         float dt_pos_rot = ReHandyBotController.instance.distal_data.VelocityP;
 
         ////////////////////////////////////////////////////////////////////////////
+        // Rotation state estimation using Kalman filter:
+        //////////////////////////////////////////////////////////////////////////// 
+
+        // Predict the next state:
+        kal_f.Predict(Time.deltaTime, Q_PROC);
+
+        // Update the filter with the new measurement:
+        kal_f.Update(pos_rot, R_MEAS);
+
+        // Get the estimated velocity and position:
+        pos_rot_kal = kal_f.GetPositionEstimate();
+        dt_pos_rot_kal = kal_f.GetVelocityEstimate();
+
+        ////////////////////////////////////////////////////////////////////////////
         // Retrieve data from bike and track objects:
         ////////////////////////////////////////////////////////////////////////////
 
@@ -782,7 +818,7 @@ public class ReHandyBotController : MonoBehaviour
 
             if (ExerciseActive)
                 CmdSetTargetSteerAndThrottleCases(
-                    pos_rot, dt_pos_rot,
+                    pos_rot, dt_pos_rot_kal, // was dt_pos_rot (20.09.2025)
                     angle_roll_targ, angle_roll_bike, 
                     dt_angle_roll_targ, dt_angle_roll_bike, 
                     CASE_CTRL_MODE);

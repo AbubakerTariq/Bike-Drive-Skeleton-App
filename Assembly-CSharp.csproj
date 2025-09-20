@@ -63,6 +63,7 @@
     <Compile Include="Assets\Bike game assets\Simple Motorcycle Physics\Scripts\MotorbikeController.cs" />
     <Compile Include="Assets\Bike game assets\RTG 1.3\Scripts\Track_Generator.cs" />
     <Compile Include="Assets\Bike game assets\RTG 1.3\MiniMap\Content\MiniMap.cs" />
+    <Compile Include="Assets\Scripts\KalmanFilter2D.cs" />
     <Compile Include="Assets\Scripts\DataManager.cs" />
     <Compile Include="Assets\Scripts\ExternalConsoleLogger.cs" />
     <Compile Include="Assets\Bike game assets\Simple Motorcycle Physics\Scripts\RagdollJointImitation.cs" />
