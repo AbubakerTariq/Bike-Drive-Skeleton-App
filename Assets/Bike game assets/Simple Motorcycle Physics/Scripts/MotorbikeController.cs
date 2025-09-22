@@ -51,7 +51,14 @@ public class MotorbikeController : MonoBehaviour
     const float SPEED_TRANSITION_UPRIGHT   = 1.0f; // transition speed for wheel steering angle behavior
 
     ////////////////////////////////////////////////////////////////////////////
-    // Bike control parameters - Steering - RHB input scaling (TODO: keep or discard):
+    // Bike control parameters - STEERING - Factor adjustment:
+    ////////////////////////////////////////////////////////////////////////////
+
+    const float FACT_ASSIST_STEER_MAX  = 0.9f;
+    const float OFFS_FACT_ASSIST_STEER = 0.25f; // use this to increase sensitivity to user's steering input (22.09.2025)
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Bike control parameters - STEERING - RHB input scaling (TODO: keep or discard):
     ////////////////////////////////////////////////////////////////////////////
 
     const float SCALE_STEER_RHB_MIN  = 0.2f; // for angular deviation of bike's heading wrt to target 
@@ -637,6 +644,7 @@ public class MotorbikeController : MonoBehaviour
         switch (case_ctrl_mode)
         {
             case ReHandyBotController.CTRL_ASSISTED:
+
                 input_throttle =
                             ReHandyBotController.instance.FACT_ASSIST_THROTTLE  * input_throttle_fbk
                     + (1f - ReHandyBotController.instance.FACT_ASSIST_THROTTLE) * input_throttle_manual;
@@ -683,9 +691,14 @@ public class MotorbikeController : MonoBehaviour
         {
             case ReHandyBotController.CTRL_ASSISTED:
 
+                float ratio_fact_assist =
+                    (FACT_ASSIST_STEER_MAX - OFFS_FACT_ASSIST_STEER) / FACT_ASSIST_STEER_MAX;
+
+                float FACT_ASSIST_STEER_ADJ = ratio_fact_assist * ReHandyBotController.instance.FACT_ASSIST_STEER;
+
                 input_steer_ref =
-                           ReHandyBotController.instance.FACT_ASSIST_STEER  * input_steer_targ
-                   + (1f - ReHandyBotController.instance.FACT_ASSIST_STEER) * input_steer_manual;
+                           FACT_ASSIST_STEER_ADJ  * input_steer_targ
+                   + (1f - FACT_ASSIST_STEER_ADJ) * input_steer_manual;
                 break;
 
             case ReHandyBotController.CTRL_AUTO_STEER_AUTO_THROT:

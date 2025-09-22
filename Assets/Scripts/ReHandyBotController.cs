@@ -42,12 +42,23 @@ public class ReHandyBotController : MonoBehaviour
     public int CASE_CTRL_MODE = CTRL_ASSISTED;
 
     ////////////////////////////////////////////////////////////////////////////
-    // CARE_PLATFORM controlled parameters - Patient-dependent game parameters:
+    // CARE_PLATFORM controlled parameters - STEERING assistance:
     //////////////////////////////////////////////////////////////////////////// 
 
     // Assistance factor (between 0 and 1.0)
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM game level)
     public float FACT_ASSIST_STEER = 0f;
+
+    // Scaling factor for Patient's rotational inputs
+    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient ROM data)
+    public float FRAC_POS_ROT_INPUT_PATIENT = 0.4f;
+
+    // Maximum steering assistive torque:
+    const float TORQUE_ASSIST_STEER_MAX = 0.2f;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // CARE_PLATFORM controlled parameters - THROTTLE assistance:
+    //////////////////////////////////////////////////////////////////////////// 
 
     public const int THROTTLE_MODE_MANUAL = 0;
     public const int THROTTLE_MODE_AUTO = 1;
@@ -55,13 +66,6 @@ public class ReHandyBotController : MonoBehaviour
     // Throttle mode (0: MANUAL, 1: AUTO, default is AUTO)
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM throttle setting)
     public float FACT_ASSIST_THROTTLE = (float)THROTTLE_MODE_AUTO;
-
-    // Scaling factor for Patient's rotational inputs
-    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient ROM data)
-    public float FRAC_POS_ROT_INPUT_PATIENT = 0.4f;
-
-    // Maximum assistive torque:
-    const float TORQUE_ASSIST_MAX = 0.2f;
 
     ////////////////////////////////////////////////////////////////////////////
     // CARE_PLATFORM controlled parameters - MANUAL throttle parameters:
@@ -131,14 +135,14 @@ public class ReHandyBotController : MonoBehaviour
     // NOTE: use [RHB ctrl params - stability v5b game settings 4-axis.xlsx] to calculate damping as a function of stiffness
     ////////////////////////////////////////////////////////////////////////////
 
-    private float FORCE_GAIN_RADIAL = 9.0f;
-    private float FORCE_GAIN_ROT = 14.0f;
+    private float FORCE_GAIN_RADIAL =  9.0f;
+    private float FORCE_GAIN_ROT    =  6.0f; // 14.0f; // Reduced gain for greater stability with ASSISTED and MANUAL control
 
     private float K_STIFF_RADIAL_WALL = 2500f; // use with zero feedback gain
-    private float B_DAMP_RADIAL_WALL = 0f; // rely on embedded HL_SetTarget stability
+    private float B_DAMP_RADIAL_WALL  = 0f; // rely on embedded HL_SetTarget stability
 
     private float K_STIFF_ROT_WALL = 1.2f; // use with zero feedback gain
-    private float B_DAMP_ROT_WALL = 0f; // rely on embedded HL_SetTarget stability
+    private float B_DAMP_ROT_WALL  = 0f; // rely on embedded HL_SetTarget stability
 
     private float POS_RADIAL_MIN = 0.0145f;
     private float POS_RADIAL_MAX = 0.06f;
@@ -147,7 +151,7 @@ public class ReHandyBotController : MonoBehaviour
     private float POS_RADIAL_MIN_OFFS;
 
     private float POS_ROT_MIN = -Mathf.PI / 2f;
-    private float POS_ROT_MAX = Mathf.PI / 2f;
+    private float POS_ROT_MAX =  Mathf.PI / 2f;
 
     // Throttle - additional haptics settings:
     private float K_STIFF_RADIAL_THROT_AUTO = 5000f; // makes handles essentially rigid
@@ -157,17 +161,17 @@ public class ReHandyBotController : MonoBehaviour
     private const float POS_ROT_BASE = 0f;
 
     private float K_STIFF_ROT_BASE = 0.1f; // 0.05f; // 
-    private float B_DAMP_ROT_BASE = 0f; // rely on embedded HL_SetTarget stability
+    private float B_DAMP_ROT_BASE  = 0f; // rely on embedded HL_SetTarget stability
 
     // Stiffness for tracking control;
-    private float K_STIFF_ROT_TRACKING = 1.6f; // 2.0f; // 
-    private float B_DAMP_ROT_TRACKING = 0.03f; // 0.04f; // TODO: check stabilizing damping for K_STIFF_ROT_TRACKING + K_STIFF_ROT_BASE (use )
+    private float K_STIFF_ROT_TRACKING = 2.2f; // 1.6f; // 2.0f; // 
+    private float B_DAMP_ROT_TRACKING  = 0.045f; // 0.03f; // TODO: check stabilizing damping for K_STIFF_ROT_TRACKING + K_STIFF_ROT_BASE (use )
 
     ////////////////////////////////////////////////////////////////////////////
     // Impedance for RHB motion limits:
     ////////////////////////////////////////////////////////////////////////////   
 
-    private float K_STIFF_ROT_LIM = 0.6f;
+    private float K_STIFF_ROT_LIM  = 0.6f;
 
     public float ANGLE_ROT_LIM_DEG = 45f;
 
@@ -205,7 +209,7 @@ public class ReHandyBotController : MonoBehaviour
     const float ERR_EST_INIT = 0.1f;
     private float[] Q_PROC   = {9.43e-9f, 1.005e-4f};
 
-    private float R_MEAS = 4.3e-6f; // 2.15e-6f; // was 2.15e-7
+    private float R_MEAS = 4.30e-6f; // was 2.15e-7
 
     KalmanFilter2D kal_f = new KalmanFilter2D(ERR_EST_INIT);
 
@@ -884,7 +888,7 @@ public class ReHandyBotController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     void CmdSetTargetSteerAndThrottleCases(
-        float pos_rot, float dt_pos_rot, 
+        float pos_rot_est, float dt_pos_rot_est, 
         float angle_roll_targ_this, float angle_roll_bike_this,
         float dt_angle_roll_targ_this, float dt_angle_roll_bike_this, 
         int case_ctrl_mode) {
@@ -906,11 +910,11 @@ public class ReHandyBotController : MonoBehaviour
                 dt_pos_rot_eq_ref = FRAC_POS_ROT_INPUT_PATIENT * dt_angle_roll_targ_this;
                 
                 // Compute assistive torque:
-                float TORQUE_ASSIST_LIM = FACT_ASSIST_STEER * TORQUE_ASSIST_MAX;
+                float TORQUE_ASSIST_LIM = FACT_ASSIST_STEER * TORQUE_ASSIST_STEER_MAX;
 
-                float torque_assist_raw = 
-                    K_STIFF_ROT_TRACKING  * (pos_rot_eq_ref - pos_rot)
-                    + B_DAMP_ROT_TRACKING * (dt_pos_rot_eq_ref - dt_pos_rot);                  
+                float torque_assist_raw =
+                    K_STIFF_ROT_TRACKING * (pos_rot_eq_ref - pos_rot_est)
+                    + B_DAMP_ROT_TRACKING * (dt_pos_rot_eq_ref - dt_pos_rot_est);                                    
 
                 // Assistive torque - apply limits:
                 torque_assist = Math.Clamp(torque_assist_raw, -TORQUE_ASSIST_LIM, TORQUE_ASSIST_LIM);
@@ -927,7 +931,7 @@ public class ReHandyBotController : MonoBehaviour
                 // (1) Generates physical rotation limits
                 // (2) Provides bias rotation
                 CmdSetTarget_FeedbackCtrl_WithLimit(
-                    pos_rot, 0f,
+                    pos_rot_est, 0f,
                     0f, k_stiff_radial_throt, B_DAMP_ROT_TRACKING,
                     K_STIFF_ROT_BASE);
 
@@ -957,7 +961,7 @@ public class ReHandyBotController : MonoBehaviour
             case CTRL_MANUAL_SIMPLE:
 
                 CmdSetTarget_FeedbackCtrl_WithLimit(
-                    pos_rot, 0f, 
+                    pos_rot_est, 0f, 
                     0f, K_STIFF_RADIAL_THROT_MANUAL, 0f,
                     K_STIFF_ROT_BASE);
                 break;
