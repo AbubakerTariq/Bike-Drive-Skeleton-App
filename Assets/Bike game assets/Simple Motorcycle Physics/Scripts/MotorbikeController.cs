@@ -55,7 +55,7 @@ public class MotorbikeController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     const float FACT_ASSIST_STEER_MAX  = 0.9f;
-    const float OFFS_FACT_ASSIST_STEER = 0.25f; // use this to increase sensitivity to user's steering input (22.09.2025)
+    const float OFFS_FACT_ASSIST_STEER = 0.3f; // 0.25f; // use this to increase sensitivity to user's steering input (22.09.2025)
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - STEERING - RHB input scaling (TODO: keep or discard):
@@ -76,7 +76,7 @@ public class MotorbikeController : MonoBehaviour
     const float DIST_RADIAL_THROT_FULL_MM = 2.0f; // grippers travel distance for full throttle (mm)  
 
     // Throttle input limits - function of RADIAL stiffness
-    const float INPUT_THROT_MAX            = 1.0f; // 2.0f // about 300 kph
+    const float INPUT_THROT_MAX            = 1.0f; // 2.0f // 2.0 equals about about 300 kph
     const float INPUT_THROT_UPRIGHT_THRESH = 0.6f; // minimum torque to prevent UprightForce() from kicking in
 
     ////////////////////////////////////////////////////////////////////////////
@@ -306,6 +306,8 @@ public class MotorbikeController : MonoBehaviour
         public Vector3 vect_ctrline_tangent_targ;
         public Vector3 err_pos_preview2targ_vect;
         public float err_pos_preview2targ_val;
+        public float curv_track_targ_dist;
+        // public float curv_track_targ_idx;
     }
 
     /////////////////////////////////////////////////////////////
@@ -691,11 +693,13 @@ public class MotorbikeController : MonoBehaviour
         {
             case ReHandyBotController.CTRL_ASSISTED:
 
+                // Adjust assistance factor:
                 float ratio_fact_assist =
                     (FACT_ASSIST_STEER_MAX - OFFS_FACT_ASSIST_STEER) / FACT_ASSIST_STEER_MAX;
 
                 float FACT_ASSIST_STEER_ADJ = ratio_fact_assist * ReHandyBotController.instance.FACT_ASSIST_STEER;
 
+                // Compute steering input:
                 input_steer_ref =
                            FACT_ASSIST_STEER_ADJ  * input_steer_targ
                    + (1f - FACT_ASSIST_STEER_ADJ) * input_steer_manual;
@@ -747,6 +751,8 @@ public class MotorbikeController : MonoBehaviour
         float dt_angle_roll_targ = NULL_VALUE;
         float sin_dev_targ = NULL_VALUE; // angular deviation of bike's heading wrt to target
         Vector3 vect_ctrline_tangent_targ = NULL_VECTOR3;
+        float curv_track_targ_dist = NULL_VALUE;
+        // float curv_track_targ_idx = NULL_VALUE;
 
         ////////////////////////////////////////////////////////////////////////////
         // Time step:
@@ -763,7 +769,9 @@ public class MotorbikeController : MonoBehaviour
             DT_PREVIEW, Track.instance,
             out pos_preview,
             out pos_track_targ,
-            out vect_ctrline_tangent_targ);
+            out vect_ctrline_tangent_targ,
+            out curv_track_targ_dist // out curv_track_targ_idx
+        );
 
         ////////////////////////////////////////////////////////////////////////////
         // Feedback control 2: lateral displacement control - roll angle /ang vel target:
@@ -828,6 +836,8 @@ public class MotorbikeController : MonoBehaviour
         fbk_ctrl.vect_ctrline_tangent_targ = vect_ctrline_tangent_targ;
         fbk_ctrl.err_pos_preview2targ_vect = err_pos_preview2targ_vect;
         fbk_ctrl.err_pos_preview2targ_val = err_pos_preview2targ;
+        fbk_ctrl.curv_track_targ_dist = curv_track_targ_dist;
+        // fbk_ctrl.curv_track_targ_idx = curv_track_targ_idx;
 
         return input_steer_targ;
     }
@@ -1034,7 +1044,9 @@ public class MotorbikeController : MonoBehaviour
         float dt_preview, Track track_this,
         out Vector3 pos_preview_this,
         out Vector3 pos_track_targ_this,
-        out Vector3 vect_ctrline_tang_target_this)
+        out Vector3 vect_ctrline_tang_target_this,
+        out float curv_track_targ_dist_this // out float curv_track_targ_idx_this
+        )
     {
         // Project bike vectors onto the track (xz) plane - TODO: this may be redundant with uses of Magnitude_XZ() elsewhere
         const bool ENFORCE_XZ_PROJECTION = true;
@@ -1056,6 +1068,17 @@ public class MotorbikeController : MonoBehaviour
 
         // Tangent vector at target point:
         vect_ctrline_tang_target_this = track_this.GetTangentAtPosition(pos_track_targ_this);
+
+        // Get curvature at preview point:
+        float OFFSET_DIST = 250f;
+        curv_track_targ_dist_this = track_this.GetCurvatureAtPositionByDistance(
+            pos_track_targ_this, OFFSET_DIST);
+
+        /*
+        int N_OFFS_CURV = 100;
+        curv_track_targ_idx_this = track_this.GetCurvatureAtPositionByIndex(
+            pos_track_targ_this, N_OFFS_CURV, track_this.centerPoints);
+        */
     }
 
     ////////////////////////////////////////////////////////////////

@@ -54,7 +54,7 @@ public class ReHandyBotController : MonoBehaviour
     public float FRAC_POS_ROT_INPUT_PATIENT = 0.4f;
 
     // Maximum steering assistive torque:
-    const float TORQUE_ASSIST_STEER_MAX = 0.2f;
+    const float TORQUE_ASSIST_STEER_MAX = 0.1f;
 
     ////////////////////////////////////////////////////////////////////////////
     // CARE_PLATFORM controlled parameters - THROTTLE assistance:
@@ -77,10 +77,10 @@ public class ReHandyBotController : MonoBehaviour
 
     // Throttle stiffness for MANUAL throttle mode:
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient stiffness calibration data; keep default for first CARE_PLATFORM release)
-    private float K_STIFF_RADIAL_THROT_MANUAL = 2500f;
+    private float K_STIFF_RADIAL_THROT_MANUAL; // 2500f;
 
     // Offset of the THROTTLE zero position to account for initial calibration errors (PD discussion on 20.09.2025)
-    public float OFFSET_CALIB_RADIAL = 0.0005f;
+    public float OFFS_POS_RADIAL_CALIB = 0.0005f;
     public float POS_RADIAL_THROT_ZERO_OFFS;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -89,7 +89,7 @@ public class ReHandyBotController : MonoBehaviour
 
     // AUTO throttle speed limit in kph:
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM game level)
-    public float SPEED_AUTO_THROTTLE_MAX_KPH = 125f;
+    public float SPEED_AUTO_THROTTLE_MAX_KPH; // 150f; //
 
     ////////////////////////////////////////////////////////////////////////////
     // UNITY_GAME: states for PRE-GAME procedures:
@@ -163,9 +163,11 @@ public class ReHandyBotController : MonoBehaviour
     private float K_STIFF_ROT_BASE = 0.1f; // 0.05f; // 
     private float B_DAMP_ROT_BASE  = 0f; // rely on embedded HL_SetTarget stability
 
-    // Stiffness for tracking control;
-    private float K_STIFF_ROT_TRACKING = 2.2f; // 1.6f; // 2.0f; // 
-    private float B_DAMP_ROT_TRACKING  = 0.045f; // 0.03f; // TODO: check stabilizing damping for K_STIFF_ROT_TRACKING + K_STIFF_ROT_BASE (use )
+    // Stiffness for tracking control
+    // TODO: check stabilizing damping for K_STIFF_ROT_TRACKING + K_STIFF_ROT_BASE
+    // (use RHB ctrl params - stability v5b game settings 4-axis)
+    private float K_STIFF_ROT_TRACKING = 2.2f;
+    private float B_DAMP_ROT_TRACKING  = 0.040f; // 0.045f; //
 
     ////////////////////////////////////////////////////////////////////////////
     // Impedance for RHB motion limits:
@@ -209,7 +211,7 @@ public class ReHandyBotController : MonoBehaviour
     const float ERR_EST_INIT = 0.1f;
     private float[] Q_PROC   = {9.43e-9f, 1.005e-4f};
 
-    private float R_MEAS = 4.30e-6f; // was 2.15e-7
+    private float R_MEAS = 4.30e-6f; // was 2.15e-7f // 
 
     KalmanFilter2D kal_f = new KalmanFilter2D(ERR_EST_INIT);
 
@@ -583,7 +585,7 @@ public class ReHandyBotController : MonoBehaviour
         frac_pos_rot_input_patient = 0.4f;
         pos_radial_throt_zero = 0.029f;
         k_stiff_radial_throt_manual = 2500f;
-        speed_auto_throttle_max_kph = 125f;
+        speed_auto_throttle_max_kph = 150f; // 125f;
 
         ////////////////////////////////////////////////////////////////////////////
         // Selectable settings for UNITY_GAME:
@@ -757,8 +759,8 @@ public class ReHandyBotController : MonoBehaviour
         );
 
         // Offset the RADIAL reference positions to account for initial calibration errors - CRITICAL (20.09.2025):
-        POS_RADIAL_THROT_ZERO_OFFS = POS_RADIAL_THROT_ZERO + OFFSET_CALIB_RADIAL;
-        POS_RADIAL_MIN_OFFS        = POS_RADIAL_MIN        + OFFSET_CALIB_RADIAL;
+        POS_RADIAL_THROT_ZERO_OFFS = POS_RADIAL_THROT_ZERO + OFFS_POS_RADIAL_CALIB;
+        POS_RADIAL_MIN_OFFS        = POS_RADIAL_MIN        + OFFS_POS_RADIAL_CALIB;
 
         ////////////////////////////////////////////////////////////////////////////
         // Thread sleep & time elapsed computation:
@@ -893,6 +895,8 @@ public class ReHandyBotController : MonoBehaviour
         float dt_angle_roll_targ_this, float dt_angle_roll_bike_this, 
         int case_ctrl_mode) {
 
+        float k_stiff_rot_base_this = 0f;
+
         switch (case_ctrl_mode)
         {
             case CTRL_ASSISTED:
@@ -909,19 +913,21 @@ public class ReHandyBotController : MonoBehaviour
                 pos_rot_eq_ref    = FRAC_POS_ROT_INPUT_PATIENT * angle_roll_targ_this;
                 dt_pos_rot_eq_ref = FRAC_POS_ROT_INPUT_PATIENT * dt_angle_roll_targ_this;
                 
-                // Compute assistive torque:
-                float TORQUE_ASSIST_LIM = FACT_ASSIST_STEER * TORQUE_ASSIST_STEER_MAX;
+                // Compute assistive torque
+                // Formula updated after updating offset force cmd in firmware (24.09.2025):
+                float TORQUE_ASSIST_LIM  = FACT_ASSIST_STEER * TORQUE_ASSIST_STEER_MAX;
+
+                float K_STIFF_ROT_ASSIST = 0.45f * K_STIFF_ROT_TRACKING;
+                float B_DAMP_ROT_ASSIST  = 0f; // B_DAMP_ROT_TRACKING; // 
 
                 float torque_assist_raw =
-                    K_STIFF_ROT_TRACKING * (pos_rot_eq_ref - pos_rot_est)
-                    + B_DAMP_ROT_TRACKING * (dt_pos_rot_eq_ref - dt_pos_rot_est);                                    
+                      K_STIFF_ROT_ASSIST * (pos_rot_eq_ref    - pos_rot_est)
+                    + B_DAMP_ROT_ASSIST  * (dt_pos_rot_eq_ref - dt_pos_rot_est);
 
                 // Assistive torque - apply limits:
                 torque_assist = Math.Clamp(torque_assist_raw, -TORQUE_ASSIST_LIM, TORQUE_ASSIST_LIM);
 
                 // Bias rotational stiffness bias to return rotation angle to zero :
-                float k_stiff_rot_base_this = 0f;
-
                 if (FACT_ASSIST_STEER < 0.2f)
                     k_stiff_rot_base_this = K_STIFF_ROT_BASE;
                 else

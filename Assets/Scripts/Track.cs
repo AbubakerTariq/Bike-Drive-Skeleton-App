@@ -11,7 +11,10 @@ public class Track : MonoBehaviour
 
     List<Transform> waypoints = new();
     List<float> distances = new();
-    List<Vector3> centerPoints = new();
+
+    public List<Vector3> centerPoints = new();
+
+    public List<Vector3> waypoints_vect = new(); // Added to avoid having to convert to Vector3 at every step (23.09.2025)
 
     private void Awake()
     {
@@ -47,6 +50,12 @@ public class Track : MonoBehaviour
         if (waypoints == null || waypoints.Count < 4)
             return;
 
+        // Create Vector3 waypoints list:
+        waypoints_vect = new();
+        for (int i = 0; i < waypoints.Count; i++)
+            waypoints_vect.Add(waypoints[i].position);
+
+        // Create centerpoints list:
         centerPoints = new();
         for (int i = 0; i < waypoints.Count; i++)
         {
@@ -189,22 +198,31 @@ public class Track : MonoBehaviour
     /// </summary>
     /// <param name="position">World position to evaluate.</param>
     /// <returns>Closest point on the centerline in world coordinates.</returns>
+    /// 
     public Vector3 GetClosestPointOnCenterLine(Vector3 position)
     {
-        float CLOSEST_DIST_SQR = float.MaxValue; // (float)1.0E7;
-        Vector3 closestPoint = new Vector3(CLOSEST_DIST_SQR, CLOSEST_DIST_SQR, CLOSEST_DIST_SQR);
+        int idx_point = -1;
+        return GetClosestPointInList(position, ref idx_point, centerPoints);
+    }
+
+    public Vector3 GetClosestPointInList(Vector3 position, ref int idx_point, List<Vector3> points)
+    {
+        float closest_dist_sqr = float.MaxValue; // (float)1.0E7;
+        Vector3 closestPoint = new Vector3(closest_dist_sqr, closest_dist_sqr, closest_dist_sqr);
+
+        idx_point = -1; // initial dummy index
 
         // ExternalConsoleLogger.Log(" ");
         // ExternalConsoleLogger.Log("--------------------------------------------------------------");
 
-        for (int i = 0; i < centerPoints.Count; i++)
+        for (int i = 0; i < points.Count; i++)
         {
-            int j = (i + 1) % centerPoints.Count;
+            int j = (i + 1) % points.Count;
 
             // ExternalConsoleLogger.Log("i = [" + i + "], j = [" + j + "]");
 
-            Vector3 a = centerPoints[i];
-            Vector3 b = centerPoints[j];
+            Vector3 a = points[i];
+            Vector3 b = points[j];
 
             Vector3 ab = b - a;
             Vector3 ap = position - a;
@@ -213,10 +231,12 @@ public class Track : MonoBehaviour
             Vector3 projection = a + ab * t;
 
             float sqrDist = (position - projection).sqrMagnitude;
-            if (sqrDist < CLOSEST_DIST_SQR)
+            if (sqrDist < closest_dist_sqr)
             {
-                CLOSEST_DIST_SQR = sqrDist;
+                closest_dist_sqr = sqrDist;
                 closestPoint = projection;
+
+                idx_point = i;
             }
         }
 
@@ -251,23 +271,23 @@ public class Track : MonoBehaviour
         return Quaternion.LookRotation(dir, Vector3.up);
     }
 
-    /// <summary>
-    /// Calculates the curvature of the track at the given world position.
-    /// Finds the nearest point on the centerline, samples positions ahead and behind to form a triangle, and uses Heron's formula to compute the radius of curvature.
-    /// Returns the inverse of the radius to represent curvature (higher = tighter turn).
-    /// </summary>
-    /// <param name="position">The world position to evaluate curvature at.</param>
-    /// <returns>Curvature value (float), where higher means a sharper turn.</returns>
-    public float GetCurvatureAtPosition(Vector3 position)
+    // TODO: keep or discard:
+    // <summary>
+    // Calculates the curvature of the track at the given world position.
+    // Finds the nearest point on the centerline, samples positions ahead and behind to form a triangle, and uses Heron's formula to compute the radius of curvature.
+    // Returns the inverse of the radius to represent curvature (higher = tighter turn).
+    // </summary>
+    // <param name="position">The world position to evaluate curvature at.</param>
+    // <returns>Curvature value (float), where higher means a sharper turn.</returns>
+    public float GetCurvatureAtPositionByDistance(Vector3 position, float offset_dist)
     {
-        float offset = 10f;
         Vector3 centerPos = GetClosestPointOnCenterLine(position);
 
         float dist = GetDistanceAtPosition(centerPos);
 
-        Vector3 p0 = GetPositionAtDistance(dist - offset);
+        Vector3 p0 = GetPositionAtDistance(dist - offset_dist);
         Vector3 p1 = GetPositionAtDistance(dist);
-        Vector3 p2 = GetPositionAtDistance(dist + offset);
+        Vector3 p2 = GetPositionAtDistance(dist + offset_dist);
 
         float a = Vector3.Distance(p0, p1);
         float b = Vector3.Distance(p1, p2);
@@ -280,6 +300,63 @@ public class Track : MonoBehaviour
 
         float radius = (a * b * c) / (4f * area);
         return 1f / radius;
+    }
+
+    public float GetCurvatureAtPositionByIndex(Vector3 position, int N_offs, List<Vector3> points)
+    {
+        // Get index of closest point to position:
+        int idx_point_1 = -1;
+        GetClosestPointInList(position, ref idx_point_1, points);
+
+        // Get indices of adjacent points:
+        int idx_point_0 = idx_point_1 - N_offs;
+        idx_point_0 = index_pt_wrap(idx_point_0, points.Count);
+
+        int idx_point_2 = idx_point_1 + N_offs;
+        idx_point_2 = index_pt_wrap(idx_point_2, points.Count);
+
+        // Get the previous, current, and next points:
+        Vector3 p_prev = points[idx_point_0];
+        Vector3 p_curr = points[idx_point_1];
+        Vector3 p_next = points[idx_point_2];
+
+        // Compute parameter step:
+        float dt_prev = Vector3.Distance(p_prev, p_curr);
+        float dt_curr = Vector3.Distance(p_curr, p_next);
+
+        // Compute the first derivative ("velocity" vector):
+        Vector2 vel_2D = new Vector2(
+            (p_next.x - p_prev.x) / (dt_prev + dt_curr),
+            (p_next.z - p_prev.z) / (dt_prev + dt_curr)
+        );
+
+        // Compute the second derivative ("acceleration" vector):
+        Vector2 acc_2D = new Vector2(
+            (p_next.x - 2 * p_curr.x + p_prev.x) / (dt_prev * dt_curr),
+            (p_next.z - 2 * p_curr.z + p_prev.z) / (dt_prev * dt_curr)
+        );
+
+        // Compute the cross product (determinant in 2D):
+        float cross_vel_acc_magn = vel_2D.x*acc_2D.y - vel_2D.y*acc_2D.x;
+
+        // Compute the magnitude of the velocity vector:
+        float vel_magn = Mathf.Sqrt(vel_2D.x*vel_2D.x + vel_2D.y*vel_2D.y);
+
+        // Compute the curvature & return:
+        float curv = cross_vel_acc_magn / Mathf.Pow(vel_magn, 3f);
+
+        // Display section:
+        /*
+        ExternalConsoleLogger.Log("GetCurvatureAtPositionByIndex(): idx_0, idx_1, idx_2, total = ["
+            + idx_point_0 + ", " + idx_point_1 + ", " + idx_point_2 + "]["+ points.Count  + "] \n");
+        ExternalConsoleLogger.Log("                                 vel     = [" + vel_2D + "]");
+        ExternalConsoleLogger.Log("                                 acc     = [" + acc_2D + "]");
+        ExternalConsoleLogger.Log("                                 cross   = [" + cross_vel_acc_magn + "]");
+        ExternalConsoleLogger.Log("                                 vel mag = [" + vel_magn + "]");
+        ExternalConsoleLogger.Log("                                 curv    = [" + curv + "]");
+        */
+
+        return curv;
     }
 
     /// <summary>
@@ -342,6 +419,16 @@ public class Track : MonoBehaviour
         return distances[^1];
     }
     #endregion
+
+    int index_pt_wrap(int index, int N_points)
+    {
+        if (index < 0)
+            index += N_points;
+        else if (index > (N_points - 1))
+            index %=  N_points;
+
+        return index;
+    }
 
     #region Debugging functions
     private void OnDrawGizmos()
