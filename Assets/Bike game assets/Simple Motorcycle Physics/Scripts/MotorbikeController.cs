@@ -998,13 +998,16 @@ public class MotorbikeController : MonoBehaviour
         if (ReHandyBotController.instance.CASE_CTRL_MODE == ReHandyBotController.CTRL_ASSISTED
             && ReHandyBotController.instance.FACT_ASSIST_THROTTLE > 0
             && dt_pos_bike_magn > SPEED_REF_HIGH)
-            scale_factor_accel = 0.55f;
+
+                scale_factor_accel = 0.55f;
 
         else if (ReHandyBotController.instance.CASE_CTRL_MODE == ReHandyBotController.CTRL_AUTO_STEER_AUTO_THROT
             && dt_pos_bike_magn > SPEED_REF_HIGH)
-            scale_factor_accel = 0.5f;
+
+                scale_factor_accel = 0.5f;
+
         else
-            scale_factor_accel = 1f;
+                scale_factor_accel = 1f;
 
         rigid_body.AddForce(scale_factor_accel * FACTOR_ACCEL * bike_input.throttle * thisTransform.forward);
 

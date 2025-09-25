@@ -204,23 +204,25 @@ public class ReHandyBotController : MonoBehaviour
     public float torque_assist = NULL_VALUE;
 
     ////////////////////////////////////////////////////////////////////////////
-    // Kalman filter for rotation state estimation:
+    // Kalman filter for rotation state estimation (TODO: keep or discard):
     ////////////////////////////////////////////////////////////////////////////
 
+    /*
     // Values from Maxon motor simulation (including encoder quantization and gear ratio):
     const float ERR_EST_INIT = 0.1f;
     private float[] Q_PROC   = {9.43e-9f, 1.005e-4f};
 
     private float R_MEAS = 4.30e-6f; // was 2.15e-7f // 
 
-    KalmanFilter2D kal_f = new KalmanFilter2D(ERR_EST_INIT);
+    KalmanFilter2D kal_filter = new KalmanFilter2D(ERR_EST_INIT);
+    */
 
     ////////////////////////////////////////////////////////////////////////////
-    // Rotation state estimates using Kalman filter:
+    // Rotation state estimates using Kalman filter (TODO: keep or discard):
     //////////////////////////////////////////////////////////////////////////// 
 
-    public float pos_rot_kal;
-    public float dt_pos_rot_kal;
+    // public float pos_rot_kal;
+    // public float dt_pos_rot_kal;
 
     ////////////////////////////////////////////////////////////////////////////
     // Loader:
@@ -743,7 +745,7 @@ public class ReHandyBotController : MonoBehaviour
         //      (2) Toggles the Exercise (i.e. STARTS / STOPS the exercise)
         // 
         // InitUnityGame_StartExercise() must be replaced by a different function when CARE_PLATFORM is used 
-        // NOTE: both functions must set th e"bike upright" constraint (UPRIGHT_CONSTR_ON) to true before the exercise is launched:
+        // NOTE: both functions must set the "bike upright" constraint (UPRIGHT_CONSTR_ON) to true before the exercise is launched:
         ////////////////////////////////////////////////////////////////////////////
 
         InitUnityGame_StartExercise(
@@ -800,18 +802,20 @@ public class ReHandyBotController : MonoBehaviour
         float dt_pos_rot = ReHandyBotController.instance.distal_data.VelocityP;
 
         ////////////////////////////////////////////////////////////////////////////
-        // Rotation state estimation using Kalman filter:
+        // Rotation state estimation using Kalman filter (TODO: keep or discard):
         //////////////////////////////////////////////////////////////////////////// 
 
+        /*
         // Predict the next state:
-        kal_f.Predict(Time.deltaTime, Q_PROC);
+        kal_filter.Predict(Time.deltaTime, Q_PROC);
 
         // Update the filter with the new measurement:
-        kal_f.Update(pos_rot, R_MEAS);
+        kal_filter.Update(pos_rot, R_MEAS);
 
         // Get the estimated velocity and position:
-        pos_rot_kal = kal_f.GetPositionEstimate();
-        dt_pos_rot_kal = kal_f.GetVelocityEstimate();
+        pos_rot_kal = kal_filter.GetPositionEstimate();
+        dt_pos_rot_kal = kal_filter.GetVelocityEstimate();
+        */
 
         ////////////////////////////////////////////////////////////////////////////
         // Retrieve data from bike and track objects:
@@ -833,7 +837,7 @@ public class ReHandyBotController : MonoBehaviour
 
             if (ExerciseActive)
                 CmdSetTargetSteerAndThrottleCases(
-                    pos_rot, dt_pos_rot_kal, // was dt_pos_rot (20.09.2025)
+                    pos_rot, dt_pos_rot, // was dt_pos_rot_kal (24.09.2025)
                     angle_roll_targ, angle_roll_bike, 
                     dt_angle_roll_targ, dt_angle_roll_bike, 
                     CASE_CTRL_MODE);
@@ -895,6 +899,7 @@ public class ReHandyBotController : MonoBehaviour
         float dt_angle_roll_targ_this, float dt_angle_roll_bike_this, 
         int case_ctrl_mode) {
 
+        // TODO: why does this declaration cause Unity exceptions when placed inside [case CTRL_ASSISTED] ??s
         float k_stiff_rot_base_this = 0f;
 
         switch (case_ctrl_mode)
@@ -913,16 +918,26 @@ public class ReHandyBotController : MonoBehaviour
                 pos_rot_eq_ref    = FRAC_POS_ROT_INPUT_PATIENT * angle_roll_targ_this;
                 dt_pos_rot_eq_ref = FRAC_POS_ROT_INPUT_PATIENT * dt_angle_roll_targ_this;
                 
-                // Compute assistive torque
+                ///////////////////////////////////////////////////////////////////////////
+                // Compute assistive torque:
+                ///////////////////////////////////////////////////////////////////////////
+                
                 // Formula updated after updating offset force cmd in firmware (24.09.2025):
                 float TORQUE_ASSIST_LIM  = FACT_ASSIST_STEER * TORQUE_ASSIST_STEER_MAX;
 
                 float K_STIFF_ROT_ASSIST = 0.45f * K_STIFF_ROT_TRACKING;
-                float B_DAMP_ROT_ASSIST  = 0f; // B_DAMP_ROT_TRACKING; // 
+                // float B_DAMP_ROT_ASSIST  = 0f; // B_DAMP_ROT_TRACKING; // TODO: keep or discard
+
+                // TODO: keep or discard
+                // NOTE: adding a damping term may introduce quantization noise from dt_pos_rot_est
+                /*
+                float torque_assist_raw =
+                      K_STIFF_ROT_ASSIST * (pos_rot_eq_ref - pos_rot_est)
+                    + B_DAMP_ROT_ASSIST  * (dt_pos_rot_eq_ref - dt_pos_rot_est);
+                */
 
                 float torque_assist_raw =
-                      K_STIFF_ROT_ASSIST * (pos_rot_eq_ref    - pos_rot_est)
-                    + B_DAMP_ROT_ASSIST  * (dt_pos_rot_eq_ref - dt_pos_rot_est);
+                    K_STIFF_ROT_ASSIST * (pos_rot_eq_ref - pos_rot_est);
 
                 // Assistive torque - apply limits:
                 torque_assist = Math.Clamp(torque_assist_raw, -TORQUE_ASSIST_LIM, TORQUE_ASSIST_LIM);
@@ -942,8 +957,8 @@ public class ReHandyBotController : MonoBehaviour
                     K_STIFF_ROT_BASE);
 
                 // Command offset forces for ASSISTANCE - CRITICAL:
-                SetOffsetForces(0f, torque_assist);
-
+                // SetOffsetForces(0f, torque_assist); // changed from this to avoid stacking messages (25.09.2025)
+                distalRobot.SetOffsetForces(0f, torque_assist);
                 break;
 
             case CTRL_AUTO_STEER_AUTO_THROT:
@@ -1069,8 +1084,10 @@ public class ReHandyBotController : MonoBehaviour
 
         bool success_set_target;
 
+        // TODO: consider change to plain distalRobot.SetTarget to improve performance (risk is timeouts):
         if (ExerciseActive)
-            success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
+            success_set_target = distalRobot.HL_SetTarget( 
+                IDX_TARG_BASE,
                 POS_RADIAL_THROT_ZERO_OFFS, pos_eq_rot_equiv,
                 k_stiff_radial_throt, k_stiff_rot_equiv,
                 B_DAMP_RADIAL_BASE, b_damp_rot_equiv,
