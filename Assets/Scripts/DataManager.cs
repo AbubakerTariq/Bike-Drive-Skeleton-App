@@ -122,8 +122,9 @@ public class DataManager : MonoBehaviour
             "err pos preview targ x",
             "err pos preview targ z",
             "err pos preview targ val",
-            "curv track targ dist",
-            // "curv track targ idx",
+            "curv track targ",
+            "angle roll gain lo",
+            "angle roll gain hi",
 
             // "steer update 0",
             // "steer update 1",
@@ -139,7 +140,7 @@ public class DataManager : MonoBehaviour
             "Force X R",
             "Force Y R",
 
-            "angle roll theor"
+            "angle roll steer equiv"
         };
 
         if (!File.Exists(dataFilePath))
@@ -229,8 +230,9 @@ public class DataManager : MonoBehaviour
                 $"{fbk_ctrl_data.err_pos_preview2targ_vect.x}," +
                 $"{fbk_ctrl_data.err_pos_preview2targ_vect.z}," +
                 $"{fbk_ctrl_data.err_pos_preview2targ_val}," +
-                $"{fbk_ctrl_data.curv_track_targ_dist}," +
-                // $"{fbk_ctrl_data.curv_track_targ_idx}," +
+                $"{fbk_ctrl_data.curv_track_targ}," +
+                $"{fbk_ctrl_data.angle_roll_gain_lo}," +
+                $"{fbk_ctrl_data.angle_roll_gain_hi}," +
 
                 // $"{steer_calc_data.steer_update[0]}," +   
                 // $"{steer_calc_data.steer_update[1]}," +   
@@ -246,7 +248,7 @@ public class DataManager : MonoBehaviour
                 $"{force_x_r}," +
                 $"{force_y_r}," +
 
-                $"{perform_vars_data.angle_roll_theor}";
+                $"{perform_vars_data.angle_roll_steer_equiv}";
 
             lock (fileLock)
             {
