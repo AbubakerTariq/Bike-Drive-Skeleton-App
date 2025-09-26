@@ -271,14 +271,10 @@ public class Track : MonoBehaviour
         return Quaternion.LookRotation(dir, Vector3.up);
     }
 
-    // TODO: keep or discard:
-    // <summary>
-    // Calculates the curvature of the track at the given world position.
-    // Finds the nearest point on the centerline, samples positions ahead and behind to form a triangle, and uses Heron's formula to compute the radius of curvature.
-    // Returns the inverse of the radius to represent curvature (higher = tighter turn).
-    // </summary>
-    // <param name="position">The world position to evaluate curvature at.</param>
-    // <returns>Curvature value (float), where higher means a sharper turn.</returns>
+
+    // Calculates the curvature of the track at the given world position
+    // Finds the nearest point on the centerline, samples positions ahead and behind to form a triangle,
+    // uses Heron's formula to compute the radius of curvature
     public float GetCurvatureAtPositionByDistance(Vector3 position, float offset_dist)
     {
         Vector3 centerPos = GetClosestPointOnCenterLine(position);
@@ -299,9 +295,18 @@ public class Track : MonoBehaviour
         if (area < 1e-4f) return 0f;
 
         float radius = (a * b * c) / (4f * area);
-        return 1f / radius;
+
+        // NEW: compute sign of direction of turn ussing croos product of point differences:
+        Vector2 diff_p1 = new Vector2(p1.x - p0.x, p1.z - p0.z);
+        Vector2 diff_p2 = new Vector2(p2.x - p1.x, p2.z - p1.z);
+
+        float sgn_turn = Mathf.Sign(diff_p1.x * diff_p2.y - diff_p1.y * diff_p2.x);
+
+        return sgn_turn / radius;
     }
 
+    // Curvature of the track: alternate formulation using discrete derivatives
+    // TODO: keep or discard
     public float GetCurvatureAtPositionByIndex(Vector3 position, int N_offs, List<Vector3> points)
     {
         // Get index of closest point to position:
@@ -320,7 +325,7 @@ public class Track : MonoBehaviour
         Vector3 p_curr = points[idx_point_1];
         Vector3 p_next = points[idx_point_2];
 
-        // Compute parameter step:
+        // Compute parameter step (TODO: discard Y component)
         float dt_prev = Vector3.Distance(p_prev, p_curr);
         float dt_curr = Vector3.Distance(p_curr, p_next);
 

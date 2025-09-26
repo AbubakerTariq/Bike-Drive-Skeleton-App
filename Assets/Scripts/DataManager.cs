@@ -105,9 +105,9 @@ public class DataManager : MonoBehaviour
             "bike input throttle",
             "bike input accel",
 
-            "bike pose ang roll",
-            "bike pose dt ang roll",
-            "bike pose ang steer wheel",
+            "ang roll bike",
+            "dt ang roll bike",
+            "ang steer wheel bike",
 
             "pos preview x",
             "pos preview z",
@@ -129,16 +129,17 @@ public class DataManager : MonoBehaviour
             // "steer update 1",
             // "steer update 2",
             // "steer update 3",
-            "factor steer bike speed",
-            "steer term input",
-            "steer term angle ctrl",
-            "steer term dt angle ctrl",
+            // "factor steer bike speed",
+            // "steer term input",
+            // "steer term angle ctrl",
+            // "steer term dt angle ctrl",
 
-            "Force X",
-            "Force Y"
+            "Force X L",
+            "Force Y L",
+            "Force X R",
+            "Force Y R",
 
-            // "pos rot kal",
-            // "dt pos rot kal"
+            "angle roll theor"
         };
 
         if (!File.Exists(dataFilePath))
@@ -160,10 +161,21 @@ public class DataManager : MonoBehaviour
         MotorbikeController.BikeInput bike_input_data, 
         MotorbikeController.BikePose bike_pose_data,
         MotorbikeController.FeedbackControl fbk_ctrl_data,
-        MotorbikeController.SteerCalc steer_calc_data)
+        MotorbikeController.SteerCalc steer_calc_data,
+        MotorbikeController.PerformanceVars perform_vars_data)
     {
         string t_step_str = t.ToString("F3");
         string dt_step_str = dt.ToString("F3");
+
+        /////////////////////////////////////////////////////////////////////////
+        // Force sensor readings (TODO: work out this weird nomenclature):
+        /////////////////////////////////////////////////////////////////////////
+
+        float force_x_l = distal_data.ForceX;
+        float force_y_l = distal_data.ForceY;
+
+        float force_x_r = distal_data.ForceR;
+        float force_y_r = distal_data.TorqueP;
 
         /////////////////////////////////////////////////////////////////////////
         // Save data step to file:
@@ -224,16 +236,17 @@ public class DataManager : MonoBehaviour
                 // $"{steer_calc_data.steer_update[1]}," +   
                 // $"{steer_calc_data.steer_update[2]}," +   
                 // $"{steer_calc_data.steer_update[3]}," +   
-                $"{steer_calc_data.factor_steer_bike_speed}," +
-                $"{steer_calc_data.steer_term_input}," +
-                $"{steer_calc_data.steer_term_angle_ctrl}," +
-                $"{steer_calc_data.steer_term_dt_angle_ctrl}, " +
+                // $"{steer_calc_data.factor_steer_bike_speed}," +
+                // $"{steer_calc_data.steer_term_input}," +
+                // $"{steer_calc_data.steer_term_angle_ctrl}," +
+                // $"{steer_calc_data.steer_term_dt_angle_ctrl}, " +
 
-                $"{distal_data.ForceX}," +
-                $"{distal_data.ForceY}";
+                $"{force_x_l}," +
+                $"{force_y_l}," +
+                $"{force_x_r}," +
+                $"{force_y_r}," +
 
-                // $"{ReHandyBotController.instance.pos_rot_kal}," +
-                // $"{ReHandyBotController.instance.dt_pos_rot_kal}";
+                $"{perform_vars_data.angle_roll_theor}";
 
             lock (fileLock)
             {
@@ -351,7 +364,8 @@ public class DataManager : MonoBehaviour
                         MotorbikeController.instance.bike_input_data,
                         MotorbikeController.instance.bike_pose_data,
                         MotorbikeController.instance.fbk_ctrl_data,
-                        MotorbikeController.instance.steer_calc_data);
+                        MotorbikeController.instance.steer_calc_data,
+                        MotorbikeController.instance.perform_vars_data);
 
                 /////////////////////////////////////////////////////////////////////////
                 // Save time step for next iteration:
