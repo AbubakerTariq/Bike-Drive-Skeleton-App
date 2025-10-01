@@ -25,7 +25,7 @@ public class Mesh_CombineUtility
 				
 				if (generateStrips)
 				{
-					// SUBOPTIMAL FOR PERFORMANCE
+					// SUBOPTIMAL  
 					int curStripCount = combine.mesh.GetTriangles(combine.subMeshIndex).Length;
 					if (curStripCount != 0)
 					{

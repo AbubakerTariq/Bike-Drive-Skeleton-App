@@ -140,7 +140,8 @@ public class DataManager : MonoBehaviour
             "Force X R",
             "Force Y R",
 
-            "angle roll steer equiv"
+            "angle roll steer equiv",
+            "step count underst"
         };
 
         if (!File.Exists(dataFilePath))
@@ -248,7 +249,8 @@ public class DataManager : MonoBehaviour
                 $"{force_x_r}," +
                 $"{force_y_r}," +
 
-                $"{perform_vars_data.angle_roll_steer_equiv}";
+                $"{perform_vars_data.angle_roll_steer_equiv}," +
+                $"{perform_vars_data.step_count_understeer}";
 
             lock (fileLock)
             {

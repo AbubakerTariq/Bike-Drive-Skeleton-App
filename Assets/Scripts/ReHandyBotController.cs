@@ -42,32 +42,6 @@ public class ReHandyBotController : MonoBehaviour
     public int CASE_CTRL_MODE = CTRL_ASSISTED;
 
     ////////////////////////////////////////////////////////////////////////////
-    // CARE_PLATFORM controlled parameters - STEERING assistance:
-    //////////////////////////////////////////////////////////////////////////// 
-
-    // Assistance factor (between 0 and 1.0)
-    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM game level)
-    public float FACT_ASSIST_STEER = 0f;
-
-    // Scaling factor for Patient's rotational inputs
-    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient ROM data)
-    public float FRAC_POS_ROT_INPUT_PATIENT = 0.4f;
-
-    // Maximum steering assistive torque:
-    const float TORQUE_ASSIST_STEER_MAX = 0.1f;
-
-    ////////////////////////////////////////////////////////////////////////////
-    // CARE_PLATFORM controlled parameters - THROTTLE assistance:
-    //////////////////////////////////////////////////////////////////////////// 
-
-    public const int THROTTLE_MODE_MANUAL = 0;
-    public const int THROTTLE_MODE_AUTO = 1;
-
-    // Throttle mode (0: MANUAL, 1: AUTO, default is AUTO)
-    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM throttle setting)
-    public float FACT_ASSIST_THROTTLE = (float)THROTTLE_MODE_AUTO;
-
-    ////////////////////////////////////////////////////////////////////////////
     // CARE_PLATFORM controlled parameters - MANUAL throttle parameters:
     //////////////////////////////////////////////////////////////////////////// 
 
@@ -77,7 +51,7 @@ public class ReHandyBotController : MonoBehaviour
 
     // Throttle stiffness for MANUAL throttle mode:
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient stiffness calibration data; keep default for first CARE_PLATFORM release)
-    private float K_STIFF_RADIAL_THROT_MANUAL; // 2500f;
+    private float K_STIFF_RADIAL_THROT_MANUAL;  
 
     // Offset of the THROTTLE zero position to account for initial calibration errors (PD discussion on 20.09.2025)
     public float OFFS_POS_RADIAL_CALIB = 0.0005f;
@@ -139,7 +113,11 @@ public class ReHandyBotController : MonoBehaviour
     private float FORCE_GAIN_ROT    =  6.0f; // 14.0f; // Reduced gain for greater stability with ASSISTED and MANUAL control
 
     private float K_STIFF_RADIAL_WALL = 2500f; // use with zero feedback gain
-    private float B_DAMP_RADIAL_WALL  = 0f; // rely on embedded HL_SetTarget stability
+
+    // Extra damping to prevent limit cycles when handles contact physical limit
+    // Normally should rely on embedded HL_SetTarget stability
+    // TODO: check why limit cycle suppression doesn't act in firmware (29.09.2025):
+    private float B_DAMP_RADIAL_WALL  = 0f; 
 
     private float K_STIFF_ROT_WALL = 1.2f; // use with zero feedback gain
     private float B_DAMP_ROT_WALL  = 0f; // rely on embedded HL_SetTarget stability
@@ -160,20 +138,49 @@ public class ReHandyBotController : MonoBehaviour
     // Steering - BASELINE haptics settings:
     private const float POS_ROT_BASE = 0f;
 
-    private float K_STIFF_ROT_BASE = 0.1f; // 0.05f; // 
+    private float K_STIFF_ROT_BASE = 0.05f; // 0.1f; // 
     private float B_DAMP_ROT_BASE  = 0f; // rely on embedded HL_SetTarget stability
 
     // Stiffness for TRACKING control
     // NOTE: check stabilizing damping for K_STIFF_ROT_TRACKING + K_STIFF_ROT_BASE
     // (use RHB ctrl params - stability v5b game settings 4-axis)
     private float K_STIFF_ROT_TRACKING = 2.2f;
-    private float B_DAMP_ROT_TRACKING  = 0.040f; // 0.045f; //
+    private float B_DAMP_ROT_TRACKING = 0.05f; // 0.045f; // 0.040f; // 
 
     // Stiffness for ASSISTIVE control - fraction of TRACKING stiffness:
-    public float FRAC_ASSIST_STIFF = 0.35f; // was 0.45f 
+    public float FRAC_ASSIST_STIFF = 0.5f; // 0.45f; // 0.35f; // 
 
     ////////////////////////////////////////////////////////////////////////////
-    // Impedance for RHB motion limits:
+    // CARE_PLATFORM controlled parameters - STEERING assistance:
+    //////////////////////////////////////////////////////////////////////////// 
+
+    // Maximum STEERING ASSIST torque - CRITICAL:
+    const float TORQUE_ASSIST_STEER_MAX = 0.18f; // 0.2f; // 0.1f;
+
+    // ASSIST FACTOR (between 0 and 1.0) - modified computation after user feedbacks (29.09.2025)
+    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM game level)
+    public float FACT_ASSIST_STEER = 0f;
+
+    private const int GAME_LEVEL_MID = 5;
+    private const float FACT_ASSIST_MID = 0.3f;
+
+    // Scaling factor for Patient's rotational inputs
+    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient ROM data)
+    public float FRAC_POS_ROT_INPUT_PATIENT = 0.4f;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // CARE_PLATFORM controlled parameters - THROTTLE assistance:
+    //////////////////////////////////////////////////////////////////////////// 
+
+    public const int THROTTLE_MODE_MANUAL = 0;
+    public const int THROTTLE_MODE_AUTO   = 1;
+
+    // Throttle mode (0: MANUAL, 1: AUTO, default is AUTO)
+    // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM throttle setting)
+    public float FACT_ASSIST_THROTTLE = (float)THROTTLE_MODE_AUTO;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // RHB motion limits: stiffness & angle
     ////////////////////////////////////////////////////////////////////////////   
 
     private float K_STIFF_ROT_LIM  = 0.6f;
@@ -255,8 +262,6 @@ public class ReHandyBotController : MonoBehaviour
     private bool isRotating = false;
     */
 
-    private float pos_radial_min;
-
     private Thread connectionThread;
     private Tween connectionTween;
 
@@ -277,7 +282,49 @@ public class ReHandyBotController : MonoBehaviour
 
     public float timeElapsedValue = 0f;
 
-    public int step_count = 0;
+    public int step_count;
+
+    //////////////////////////////////////////////////////////////////////////// 
+    // NEW: GAME LEVELS (29.09.2025)
+    //////////////////////////////////////////////////////////////////////////// 
+
+    public const int N_GAME_LEVELS = 10;
+
+    public int game_level_curr = 1; // default value
+    public int game_level_next;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // NEW: RACE DIRECTION (29.09.2025)
+    //////////////////////////////////////////////////////////////////////////// 
+
+    public const int DIR_CW  = +1; // clockwise direction
+    public const int DIR_CCW = -1; // counterclockwise direction 
+
+    public int RACE_DIRECTION;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // NEW: PERFORMANCE variables (29.09.2025)
+    ////////////////////////////////////////////////////////////////////////////
+
+    // UNDERSTEER parameters:
+    const float FRAC_UNDERSTEER_LEVEL_UP_MAX   = 0.33f; // if understeer fraction is less than this, go up one level
+    const float FRAC_UNDERSTEER_LEVEL_DOWN_MIN = 0.67f; // if understeer fraction is more than this, go down one level
+
+    public float frac_understeer = -1f;
+
+    // DISTANCE TRAVELED parameters:
+    // "Legitimate" race for performace purposes
+    // Traveled distance must be greater than this fraction of the track length 
+    const float FRAC_LENGTH_TRACK_LEGIT_RACE = 0.9f;
+
+    public float frac_dist_traveled = 0f;
+
+    // FALL parameters:
+    // Number of falls allowed without triggering GAME LEVEL reduction:   
+    const int N_FALLS_LIM = 1;
+
+    // Game level change value (-1, 0, +1): 
+    private int game_level_change = 0;
 
     ////////////////////////////////////////////////////////////////////////////
     // Thread and timer for SetTarget process:
@@ -438,8 +485,6 @@ public class ReHandyBotController : MonoBehaviour
             DOVirtual.DelayedCall(0.1f, () =>
             {
                 loader.SetActive(false);
-                pos_radial_min = distal_data.PositionR;
-                pos_radial_min = Math.Clamp(pos_radial_min, POS_RADIAL_MIN_OFFS, POS_RADIAL_MAX);
 
                 for (int i = 0; i < MaxAttempts; i++)
                 {
@@ -510,10 +555,58 @@ public class ReHandyBotController : MonoBehaviour
                "(4) PURE MANUAL";
         }
 
-        else if (STATE_PREGAME == ST_SET_FACT_ASSIST_STEER) 
+        else if (STATE_PREGAME == ST_SET_FACT_ASSIST_STEER)
         {
+            ////////////////////////////////////////////////////////////////////////////
+            // Recommend GAME LEVEL change based on last exercise PERFORMANCE:
+            // UNDERSTEER fraction / bike falling / distance traveled:
+            ////////////////////////////////////////////////////////////////////////////
+            
+            int game_level_next;
+
+            if (frac_understeer >= 0) // frac_understeer < 0 means the game hasn't started - no PERFORMANCE metric computed yet
+            {
+                game_level_next = PerformGameLevelChange(
+                    game_level_curr, N_GAME_LEVELS, ref game_level_change,
+                    frac_understeer,
+                    MotorbikeController.instance.step_count_fall,
+                    MotorbikeController.instance.dist_traveled, Track.instance.GetTrackLength());
+
+                // TODO: perform this assignment when using automated GAME LEVEL update:
+                // GAME_LEVEL_CURR = game_level_next; 
+            }
+
+            ////////////////////////////////////////////////////////////////////////////
+            // Display section - GAME LEVEL selection message
+            ////////////////////////////////////////////////////////////////////////////
+
+            string str_performance;
+
+            if (frac_understeer >= 0) 
+                str_performance =
+                    "Previous exercise PERFORMANCE: \n\n" +
+
+                    "UNDERSTEER fraction   = [" + String.Format("{0:#0.0}", 100 * frac_understeer)                + " %] \n" +
+                    "   max for level UP   = [" + String.Format("{0:#0.0}", 100 * FRAC_UNDERSTEER_LEVEL_UP_MAX)   + " %] \n" +
+                    "   min for level DOWN = [" + String.Format("{0:#0.0}", 100 * FRAC_UNDERSTEER_LEVEL_DOWN_MIN) + " %] \n" +
+
+                    "# falls = [" + MotorbikeController.instance.step_count_fall + "] (limit = " + N_FALLS_LIM + ")\n\n" +
+
+                    "Dist traveled = [" + 
+                        String.Format("{0:#0}",   MotorbikeController.instance.dist_traveled) + " m] = " +
+                        String.Format("{0:#0.0}", 100f * MotorbikeController.instance.dist_traveled / Track.instance.GetTrackLength()) + 
+                        " % track length (min = " + 100f*FRAC_LENGTH_TRACK_LEGIT_RACE + "%) \n\n" +
+
+                    "Current GAME LEVEL       = [" + game_level_curr + "] \n" +
+                    "Recommended LEVEL CHANGE = [" + game_level_change + "] \n\n";
+            else
+                str_performance = "\n\n";
+
             loaderText.text =
-                "Select STEER ASSISTANCE level (0 to 9) \n";
+                str_performance +
+                "\n\n" +
+                "Select GAME LEVEL, 1 to 10\n" +
+                "(enter [0] for 10) \n";
         }
 
         else if (STATE_PREGAME == ST_SET_FACT_ASSIST_THROTTLE)
@@ -527,24 +620,38 @@ public class ReHandyBotController : MonoBehaviour
         else if (STATE_PREGAME == ST_CALIBRATE)
         {
             string str_bike_type;
+            string str_game_level;
             string str_fact_assist;
+            string str_race_direction;
+            string str_game_settings;
 
-            if (USE_BEGINNER_BIKE_CONSTR) 
+            if (USE_BEGINNER_BIKE_CONSTR)
                 str_bike_type = "Bike type: BEGINNER";
             else
-                str_bike_type = "Bike type: PRO" ;
+                str_bike_type = "Bike type: PRO";
 
             if (CASE_CTRL_MODE == CTRL_ASSISTED)
-                str_fact_assist = 
-                    "Assist factor STEERING = " + FACT_ASSIST_STEER + "\n" +                    
+            {
+                str_game_level = "GAME LEVEL = " + game_level_curr;
+
+                str_fact_assist =
+                    "Assist factor STEERING = " + FACT_ASSIST_STEER + "\n" +
                     "Assist factor THROTTLE = " + FACT_ASSIST_THROTTLE;
+
+                str_race_direction = "RACE_DIRECTION = [" + RACE_DIRECTION + "]";
+
+                str_game_settings =
+                    str_game_level + "\n" +
+                    str_fact_assist + "\n" +
+                    str_race_direction;
+            }
             else
-                str_fact_assist = " ";
+                str_game_settings = " ";
 
             loaderText.text =
                 str_bike_type +"\n\n" +
-                "CONTROL MODE [" + CASE_CTRL_MODE + "]\n" +
-                 str_fact_assist + "\n\n" +
+                "CONTROL MODE [" + CASE_CTRL_MODE + "]\n\n" +
+                str_game_settings + "\n\n" +
                 "Align grippers horizontally and close the grippers \n\n" +
                 "Press Y to CALIBRATE";
         }
@@ -553,15 +660,16 @@ public class ReHandyBotController : MonoBehaviour
     private void InitUnityGame_StartExercise(
         ref bool use_beginner_bike_constr,
         ref int case_ctrl_mode,
+        ref int game_level,
         ref float fact_assist_steer,
         ref float fact_assist_throttle,
         ref float frac_pos_rot_input_patient,
         ref float pos_radial_throt_zero,
         ref float k_stiff_radial_throt_manual,
         ref float speed_auto_throttle_max_kph,
+        ref int race_direction,
         ref bool upright_constr_on)
     {
-
         ////////////////////////////////////////////////////////////////////////////
         // Fixed settings for UNITY_GAME:
         ////////////////////////////////////////////////////////////////////////////
@@ -575,14 +683,20 @@ public class ReHandyBotController : MonoBehaviour
         // Selectable settings for UNITY_GAME:
         ////////////////////////////////////////////////////////////////////////////
 
-        if (STATE_PREGAME != ST_CALIBRATE)
-
+        if (STATE_PREGAME != ST_CALIBRATE) 
+        { 
             SelectGameSettings_PreUnityGame(
                 ref use_beginner_bike_constr,
                 ref case_ctrl_mode,
-                ref fact_assist_steer,
+                ref game_level,
                 ref fact_assist_throttle,
+                ref race_direction,
                 OnSelectGameSettings_PreUnityGame);
+
+            // Convert game level to assistance factor (fraction)
+            // Modified computation after user feedbacks (29.09.2025)
+            fact_assist_steer = FactorAssistCalc(game_level);
+        }
 
         ////////////////////////////////////////////////////////////////////////////
         // Toggle Exercise state:
@@ -611,10 +725,14 @@ public class ReHandyBotController : MonoBehaviour
     private void SelectGameSettings_PreUnityGame(
         ref bool use_beginner_bike_constr,
         ref int case_ctrl_mode,
-        ref float fact_assist_steer,
+        ref int game_level,
         ref float fact_assist_throttle,
+        ref int race_direction,
         UnityAction onComplete = null)
     {
+        // TODO: implement selection of race direction:
+        race_direction = DIR_CW;
+
         ////////////////////////////////////////////////
         // Select BIKE TYPE:
         ////////////////////////////////////////////////
@@ -659,36 +777,36 @@ public class ReHandyBotController : MonoBehaviour
         }
 
         ////////////////////////////////////////////////
-        // Select STEERING assistance factor:
+        // Select GAME LEVEL manually
+        //
+        // TODO: this should be replaced by AUTOMATED GAME LEVEL change based on PERFORMANCE
+        // See OnSelectGameSettings_PreUnityGame() / if (STATE_PREGAME == ST_SET_FACT_ASSIST_STEER)
         ////////////////////////////////////////////////
 
         else if (STATE_PREGAME == ST_SET_FACT_ASSIST_STEER)
         {
-            if (Input.GetKeyDown(KeyCode.Alpha0))
-                fact_assist_steer = 0f;
-            else if (Input.GetKeyDown(KeyCode.Alpha1))
-                fact_assist_steer = 1f;
+            if (Input.GetKeyDown(KeyCode.Alpha1))
+                game_level = 1;
             else if (Input.GetKeyDown(KeyCode.Alpha2))
-                fact_assist_steer = 2f;
+                game_level = 2;
             else if (Input.GetKeyDown(KeyCode.Alpha3))
-                fact_assist_steer = 3f;
+                game_level = 3;
             else if (Input.GetKeyDown(KeyCode.Alpha4))
-                fact_assist_steer = 4f;
+                game_level = 4;
             else if (Input.GetKeyDown(KeyCode.Alpha5))
-                fact_assist_steer = 5f;
+                game_level = 5;
             else if (Input.GetKeyDown(KeyCode.Alpha6))
-                fact_assist_steer = 6f;
+                game_level = 6;
             else if (Input.GetKeyDown(KeyCode.Alpha7))
-                fact_assist_steer = 7f;
+                game_level = 7;
             else if (Input.GetKeyDown(KeyCode.Alpha8))
-                fact_assist_steer = 8f;
+                game_level = 8;
             else if (Input.GetKeyDown(KeyCode.Alpha9))
-                fact_assist_steer = 9f;
+                game_level = 9;
+            else if (Input.GetKeyDown(KeyCode.Alpha0))
+                game_level = 10;
             else
                 return;
-
-            // Convert assistance factor to fraction:
-            fact_assist_steer /= 10f;
 
             STATE_PREGAME = ST_SET_FACT_ASSIST_THROTTLE;
             onComplete.Invoke();
@@ -733,18 +851,20 @@ public class ReHandyBotController : MonoBehaviour
         InitUnityGame_StartExercise(
             ref USE_BEGINNER_BIKE_CONSTR,
             ref CASE_CTRL_MODE,
+            ref game_level_curr,
             ref FACT_ASSIST_STEER,
             ref FACT_ASSIST_THROTTLE,
             ref FRAC_POS_ROT_INPUT_PATIENT,
             ref POS_RADIAL_THROT_ZERO,
             ref K_STIFF_RADIAL_THROT_MANUAL,
             ref SPEED_AUTO_THROTTLE_MAX_KPH,
+            ref RACE_DIRECTION,
             ref UPRIGHT_CONSTR_ON
-        );
+        ); 
 
         // Offset the RADIAL reference positions to account for initial calibration errors - CRITICAL (20.09.2025):
-        POS_RADIAL_THROT_ZERO_OFFS = POS_RADIAL_THROT_ZERO + OFFS_POS_RADIAL_CALIB;
-        POS_RADIAL_MIN_OFFS        = POS_RADIAL_MIN        + OFFS_POS_RADIAL_CALIB;
+        POS_RADIAL_THROT_ZERO_OFFS = POS_RADIAL_THROT_ZERO +   OFFS_POS_RADIAL_CALIB;
+        POS_RADIAL_MIN_OFFS        = POS_RADIAL_MIN        + 2*OFFS_POS_RADIAL_CALIB;
 
         ////////////////////////////////////////////////////////////////////////////
         // Thread sleep & time elapsed computation:
@@ -778,10 +898,10 @@ public class ReHandyBotController : MonoBehaviour
         // RHB coordinates:
         //////////////////////////////////////////////////////////////////////////// 
 
-        float pos_radial = ReHandyBotController.instance.distal_data.PositionR;
+        float pos_radial = distal_data.PositionR;
 
-        float pos_rot    = ReHandyBotController.instance.distal_data.PositionP;
-        float dt_pos_rot = ReHandyBotController.instance.distal_data.VelocityP;
+        float pos_rot    = distal_data.PositionP;
+        float dt_pos_rot = distal_data.VelocityP;
 
         ////////////////////////////////////////////////////////////////////////////
         // Retrieve data from bike and track objects:
@@ -865,9 +985,6 @@ public class ReHandyBotController : MonoBehaviour
         float dt_angle_roll_targ_this, float dt_angle_roll_bike_this, 
         int case_ctrl_mode) {
 
-        // TODO: why does this declaration cause Unity exceptions when placed inside [case CTRL_ASSISTED]??
-        // float k_stiff_rot_base_this = 0f;
-
         switch (case_ctrl_mode)
         {
             case CTRL_ASSISTED:
@@ -900,14 +1017,6 @@ public class ReHandyBotController : MonoBehaviour
 
                 // Assistive torque - apply limits:
                 torque_assist = Math.Clamp(torque_assist_raw, -TORQUE_ASSIST_LIM, TORQUE_ASSIST_LIM);
-
-                // Variable bias rotational stiffness to return rotation angle to zero (TODO: keep or discard)
-                /*
-                if (FACT_ASSIST_STEER < 0.2f)
-                    k_stiff_rot_base_this = K_STIFF_ROT_BASE;
-                else
-                    k_stiff_rot_base_this = 0f;
-                */
 
                 // Set target command for baseline state
                 // (1) Generates physical rotation limits
@@ -952,10 +1061,6 @@ public class ReHandyBotController : MonoBehaviour
                 break;
         }
     }
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Control commands using Set Target - functions:
-    ////////////////////////////////////////////////////////////////////////////
 
     private void CmdSetTarget_AutoSteer(float pos_rot_eq_ref, float k_stiff_rot_steer, float k_stiff_radial_throt)
     {
@@ -1046,7 +1151,7 @@ public class ReHandyBotController : MonoBehaviour
 
         bool success_set_target;
 
-        // TODO: consider change to plain distalRobot.SetTarget to improve performance (possible risk is timeouts):
+        // TODO: consider change to plain distalRobot.SetTarget to reduce overhead (possible risk is timeouts):
         if (ExerciseActive)
             success_set_target = distalRobot.HL_SetTarget( 
                 IDX_TARG_BASE,
@@ -1056,6 +1161,49 @@ public class ReHandyBotController : MonoBehaviour
                 SWITCH_RADIAL, SWITCH_ROT);
         else
             success_set_target = false;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // GAME LEVEL & ASSIST FACTOR update (29.09.2025):
+    ////////////////////////////////////////////////////////////////////////////
+    
+    int PerformGameLevelChange(
+        int game_level_curr, int num_game_levels, ref int level_change,
+        float frac_underst,
+        int step_count_fall,
+        float dist_traveled, float length_track)
+    {
+        if (dist_traveled < FRAC_LENGTH_TRACK_LEGIT_RACE*length_track)
+            game_level_change = 0;
+        else if (frac_underst <= FRAC_UNDERSTEER_LEVEL_UP_MAX && step_count_fall == 0)
+            level_change = 1;
+        else if (frac_underst >= FRAC_UNDERSTEER_LEVEL_DOWN_MIN || step_count_fall > N_FALLS_LIM)
+            level_change = -1;
+        else
+            level_change = 0;
+
+        // Validate game level change:
+        if ((game_level_curr == num_game_levels && level_change > 0) ||
+            (game_level_curr == 1 && level_change < 0))
+            level_change = 0;
+
+        return game_level_curr + level_change;
+    }
+
+    float FactorAssistCalc(int game_level)
+    {
+        float fact_assist_steer;
+
+        // Slopes for piecewise computation:
+        float m1 = (1f - FACT_ASSIST_MID) / GAME_LEVEL_MID;
+        float m2 = FACT_ASSIST_MID / GAME_LEVEL_MID;
+
+        if (game_level <= GAME_LEVEL_MID)
+            fact_assist_steer = 1f - m1*(float)game_level;
+        else
+            fact_assist_steer = m2*(N_GAME_LEVELS - (float)game_level);
+
+        return fact_assist_steer;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -1107,6 +1255,10 @@ public class ReHandyBotController : MonoBehaviour
             return;
         }
 
+        //////////////////////////////////////////////////////////////////
+        // Send Start Exercise command to firmware:
+        //////////////////////////////////////////////////////////////////
+
         bool startExerciseSucess = false;
         const int N_ATTEMPTS_MAX = 50;
 
@@ -1125,24 +1277,60 @@ public class ReHandyBotController : MonoBehaviour
             Thread.Sleep(10);
         }
         while (++i <= N_ATTEMPTS_MAX && !startExerciseSucess);
-           
+
+        //////////////////////////////////////////////////////////////////
+        // Start Exercise procedures:
+        //////////////////////////////////////////////////////////////////
+
         if (startExerciseSucess) {
             isExerciseStarted = true;
 
+            //////////////////////////////////////////////////////////////////
             // Start timer:
+            //////////////////////////////////////////////////////////////////
+            
             timerLocked = true;
             timerActivePrev = timerActive;
             timerActive = true;
             System.Threading.Thread.Sleep(DT_STEP_APP_MSEC);
             timerLocked = false;
 
+            //////////////////////////////////////////////////////////////////
+            // Start step counter:
+            //////////////////////////////////////////////////////////////////
+
+            step_count = 0;
+
+            //////////////////////////////////////////////////////////////////
+            // PERFORMANCE metrics - set up variables: 
+            //////////////////////////////////////////////////////////////////
+            
+            // Start UNDERSTEER event counter
+            MotorbikeController.instance.step_count_understeer = 0;
+
+            // Start FALL counter:
+            MotorbikeController.instance.step_count_fall  = 0;
+            MotorbikeController.instance.bike_fallen_prev = false;
+
+            // Distance traveled during exercise:
+            MotorbikeController.instance.dist_traveled = 0f;
+
+            //////////////////////////////////////////////////////////////////
             // Set force feedback gains:
+            //////////////////////////////////////////////////////////////////
+
             SetForceFeebackGainCases(CASE_CTRL_MODE);
 
+            //////////////////////////////////////////////////////////////////
             // Initiate recording on new data file:
+            //////////////////////////////////////////////////////////////////
+            
             DataManager.instance.SetupRecordingEvents();
 
+            //////////////////////////////////////////////////////////////////
             // Display section:
+            //////////////////////////////////////////////////////////////////
+
             ExternalConsoleLogger.Log(" ");
             ExternalConsoleLogger.Log("____________________________________________________________________");
             ExternalConsoleLogger.Log("StartExercise(): SUCCESS timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
@@ -1151,7 +1339,6 @@ public class ReHandyBotController : MonoBehaviour
                 OnExerciseStart?.Invoke();
 
             onComplete?.Invoke();
-
         } 
         else
         {
@@ -1194,11 +1381,17 @@ public class ReHandyBotController : MonoBehaviour
         System.Threading.Thread.Sleep(DT_STEP_APP_MSEC);
         timerLocked = false;
 
+        //////////////////////////////////////////////////////////////////
+        // PERFORMANCE metrics: compute UNDERSTEER fraction
+        //////////////////////////////////////////////////////////////////
+
+        frac_understeer = (float)MotorbikeController.instance.step_count_understeer / step_count;
+
         /////////////////////////////////////////////////////////
         // Set default feedback gains:
         /////////////////////////////////////////////////////////
-        
-        SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT);
+
+        SetGain(0f, 0f); // was SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT) (29.09.2025)
 
         // Replaced by MotionRoutineRHBSimple() (22.08.2025):
         /*
@@ -1257,17 +1450,6 @@ public class ReHandyBotController : MonoBehaviour
         DOTween.PlayAll();
 
         OnConnect_PreUnityGame();
-
-        /////////////////////////////////////////////////////////
-        // Replaced by MotionRoutineRHBSimple() (22.08.2025):
-        /////////////////////////////////////////////////////////
-        
-        /*
-        motionRoutineRotational = StartCoroutine(MotionRoutineRotationalRHB(0f, () =>
-        {
-            motionRoutineRadial = StartCoroutine(MotionRoutineRadialRHB(POS_RADIAL_MIN, () =>
-            {
-        */
     }
 
     private void SetBrakes(bool unlockRadial, bool unlockRotational, UnityAction onComplete = null)
