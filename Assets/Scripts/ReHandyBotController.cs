@@ -860,7 +860,11 @@ public class ReHandyBotController : MonoBehaviour
             ref SPEED_AUTO_THROTTLE_MAX_KPH,
             ref RACE_DIRECTION,
             ref UPRIGHT_CONSTR_ON
-        ); 
+        );
+
+        // Write game PARAMETERS to Data Manager structure (TODO: revise implementation in Care Platform version):
+        if (!ExerciseActive)
+            CopyParamsToStruct(ref DataManager.instance.params_values);
 
         // Offset the RADIAL reference positions to account for initial calibration errors - CRITICAL (20.09.2025):
         POS_RADIAL_THROT_ZERO_OFFS = POS_RADIAL_THROT_ZERO +   OFFS_POS_RADIAL_CALIB;
@@ -1504,7 +1508,7 @@ public class ReHandyBotController : MonoBehaviour
     private bool HL_SetTargetEmpty(UnityAction onComplete = null)
     {
         return distalRobot.HL_SetTarget(
-            IDX_TARG_BASE,
+            IDX_TARG_BASE, 
             POS_RADIAL_MIN_OFFS, 0f,
             0f, 0f,
             0f, 0f,
@@ -1525,6 +1529,28 @@ public class ReHandyBotController : MonoBehaviour
                 break;
     }
 
+    // Write game PARAMETERS to Data Manager structure (TODO: revise implementation in Care Platform version):
+    public void CopyParamsToStruct(ref DataManager.ParamsBikeGame params_values_this) { 
+        params_values_this.DT_STEP_APP_MSEC = DT_STEP_APP_MSEC;
+        params_values_this.USE_BEGINNER_BIKE_CONSTR = USE_BEGINNER_BIKE_CONSTR;
+        params_values_this.CASE_CTRL_MODE = CASE_CTRL_MODE;
+        params_values_this.POS_RADIAL_THROT_ZERO = POS_RADIAL_THROT_ZERO;
+        params_values_this.K_STIFF_RADIAL_THROT_MANUAL = K_STIFF_RADIAL_THROT_MANUAL;
+        params_values_this.SPEED_AUTO_THROTTLE_MAX_KPH = SPEED_AUTO_THROTTLE_MAX_KPH;
+        params_values_this.FORCE_GAIN_RADIAL = FORCE_GAIN_RADIAL;
+        params_values_this.FORCE_GAIN_ROT = FORCE_GAIN_ROT;
+        params_values_this.K_STIFF_RADIAL_THROT_AUTO = K_STIFF_RADIAL_THROT_AUTO;
+        params_values_this.K_STIFF_ROT_BASE = K_STIFF_ROT_BASE;
+        params_values_this.K_STIFF_ROT_TRACKING = K_STIFF_ROT_TRACKING;
+        params_values_this.B_DAMP_ROT_TRACKING = B_DAMP_ROT_TRACKING;
+        params_values_this.FRAC_ASSIST_STIFF = FRAC_ASSIST_STIFF;
+        params_values_this.TORQUE_ASSIST_STEER_MAX = TORQUE_ASSIST_STEER_MAX;
+        params_values_this.FACT_ASSIST_STEER = FACT_ASSIST_STEER;
+        params_values_this.GAME_LEVEL_MID = GAME_LEVEL_MID;
+        params_values_this.FACT_ASSIST_MID = FACT_ASSIST_MID;
+        params_values_this.FRAC_POS_ROT_INPUT_PATIENT = FRAC_POS_ROT_INPUT_PATIENT;
+        params_values_this.FACT_ASSIST_THROTTLE = FACT_ASSIST_THROTTLE;
+    }
 
     // Replaced with MotionRoutineRHBSimple() (22.08.2025):
     // private IEnumerator MotionRoutineRadialRHB(float target, UnityAction onComplete)

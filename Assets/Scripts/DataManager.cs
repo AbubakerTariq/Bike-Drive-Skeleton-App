@@ -22,16 +22,23 @@ public class DataManager : MonoBehaviour
 
     public string FILE_EXT = ".csv";
 
+    // DATA file name identifiers:
     public string DATA_FILE_DIR = "_data_rhb_unity_bike/";
     public string DATA_FILENAME_DEF = "data_rhb_bike_";
 
-    // Variable to store file path of the data file
+    // DATA file: variable to store file path of the 
     private string dataFilePath;
+
+    // PARAMETER file name identifiers:
+    public string PARAM_FILENAME_DEF = "param_rhb_bike_";
+
+    // PARAMETER file: variable to store file path of the 
+    private string paramFilePath;
 
     /////////////////////////////////////////////////////////////////////////
     // Time step vars:
     /////////////////////////////////////////////////////////////////////////   
-    
+
     private int data_recv_count = 0;
 
     private float t_step_prev = 0f;
@@ -48,10 +55,39 @@ public class DataManager : MonoBehaviour
 
     private readonly object fileLock = new object();
 
+    ///////////////////////////////////////////////////////////
+    // PARAMETERS class (06.10.2025):
+    ///////////////////////////////////////////////////////////
+
+    public class ParamsBikeGame
+    {
+        public float DT_STEP_APP_MSEC;
+        public bool USE_BEGINNER_BIKE_CONSTR;
+        public float CASE_CTRL_MODE;
+        public float POS_RADIAL_THROT_ZERO;
+        public float K_STIFF_RADIAL_THROT_MANUAL;
+        public float SPEED_AUTO_THROTTLE_MAX_KPH;
+        public float FORCE_GAIN_RADIAL;
+        public float FORCE_GAIN_ROT;
+        public float K_STIFF_RADIAL_THROT_AUTO;
+        public float K_STIFF_ROT_BASE;
+        public float K_STIFF_ROT_TRACKING;
+        public float B_DAMP_ROT_TRACKING;
+        public float FRAC_ASSIST_STIFF;
+        public float TORQUE_ASSIST_STEER_MAX;
+        public float FACT_ASSIST_STEER;
+        public float GAME_LEVEL_MID;
+        public float FACT_ASSIST_MID;
+        public float FRAC_POS_ROT_INPUT_PATIENT;
+        public float FACT_ASSIST_THROTTLE;
+    }
+
+    public ParamsBikeGame params_values = new();
+
     /////////////////////////////////////////////////////////////////////////
     // Methods:
     /////////////////////////////////////////////////////////////////////////
-    
+
     private void Awake()
     {
         // Singleton logic
@@ -70,11 +106,8 @@ public class DataManager : MonoBehaviour
 
     }
 
-    public void SetupDataFile()
+    public void SetupDataFile(string dataFilePathThis)
     {
-        string dataFileName = DATA_FILENAME_DEF + DateTimeStamp() + FILE_EXT;
-        dataFilePath = DATA_FILE_DIR + dataFileName;
-
         // Headings for the data file:
         string[] headers = new[] { 
             "t sec", 
@@ -144,19 +177,69 @@ public class DataManager : MonoBehaviour
             "step count underst"
         };
 
-        if (!File.Exists(dataFilePath))
+        if (!File.Exists(dataFilePathThis))
         {
             string headerLine = string.Join(",", headers);
-            File.WriteAllText(dataFilePath, $"{headerLine}\n");
+            File.WriteAllText(dataFilePathThis, $"{headerLine}\n");
 
             // Display section:
             ExternalConsoleLogger.Log("____________________________________________________________________");
-            ExternalConsoleLogger.Log("SetupDataFile(): created file [" + dataFileName + "]\n");
+            ExternalConsoleLogger.Log("SetupDataFile(): created DATA file [" + dataFilePathThis + "]\n");
+        }
+    }
+
+    public void SetupParametersFile(string paramFilePathThis)
+    {
+        // Headings for the data file:
+        string[] headers = new[] {
+            "DT_STEP_APP_MSEC",
+            "USE_BEGINNER_BIKE_CONSTR",
+            "CASE_CTRL_MODE",
+            "POS_RADIAL_THROT_ZERO",
+            "K_STIFF_RADIAL_THROT_MANUAL",
+            "SPEED_AUTO_THROTTLE_MAX_KPH",
+            "FORCE_GAIN_RADIAL",
+            "FORCE_GAIN_ROT",
+            "K_STIFF_RADIAL_THROT_AUTO",
+            "K_STIFF_ROT_BASE",
+            "K_STIFF_ROT_TRACKING",
+            "B_DAMP_ROT_TRACKING",
+            "FRAC_ASSIST_STIFF",
+            "TORQUE_ASSIST_STEER_MAX",
+            "FACT_ASSIST_STEER",
+            "GAME_LEVEL_MID",
+            "FACT_ASSIST_MID",
+            "FRAC_POS_ROT_INPUT_PATIENT",
+            "FACT_ASSIST_THROTTLE",
+ 
+            // TODO: add these parameters after we figure out how to change protection levels in MotorbikeController without disruption:
+            /*
+            "DT_PREVIEW",
+            "P_GAIN_ASSIST",
+            "P_GAIN_TRACK",
+            "P_GAIN_LO",
+            "FACT_ASSIST_STEER_MAX",
+            "OFFS_FACT_ASSIST_STEER",
+            "TORQUE_MOTOR_MAX",
+            "FACTOR_ACCEL"
+            */
+        };
+
+        if (!File.Exists(paramFilePathThis))
+        {
+            string headerLine = string.Join(",", headers);
+            File.WriteAllText(paramFilePathThis, $"{headerLine}\n");
+
+            // Display section:
+            ExternalConsoleLogger.Log("____________________________________________________________________");
+            ExternalConsoleLogger.Log("SetupDataFile(): created PARAMETER file [" + paramFilePathThis + "]\n");
         }
     }
 
     private void SaveDataEntry(
-        float t, float dt, 
+        string dataFilePathThis,
+        float t, 
+        float dt, 
         DistalComm.ExerciseData distal_data,
         MotorbikeController.BikeCoords bike_coords_data,
         MotorbikeController.TrackCoords track_coords_data, 
@@ -254,7 +337,54 @@ public class DataManager : MonoBehaviour
 
             lock (fileLock)
             {
-                File.AppendAllText(dataFilePath, $"{output}\n");
+                File.AppendAllText(dataFilePathThis, $"{output}\n");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Error saving data: {ex.Message}");
+        }
+    }
+
+    private void SaveParametersEntry(string paramFilePathThis)
+    {
+        try
+        {
+            string output =
+                $"{params_values.DT_STEP_APP_MSEC}," +
+                $"{params_values.USE_BEGINNER_BIKE_CONSTR}," +
+                $"{params_values.CASE_CTRL_MODE}," +
+                $"{params_values.POS_RADIAL_THROT_ZERO}," +
+                $"{params_values.K_STIFF_RADIAL_THROT_MANUAL}," +
+                $"{params_values.SPEED_AUTO_THROTTLE_MAX_KPH}," +
+                $"{params_values.FORCE_GAIN_RADIAL}," +
+                $"{params_values.FORCE_GAIN_ROT}," +
+                $"{params_values.K_STIFF_RADIAL_THROT_AUTO}," +
+                $"{params_values.K_STIFF_ROT_BASE}," +
+                $"{params_values.K_STIFF_ROT_TRACKING}," +
+                $"{params_values.B_DAMP_ROT_TRACKING}," +
+                $"{params_values.FRAC_ASSIST_STIFF}," +
+                $"{params_values.TORQUE_ASSIST_STEER_MAX}," +
+                $"{params_values.FACT_ASSIST_STEER}," +
+                $"{params_values.GAME_LEVEL_MID}," +
+                $"{params_values.FACT_ASSIST_MID}," +
+                $"{params_values.FRAC_POS_ROT_INPUT_PATIENT}," +
+                $"{params_values.FACT_ASSIST_THROTTLE}";
+
+                /*
+                $"{MotorbikeController.DT_PREVIEW}," +
+                $"{MotorbikeController.P_GAIN_ASSIST}," +
+                $"{MotorbikeController.P_GAIN_TRACK}," +
+                $"{MotorbikeController.P_GAIN_LO}," +
+                $"{MotorbikeController.FACT_ASSIST_STEER_MAX}," +
+                $"{MotorbikeController.OFFS_FACT_ASSIST_STEER}," +
+                $"{MotorbikeController.TORQUE_MOTOR_MAX}," +
+                $"{MotorbikeController.instance.FACTOR_ACCEL}";
+                */
+
+            lock (fileLock)
+            {
+                File.AppendAllText(paramFilePathThis, $"{output}\n");
             }
         }
         catch (Exception ex)
@@ -287,22 +417,62 @@ public class DataManager : MonoBehaviour
 
     private void StartDataRecording()
     {
+        ////////////////////////////////////////////////////////////////
         // Launch stop data log thread:
+        ////////////////////////////////////////////////////////////////
+        
         StopDataRecording();
 
-        // Create new CSV file:
-        SetupDataFile();
+        ////////////////////////////////////////////////////////////////
+        // Date/time string for files:
+        ////////////////////////////////////////////////////////////////
+        
+        string dateTimeStr  = DateTimeStamp();
 
+        ////////////////////////////////////////////////////////////////
+        // Set up DATA file: 
+        ////////////////////////////////////////////////////////////////
+        
+        string dataFileName = DATA_FILENAME_DEF + dateTimeStr + FILE_EXT;
+        dataFilePath        = DATA_FILE_DIR + dataFileName;
+
+        // Create new DATA csv file:
+        SetupDataFile(dataFilePath);
+
+        ////////////////////////////////////////////////////////////////
+        // Set up PARAMETERS file:
+        ////////////////////////////////////////////////////////////////
+        
+        string paramFileName = PARAM_FILENAME_DEF + dateTimeStr + FILE_EXT;
+        paramFilePath        = DATA_FILE_DIR + paramFileName;
+
+        // Create new PARAMETERS csv file:
+        SetupParametersFile(paramFilePath);
+
+        ////////////////////////////////////////////////////////////////
+        // Record PARAMETERS values in file:
+        ////////////////////////////////////////////////////////////////
+
+        SaveParametersEntry(paramFilePath);
+
+        ////////////////////////////////////////////////////////////////
         // 'Race started' flag:
+        ////////////////////////////////////////////////////////////////
+
         isRaceStarted = true;
 
+        ////////////////////////////////////////////////////////////////
         // Reset data received counter:
+        ////////////////////////////////////////////////////////////////
+
         data_recv_count = 0;
 
-        // Set up timer:
+        ////////////////////////////////////////////////////////////////
+        // Set up DATA recording timer:
+        ////////////////////////////////////////////////////////////////
+        
         threadTimerData = new Thread(() =>
         {
-            // dataTimer = new(1f);
             timerData = new System.Timers.Timer(DT_STEP_DATA_FBK_MSEC);
             timerData.Elapsed += SaveDataOnTimerElapsed;
             timerData.AutoReset = true;
@@ -360,6 +530,7 @@ public class DataManager : MonoBehaviour
 
                 if (data_recv_count_offs == 0 || dt_step > DT_STEP_DATA_LOG / 2f) // condition aims to prevent duplicate entries
                     SaveDataEntry(
+                        dataFilePath,
                         t_step, 
                         dt_step,
                         ReHandyBotController.instance.distal_data,
