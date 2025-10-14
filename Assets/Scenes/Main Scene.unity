@@ -280,8 +280,9 @@ GameObject:
   m_Component:
   - component: {fileID: 452416209}
   - component: {fileID: 452416210}
+  - component: {fileID: 452416211}
   m_Layer: 0
-  m_Name: ReHandyBot Controller
+  m_Name: RHB Control Bike
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -315,13 +316,59 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5779be39f2571b14c8caf49df89cfc39, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  loader: {fileID: 631658538}
-  exerciseGuidelineText: {fileID: 558098702}
-  loaderText: {fileID: 663783438}
+  USE_BEGINNER_BIKE_CONSTR: 0
+  CASE_CTRL_MODE: 1
   POS_RADIAL_THROT_ZERO: 0.029
-  POS_PHI_STEER_ZERO: 0
-  DT_TIMER_LOCK_MSEC: 50
+  K_STIFF_RADIAL_THROT_MANUAL: 0
+  OFFS_POS_RADIAL_CALIB: 0.0005
+  POS_RADIAL_THROT_ZERO_OFFS: 0
+  SPEED_AUTO_THROTTLE_MAX_KPH: 0
+  STATE_PREGAME: 1
+  FORCE_GAIN_RADIAL: 9
+  FORCE_GAIN_ROT: 6
+  POS_RADIAL_MIN: 0.0145
+  POS_RADIAL_MAX: 0.06
+  POS_RADIAL_MIN_OFFS: 0
+  K_STIFF_RADIAL_THROT_AUTO: 5000
+  B_DAMP_RADIAL_BASE: 0
+  K_STIFF_ROT_BASE: 0.05
+  B_DAMP_ROT_BASE: 0
+  K_STIFF_ROT_TRACKING: 2.2
+  B_DAMP_ROT_TRACKING: 0.05
+  FRAC_ASSIST_STIFF: 0.5
+  FACT_ASSIST_STEER: 0
+  FRAC_POS_ROT_INPUT_PATIENT: 0.4
+  FACT_ASSIST_THROTTLE: 1
+  ANGLE_ROT_LIM_DEG: 45
+  pos_rot_eq_ref: 0
+  dt_pos_rot_eq_ref: 0
+  torque_assist: 0
+  isExerciseStarted: 0
+  UPRIGHT_CONSTR_ON: 0
+  enabledControlThread: 0
+  timeElapsedValue: 0
   step_count: 0
+  isCalibrated: 0
+  game_level_curr: 1
+  game_level_next: 0
+  RACE_DIRECTION: 0
+  frac_understeer: -1
+  frac_dist_traveled: 0
+  game_level_change: 0
+  loader: {fileID: 631658538}
+  loaderText: {fileID: 663783438}
+--- !u!114 &452416211
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 452416208}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f0ea74d26ce5ec940ac0c9c59b16d757, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &558098702
 GameObject:
   m_ObjectHideFlags: 0
@@ -334,7 +381,7 @@ GameObject:
   - component: {fileID: 558098705}
   - component: {fileID: 558098704}
   m_Layer: 5
-  m_Name: Exercise Gudeline
+  m_Name: Exercise Guideline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -416,7 +463,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &631658539
 RectTransform:
   m_ObjectHideFlags: 0
@@ -852,6 +899,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3211e0dbb38abde4c89285d858dee5cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  FILE_EXT: .csv
+  DATA_FILE_DIR: _data_rhb_unity_bike/
+  DATA_FILENAME_DEF: data_rhb_bike_
+  PARAM_FILENAME_DEF: param_rhb_bike_
+  isRaceStarted: 0
 --- !u!1 &963194225
 GameObject:
   m_ObjectHideFlags: 0

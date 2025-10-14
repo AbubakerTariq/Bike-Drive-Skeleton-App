@@ -14,16 +14,16 @@ public class MotorbikeController : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     // Preview-ahead time - CRITICAL (26.08.2025):
-    const float DT_PREVIEW = 2.0f; //  1.3f; //
+    public const float DT_PREVIEW = 2.0f; //  1.3f; //
 
     // Gain(s) for tracking target position - CRITICAL
     // Highest tested values that guarantee bike stability (25.09.2025):
-    const float P_GAIN_ASSIST   = 0.08f;
-    const float P_GAIN_TRACK    = 0.06f;
+    public const float P_GAIN_ASSIST   = 0.08f;
+    public const float P_GAIN_TRACK    = 0.06f;
 
     // Gain limits for PERFORMANCE metric - steering:
-    const float P_GAIN_LO = 0.05f;
-    const float P_GAIN_HI = 0.10f;
+    public const float P_GAIN_LO = 0.05f;
+    public const float P_GAIN_HI = 0.10f;
 
     private float P_GAIN_ERR_POS_TARG;
 
@@ -61,13 +61,13 @@ public class MotorbikeController : MonoBehaviour
     // Bike control parameters - STEERING - Factor adjustment:
     ////////////////////////////////////////////////////////////////////////////
 
-    const float FACT_ASSIST_STEER_MAX      = 0.9f;
+    public const float FACT_ASSIST_STEER_MAX      = 0.9f;
 
     // Sensitivity of bike steering to RHB's ASSISTED control stiffness
     // TODO: test this formula for the different ASSISTANCE & THROTTLE levels (25.09.2025)
     // OFFS_FACT_ASSIST_STEER = -1.55f*ReHandyBotController.instance.FRAC_ASSIST_STIFF + 1.0f;
 
-    private float OFFS_FACT_ASSIST_STEER = 0.5f; // 0.25f; // 
+    public const float OFFS_FACT_ASSIST_STEER = 0.5f; // 0.25f; // 
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - Throttle (CRITICAL):
@@ -84,10 +84,10 @@ public class MotorbikeController : MonoBehaviour
     // Bike control parameters - Motor torque & acceleration:
     ////////////////////////////////////////////////////////////////////////////
 
-    const float TORQUE_MOTOR_MAX = 600f; // 500f; // 
+    public const float TORQUE_MOTOR_MAX = 600f; // 500f; // 
 
     // Acceleration factor: CRITICAL value - increases top speed but can make turning harder
-    private float FACTOR_ACCEL;
+    public float FACTOR_ACCEL;
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - Other:
@@ -414,7 +414,7 @@ public class MotorbikeController : MonoBehaviour
 
     void FixedUpdate()
     {
-        int step_count = ReHandyBotController.instance.step_count;
+        int step_count = RHBCtrlBike.instance.step_count;
 
         ////////////////////////////////////////////////////////////////
         // Time step:
@@ -434,7 +434,7 @@ public class MotorbikeController : MonoBehaviour
 
         if (!bike_fallen)
         {
-            BikeMotionAndControlStates(step_count, ReHandyBotController.instance.distal_data,
+            BikeMotionAndControlStates(step_count, RHBCtrlBike.instance.distal_data,
                 ref bike_coords_data,
                 ref bike_input_data,
                 ref bike_pose_data,
@@ -476,7 +476,7 @@ public class MotorbikeController : MonoBehaviour
 
             float dist_traveled_rel; // distance relative to start line (wraps around)
 
-            if (ReHandyBotController.instance.RACE_DIRECTION == ReHandyBotController.DIR_CW)
+            if (RHBCtrlBike.instance.RACE_DIRECTION == RHBCtrlBike.DIR_CW)
                 dist_traveled_rel = Track.instance.GetDistanceAtPosition(bike_coords_data.pos_bike);
             else
                 dist_traveled_rel = Track.instance.GetTrackLength() - Track.instance.GetDistanceAtPosition(bike_coords_data.pos_bike);
@@ -520,12 +520,12 @@ public class MotorbikeController : MonoBehaviour
         // Display section:
         ////////////////////////////////////////////////////////////////////////////
 
-        if (ReHandyBotController.instance.ExerciseActive
-            && step_count % (DT_DISP_DATA_MSEC / ReHandyBotController.DT_STEP_APP_MSEC) == 0
+        if (RHBCtrlBike.instance.ExerciseActive
+            && step_count % (DT_DISP_DATA_MSEC / RHBCtrlBike.DT_STEP_APP_MSEC) == 0
             && DISP_MOTOR_CONTROL_ON)
         {
             // Time elapsed display:
-            float timeElapsedValue   = ReHandyBotController.instance.timeElapsedValue;
+            float timeElapsedValue   = RHBCtrlBike.instance.timeElapsedValue;
             TimeSpan timeElapsedSpan = TimeSpan.FromSeconds(timeElapsedValue);
 
             string timeElapsedText   = String.Format("{0:#00}", timeElapsedSpan.Minutes) + ":" + String.Format("{0:#00}", timeElapsedSpan.Seconds);
@@ -581,15 +581,14 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////
 
+        if (RHBCtrlBike.instance.ExerciseActive) {
 
-        if (ReHandyBotController.instance.ExerciseActive) {
-
-            bike_input.throttle = InputThrottleCases(pos_radial, MotorbikeController.instance, ReHandyBotController.instance.CASE_CTRL_MODE);
+            bike_input.throttle = InputThrottleCases(pos_radial, MotorbikeController.instance, RHBCtrlBike.instance.CASE_CTRL_MODE);
 
             if (MagnitudeXZ(bike_coords_this.dt_pos_bike) > SPEED_TRANSITION_UPRIGHT // was bike_input.throttle > 0
-                && ReHandyBotController.instance.UPRIGHT_CONSTR_ON == true) 
+                && RHBCtrlBike.instance.UPRIGHT_CONSTR_ON == true) 
             {
-                uprightConstraintRemove(out ReHandyBotController.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
+                uprightConstraintRemove(out RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
 
                 // Display section:
                 ExternalConsoleLogger.Log("_________________________________________________________________");
@@ -614,7 +613,7 @@ public class MotorbikeController : MonoBehaviour
 
         float input_steer_targ;
 
-        if (ReHandyBotController.instance.ExerciseActive && MotorbikeController.instance != null && Track.instance != null)
+        if (RHBCtrlBike.instance.ExerciseActive && MotorbikeController.instance != null && Track.instance != null)
             input_steer_targ = InputSteerTargetFeedback(ref bike_coords_this, ref fbk_ctrl_this);
         else
             input_steer_targ = 0f;
@@ -623,16 +622,16 @@ public class MotorbikeController : MonoBehaviour
         // Steering input case 2: MANUAL (from RHB ROTATIONAL input)
         ////////////////////////////////////////////////////////////////      
 
-        float input_steer_manual = 1.0f / ReHandyBotController.instance.FRAC_POS_ROT_INPUT_PATIENT * pos_rot;
+        float input_steer_manual = 1.0f / RHBCtrlBike.instance.FRAC_POS_ROT_INPUT_PATIENT * pos_rot;
 
         ////////////////////////////////////////////////////////////////
         // Select steering mode:
         ////////////////////////////////////////////////////////////////
 
-        if (ReHandyBotController.instance.ExerciseActive)
+        if (RHBCtrlBike.instance.ExerciseActive)
             bike_input.steer_scaled = InputSteerCases(
                 input_steer_manual, input_steer_targ,
-                ReHandyBotController.instance.CASE_CTRL_MODE);
+                RHBCtrlBike.instance.CASE_CTRL_MODE);
         else
             bike_input.steer_scaled = 0f;
 
@@ -693,14 +692,14 @@ public class MotorbikeController : MonoBehaviour
 
         float factor_speed_throttle = 1f - (float)Math.Abs(sin_dev_targ); // was: 1f - sin_dev_targ*sin_dev_targ;
 
-        float input_throttle_fbk = factor_speed_throttle * ReHandyBotController.instance.SPEED_AUTO_THROTTLE_MAX_KPH / 100f;
+        float input_throttle_fbk = factor_speed_throttle * RHBCtrlBike.instance.SPEED_AUTO_THROTTLE_MAX_KPH / 100f;
 
         ////////////////////////////////////////////////////////////////
         // MANUAL THROTTLEe input - from RHB:
         ////////////////////////////////////////////////////////////////
 
         float pos_throttle      = pos_radial;
-        float pos_throttle_zero = ReHandyBotController.instance.POS_RADIAL_THROT_ZERO;
+        float pos_throttle_zero = RHBCtrlBike.instance.POS_RADIAL_THROT_ZERO;
 
         float SCALE_INPUT_THROTTLE = 1000f / DIST_RADIAL_THROT_FULL_MM;
 
@@ -714,20 +713,20 @@ public class MotorbikeController : MonoBehaviour
 
         switch (case_ctrl_mode)
         {
-            case ReHandyBotController.CTRL_ASSISTED:
+            case RHBCtrlBike.CTRL_ASSISTED:
 
                 input_throttle =
-                            ReHandyBotController.instance.FACT_ASSIST_THROTTLE  * input_throttle_fbk
-                    + (1f - ReHandyBotController.instance.FACT_ASSIST_THROTTLE) * input_throttle_manual;
+                            RHBCtrlBike.instance.FACT_ASSIST_THROTTLE  * input_throttle_fbk
+                    + (1f - RHBCtrlBike.instance.FACT_ASSIST_THROTTLE) * input_throttle_manual;
                 break;
 
-            case ReHandyBotController.CTRL_AUTO_STEER_AUTO_THROT:
+            case RHBCtrlBike.CTRL_AUTO_STEER_AUTO_THROT:
 
                 input_throttle = input_throttle_fbk;
                 break;
 
-            case ReHandyBotController.CTRL_AUTO_STEER_MANUAL_THROT:
-            case ReHandyBotController.CTRL_MANUAL_SIMPLE:
+            case RHBCtrlBike.CTRL_AUTO_STEER_MANUAL_THROT:
+            case RHBCtrlBike.CTRL_MANUAL_SIMPLE:
 
                 input_throttle = input_throttle_manual;
                 break;
@@ -755,12 +754,12 @@ public class MotorbikeController : MonoBehaviour
 
         switch (case_ctrl_mode)
         {
-            case ReHandyBotController.CTRL_ASSISTED:
+            case RHBCtrlBike.CTRL_ASSISTED:
 
                 float ratio_fact_assist =
                     (FACT_ASSIST_STEER_MAX - OFFS_FACT_ASSIST_STEER) / FACT_ASSIST_STEER_MAX;
 
-                float FACT_ASSIST_STEER_ADJ = ratio_fact_assist * ReHandyBotController.instance.FACT_ASSIST_STEER;
+                float FACT_ASSIST_STEER_ADJ = ratio_fact_assist * RHBCtrlBike.instance.FACT_ASSIST_STEER;
 
                 // Compute steering input:
                 input_steer_ref =
@@ -768,13 +767,13 @@ public class MotorbikeController : MonoBehaviour
                    + (1f - FACT_ASSIST_STEER_ADJ) * input_steer_manual;
                 break;
 
-            case ReHandyBotController.CTRL_AUTO_STEER_AUTO_THROT:
-            case ReHandyBotController.CTRL_AUTO_STEER_MANUAL_THROT:
+            case RHBCtrlBike.CTRL_AUTO_STEER_AUTO_THROT:
+            case RHBCtrlBike.CTRL_AUTO_STEER_MANUAL_THROT:
 
                 input_steer_ref = input_steer_targ;
                 break;
 
-            case ReHandyBotController.CTRL_MANUAL_SIMPLE:
+            case RHBCtrlBike.CTRL_MANUAL_SIMPLE:
 
                 input_steer_ref = input_steer_manual;
                 break;
@@ -859,7 +858,7 @@ public class MotorbikeController : MonoBehaviour
 
         // Peoportional gain for target roll angle - CRITICAL
         // Highest tested values that guarantee bike stability (25.09.2025):
-        if (ReHandyBotController.instance.CASE_CTRL_MODE == ReHandyBotController.CTRL_ASSISTED)
+        if (RHBCtrlBike.instance.CASE_CTRL_MODE == RHBCtrlBike.CTRL_ASSISTED)
             P_GAIN_ERR_POS_TARG = P_GAIN_ASSIST;
         else
             P_GAIN_ERR_POS_TARG = P_GAIN_TRACK; 
@@ -949,7 +948,7 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
 
         // If Beginner bike is selected, enforce z-axis rotation to target roll angle value:
-        if (ReHandyBotController.instance.USE_BEGINNER_BIKE_CONSTR)
+        if (RHBCtrlBike.instance.USE_BEGINNER_BIKE_CONSTR)
             thisTransform.rotation = Quaternion.Euler(
                 thisTransform.rotation.eulerAngles.x,
                 thisTransform.rotation.eulerAngles.y,
@@ -995,7 +994,7 @@ public class MotorbikeController : MonoBehaviour
         if (dt_pos_bike_magn >= SPEED_TRANSITION_UPRIGHT)
         {
             // Ig Beginner bike is selected, override dynamics-based steering:
-            if (ReHandyBotController.instance.USE_BEGINNER_BIKE_CONSTR)
+            if (RHBCtrlBike.instance.USE_BEGINNER_BIKE_CONSTR)
                 wheel_coll_fwd.steerAngle = -1f / FACT_DEG_2_RAD * RATIO_ANG_ROLL_2_ANG_WHEEL * angle_roll_bike;
             else
                 wheel_coll_fwd.steerAngle = FACTOR_ANGLE_WHEEL_FWD * bike_input.steer_scaled;
@@ -1004,10 +1003,10 @@ public class MotorbikeController : MonoBehaviour
         }
         else
         {
-            if (dt_pos_bike_magn < dt_pos_bike_magn_prev && ReHandyBotController.instance.UPRIGHT_CONSTR_ON == false)
+            if (dt_pos_bike_magn < dt_pos_bike_magn_prev && RHBCtrlBike.instance.UPRIGHT_CONSTR_ON == false)
             {
                 wheel_coll_fwd.steerAngle = 0f; // Mathf.Clamp(bike_input.steer_scaled, -dt_pos_bike_magn, dt_pos_bike_magn);
-                uprightConstraintEnforce(ref ReHandyBotController.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
+                uprightConstraintEnforce(ref RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
 
                 // Display section:
                 ExternalConsoleLogger.Log("_________________________________________________________________");
@@ -1044,12 +1043,12 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
 
         // For cases involving throttle feedback control, limit acceleration capability at high speeds:
-        if (ReHandyBotController.instance.CASE_CTRL_MODE == ReHandyBotController.CTRL_ASSISTED
-            && ReHandyBotController.instance.FACT_ASSIST_THROTTLE > 0
+        if (RHBCtrlBike.instance.CASE_CTRL_MODE == RHBCtrlBike.CTRL_ASSISTED
+            && RHBCtrlBike.instance.FACT_ASSIST_THROTTLE > 0
             && dt_pos_bike_magn > SPEED_REF_HIGH)
                 FACTOR_ACCEL = 1000f;
 
-        else if (ReHandyBotController.instance.CASE_CTRL_MODE == ReHandyBotController.CTRL_AUTO_STEER_AUTO_THROT
+        else if (RHBCtrlBike.instance.CASE_CTRL_MODE == RHBCtrlBike.CTRL_AUTO_STEER_AUTO_THROT
             && dt_pos_bike_magn > SPEED_REF_HIGH)
                 FACTOR_ACCEL = 1000f;
 
@@ -1253,7 +1252,7 @@ public class MotorbikeController : MonoBehaviour
         bike_fallen_this = false;
         hard_hit_this    = false;
 
-        uprightConstraintEnforce(ref ReHandyBotController.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
+        uprightConstraintEnforce(ref RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
 
         //////////////////////////////////////////////////////////////////////////////////////
         // Reset rider states:

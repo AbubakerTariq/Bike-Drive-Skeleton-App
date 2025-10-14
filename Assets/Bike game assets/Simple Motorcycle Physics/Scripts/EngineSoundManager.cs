@@ -17,7 +17,8 @@ public class EngineSoundManager : MonoBehaviour
     [Range(0, 1)]
     public float revValue;
     public float EngineFlow = 1;
-    bool isAccelerated = false;
+    // bool isAccelerated = false;
+
     void Start()
     {
         //audioSource = GetComponents<AudioSource>()[0];
@@ -56,7 +57,7 @@ public class EngineSoundManager : MonoBehaviour
             //    ChangeGearSound(motorbikeController.gear_curr);
         }
 
-        if (Input.GetKey(KeyCode.W) || ReHandyBotController.instance.distal_data.PositionR < 0.028)
+        if (Input.GetKey(KeyCode.W) || RHBCtrlBike.instance.distal_data.PositionR < 0.028)
         {
             audioSource.pitch = (EngineRpm.Evaluate(revValue) + 1) - motorbikeController.gear_curr / (Samples.Length - 1);
             audioSource2.pitch = (EngineRpm.Evaluate(revValue) + 1) - motorbikeController.gear_curr / (Samples.Length - 1);

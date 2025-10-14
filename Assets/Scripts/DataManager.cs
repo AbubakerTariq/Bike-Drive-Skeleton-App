@@ -55,35 +55,6 @@ public class DataManager : MonoBehaviour
 
     private readonly object fileLock = new object();
 
-    ///////////////////////////////////////////////////////////
-    // PARAMETERS class (06.10.2025):
-    ///////////////////////////////////////////////////////////
-
-    public class ParamsBikeGame
-    {
-        public float DT_STEP_APP_MSEC;
-        public bool USE_BEGINNER_BIKE_CONSTR;
-        public float CASE_CTRL_MODE;
-        public float POS_RADIAL_THROT_ZERO;
-        public float K_STIFF_RADIAL_THROT_MANUAL;
-        public float SPEED_AUTO_THROTTLE_MAX_KPH;
-        public float FORCE_GAIN_RADIAL;
-        public float FORCE_GAIN_ROT;
-        public float K_STIFF_RADIAL_THROT_AUTO;
-        public float K_STIFF_ROT_BASE;
-        public float K_STIFF_ROT_TRACKING;
-        public float B_DAMP_ROT_TRACKING;
-        public float FRAC_ASSIST_STIFF;
-        public float TORQUE_ASSIST_STEER_MAX;
-        public float FACT_ASSIST_STEER;
-        public float GAME_LEVEL_MID;
-        public float FACT_ASSIST_MID;
-        public float FRAC_POS_ROT_INPUT_PATIENT;
-        public float FACT_ASSIST_THROTTLE;
-    }
-
-    public ParamsBikeGame params_values = new();
-
     /////////////////////////////////////////////////////////////////////////
     // Methods:
     /////////////////////////////////////////////////////////////////////////
@@ -212,8 +183,6 @@ public class DataManager : MonoBehaviour
             "FRAC_POS_ROT_INPUT_PATIENT",
             "FACT_ASSIST_THROTTLE",
  
-            // TODO: add these parameters after we figure out how to change protection levels in MotorbikeController without disruption:
-            /*
             "DT_PREVIEW",
             "P_GAIN_ASSIST",
             "P_GAIN_TRACK",
@@ -222,7 +191,6 @@ public class DataManager : MonoBehaviour
             "OFFS_FACT_ASSIST_STEER",
             "TORQUE_MOTOR_MAX",
             "FACTOR_ACCEL"
-            */
         };
 
         if (!File.Exists(paramFilePathThis))
@@ -276,8 +244,8 @@ public class DataManager : MonoBehaviour
                 $"{distal_data.VelocityR}," +
                 $"{distal_data.PositionP}," +
                 $"{distal_data.VelocityP}," +
-                $"{ReHandyBotController.instance.pos_rot_eq_ref}," +
-                $"{ReHandyBotController.instance.torque_assist}," +
+                $"{RHBCtrlBike.instance.pos_rot_eq_ref}," +
+                $"{RHBCtrlBike.instance.torque_assist}," +
 
                 $"{bike_coords_data.pos_bike.x}," +
                 $"{bike_coords_data.pos_bike.z}," +
@@ -351,27 +319,26 @@ public class DataManager : MonoBehaviour
         try
         {
             string output =
-                $"{params_values.DT_STEP_APP_MSEC}," +
-                $"{params_values.USE_BEGINNER_BIKE_CONSTR}," +
-                $"{params_values.CASE_CTRL_MODE}," +
-                $"{params_values.POS_RADIAL_THROT_ZERO}," +
-                $"{params_values.K_STIFF_RADIAL_THROT_MANUAL}," +
-                $"{params_values.SPEED_AUTO_THROTTLE_MAX_KPH}," +
-                $"{params_values.FORCE_GAIN_RADIAL}," +
-                $"{params_values.FORCE_GAIN_ROT}," +
-                $"{params_values.K_STIFF_RADIAL_THROT_AUTO}," +
-                $"{params_values.K_STIFF_ROT_BASE}," +
-                $"{params_values.K_STIFF_ROT_TRACKING}," +
-                $"{params_values.B_DAMP_ROT_TRACKING}," +
-                $"{params_values.FRAC_ASSIST_STIFF}," +
-                $"{params_values.TORQUE_ASSIST_STEER_MAX}," +
-                $"{params_values.FACT_ASSIST_STEER}," +
-                $"{params_values.GAME_LEVEL_MID}," +
-                $"{params_values.FACT_ASSIST_MID}," +
-                $"{params_values.FRAC_POS_ROT_INPUT_PATIENT}," +
-                $"{params_values.FACT_ASSIST_THROTTLE}";
-
-                /*
+                $"{RHBCtrlBike.DT_STEP_APP_MSEC}," +
+                $"{RHBCtrlBike.instance.USE_BEGINNER_BIKE_CONSTR}," +
+                $"{RHBCtrlBike.instance.CASE_CTRL_MODE}," +
+                $"{RHBCtrlBike.instance.POS_RADIAL_THROT_ZERO}," +
+                $"{RHBCtrlBike.instance.K_STIFF_RADIAL_THROT_MANUAL}," +
+                $"{RHBCtrlBike.instance.SPEED_AUTO_THROTTLE_MAX_KPH}," +
+                $"{RHBCtrlBike.instance.FORCE_GAIN_RADIAL}," +
+                $"{RHBCtrlBike.instance.FORCE_GAIN_ROT}," +
+                $"{RHBCtrlBike.instance.K_STIFF_RADIAL_THROT_AUTO}," +
+                $"{RHBCtrlBike.instance.K_STIFF_ROT_BASE}," +
+                $"{RHBCtrlBike.instance.K_STIFF_ROT_TRACKING}," +
+                $"{RHBCtrlBike.instance.B_DAMP_ROT_TRACKING}," +
+                $"{RHBCtrlBike.instance.FRAC_ASSIST_STIFF}," +
+                $"{RHBCtrlBike.TORQUE_ASSIST_STEER_MAX}," +
+                $"{RHBCtrlBike.instance.FACT_ASSIST_STEER}," +
+                $"{RHBCtrlBike.GAME_LEVEL_MID}," +
+                $"{RHBCtrlBike.FACT_ASSIST_MID}," +
+                $"{RHBCtrlBike.instance.FRAC_POS_ROT_INPUT_PATIENT}," +
+                $"{RHBCtrlBike.instance.FACT_ASSIST_THROTTLE}," +
+         
                 $"{MotorbikeController.DT_PREVIEW}," +
                 $"{MotorbikeController.P_GAIN_ASSIST}," +
                 $"{MotorbikeController.P_GAIN_TRACK}," +
@@ -380,7 +347,7 @@ public class DataManager : MonoBehaviour
                 $"{MotorbikeController.OFFS_FACT_ASSIST_STEER}," +
                 $"{MotorbikeController.TORQUE_MOTOR_MAX}," +
                 $"{MotorbikeController.instance.FACTOR_ACCEL}";
-                */
+
 
             lock (fileLock)
             {
@@ -395,14 +362,14 @@ public class DataManager : MonoBehaviour
 
     public void SetupRecordingEvents()
     {
-        ReHandyBotController.instance.OnExerciseStart += StartDataRecording;
-        ReHandyBotController.instance.OnExerciseStop += StopDataRecording;
+        RHBCtrlBike.instance.OnExerciseStart += StartDataRecording;
+        RHBCtrlBike.instance.OnExerciseStop += StopDataRecording;
     }
 
     // This is for usage for SetOffsetForces command, currently being called with dummy values
     private void SetOffsetForces()
     {
-        ReHandyBotController.instance.SetOffsetForces(0f, 0f);
+        RHBCtrlBike.instance.SetOffsetForces(0f, 0f);
     }
 
     private void Destroy()
@@ -510,7 +477,7 @@ public class DataManager : MonoBehaviour
                 // Compute time step:
                 /////////////////////////////////////////////////////////////////////////
 
-                uptime_msec = ReHandyBotController.instance.distal_data.UptimeMs;
+                uptime_msec = RHBCtrlBike.instance.distal_data.UptimeMs;
 
                 if (data_recv_count_offs == 0) { 
                     t_step_ref = uptime_msec / MSEC_PER_SEC;
@@ -533,7 +500,7 @@ public class DataManager : MonoBehaviour
                         dataFilePath,
                         t_step, 
                         dt_step,
-                        ReHandyBotController.instance.distal_data,
+                        RHBCtrlBike.instance.distal_data,
                         MotorbikeController.instance.bike_coords_data,
                         MotorbikeController.instance.track_coords_data,
                         MotorbikeController.instance.bike_input_data,
