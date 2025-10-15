@@ -369,7 +369,7 @@ public class DataManager : MonoBehaviour
     // This is for usage for SetOffsetForces command, currently being called with dummy values
     private void SetOffsetForces()
     {
-        RHBCtrlBike.instance.SetOffsetForces(0f, 0f);
+        RHBCtrlBike.instance.SetOffsetForcesRHB(0f, 0f);
     }
 
     private void Destroy()
