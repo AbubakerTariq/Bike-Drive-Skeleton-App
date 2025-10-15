@@ -53,7 +53,9 @@ public class BikeGameUI : MonoBehaviour
             RHBCtrlBike.DISENGAGE_BRAKE,
             RHBCtrlBike.DISENGAGE_BRAKE);
 
+        // Display section:
         ExternalConsoleLogger.Log("        OnConnect(): SetBrakes(): cmd DISENGAGE \n");
+
         SetLoaderState(true);
 
         if (RHBCtrlBike.instance.STATE_PREGAME == RHBCtrlBike.ST_SELECT_BIKE_TYPE)
@@ -195,7 +197,6 @@ public class BikeGameUI : MonoBehaviour
         ref int race_direction,
         ref bool upright_constr_on)
     {
-        Debug.Log("Start Exercise: ");
         ////////////////////////////////////////////////////////////////////////////
         // Fixed settings for UNITY_GAME:
         ////////////////////////////////////////////////////////////////////////////
@@ -218,7 +219,9 @@ public class BikeGameUI : MonoBehaviour
                 ref fact_assist_throttle,
                 ref race_direction,
                 OnSelectGameSettings_PreUnityGame);
-            Debug.Log("Game State: " + RHBCtrlBike.instance.STATE_PREGAME + " Calibrated: " + RHBCtrlBike.ST_CALIBRATE);
+
+            Debug.Log("STATE_PREGAME: " + RHBCtrlBike.instance.STATE_PREGAME);
+
             // Convert game level to assistance factor (fraction)
             // Modified computation after user feedbacks (29.09.2025)
             fact_assist_steer = RHBCtrlBike.instance.FactorAssistCalc(game_level);
@@ -365,7 +368,7 @@ public class BikeGameUI : MonoBehaviour
 
     public void SetLoaderState(bool state)
     {
-        Debug.Log("Called SetLoader");
+        Debug.Log("Called SetLoaderState");
         UnityMainThreadDispatcher.Instance().Enqueue(() => RHBCtrlBike.instance.loader.SetActive(state));
     }
 

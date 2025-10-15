@@ -520,8 +520,7 @@ public class MotorbikeController : MonoBehaviour
         // Display section:
         ////////////////////////////////////////////////////////////////////////////
 
-        if (RHBCtrlBike.instance.ExerciseActive
-            && step_count % (DT_DISP_DATA_MSEC / RHBCtrlBike.DT_STEP_APP_MSEC) == 0
+        if (step_count % (DT_DISP_DATA_MSEC / RHBCtrlBike.DT_STEP_APP_MSEC) == 0
             && DISP_MOTOR_CONTROL_ON)
         {
             // Time elapsed display:
@@ -581,7 +580,7 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////
 
-        if (RHBCtrlBike.instance.ExerciseActive) {
+        if (RHBCtrlBike.instance.isExerciseStarted) {
 
             bike_input.throttle = InputThrottleCases(pos_radial, MotorbikeController.instance, RHBCtrlBike.instance.CASE_CTRL_MODE);
 
@@ -591,8 +590,11 @@ public class MotorbikeController : MonoBehaviour
                 uprightConstraintRemove(out RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
 
                 // Display section:
-                ExternalConsoleLogger.Log("_________________________________________________________________");
-                ExternalConsoleLogger.Log("BikeMotionAndControlStates(): upright constraint [FALSE] \n");
+                if (DISP_MOTOR_CONTROL_ON)
+                {
+                    ExternalConsoleLogger.Log("_________________________________________________________________");
+                    ExternalConsoleLogger.Log("BikeMotionAndControlStates(): upright constraint [FALSE] \n");
+                }
             }
         }
         else
@@ -613,7 +615,7 @@ public class MotorbikeController : MonoBehaviour
 
         float input_steer_targ;
 
-        if (RHBCtrlBike.instance.ExerciseActive && MotorbikeController.instance != null && Track.instance != null)
+        if (RHBCtrlBike.instance.isExerciseStarted && MotorbikeController.instance != null && Track.instance != null)
             input_steer_targ = InputSteerTargetFeedback(ref bike_coords_this, ref fbk_ctrl_this);
         else
             input_steer_targ = 0f;
@@ -628,7 +630,7 @@ public class MotorbikeController : MonoBehaviour
         // Select steering mode:
         ////////////////////////////////////////////////////////////////
 
-        if (RHBCtrlBike.instance.ExerciseActive)
+        if (RHBCtrlBike.instance.isExerciseStarted)
             bike_input.steer_scaled = InputSteerCases(
                 input_steer_manual, input_steer_targ,
                 RHBCtrlBike.instance.CASE_CTRL_MODE);
@@ -1009,8 +1011,11 @@ public class MotorbikeController : MonoBehaviour
                 uprightConstraintEnforce(ref RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
 
                 // Display section:
-                ExternalConsoleLogger.Log("_________________________________________________________________");
-                ExternalConsoleLogger.Log("MotorbikeControl(): upright constraint [TRUE] \n");
+                if (DISP_MOTOR_CONTROL_ON)
+                {
+                    ExternalConsoleLogger.Log("_________________________________________________________________");
+                    ExternalConsoleLogger.Log("MotorbikeControl(): upright constraint [TRUE] \n");
+                }
             }
         }
 
@@ -1264,8 +1269,10 @@ public class MotorbikeController : MonoBehaviour
         Destroy(RagdollAnimationClone);
 
         // Display section:
-        ExternalConsoleLogger.Log("_________________________________________________________________");
-        ExternalConsoleLogger.Log("Reset(): upright constraint [TRUE] \n");
+        if (DISP_MOTOR_CONTROL_ON) {
+            ExternalConsoleLogger.Log("_________________________________________________________________");
+            ExternalConsoleLogger.Log("Reset(): upright constraint [TRUE] \n");
+        }
     }
 
     public void uprightConstraintEnforce(ref bool upright_constr_on_this)
