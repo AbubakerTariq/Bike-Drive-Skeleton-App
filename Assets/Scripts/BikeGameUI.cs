@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
+using PimDeWitte.UnityMainThreadDispatcher;
 
 public class BikeGameUI : MonoBehaviour
 {
@@ -45,16 +46,15 @@ public class BikeGameUI : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Game-specific Unity functions:
     ////////////////////////////////////////////////////////////////////////////
-    
+
     public void OnConnect_PreUnityGame()
     {
         RHBCtrlBike.instance.SetBrakesRHB(
-            RHBCtrlBike.DISENGAGE_BRAKE, 
+            RHBCtrlBike.DISENGAGE_BRAKE,
             RHBCtrlBike.DISENGAGE_BRAKE);
 
         ExternalConsoleLogger.Log("        OnConnect(): SetBrakes(): cmd DISENGAGE \n");
-
-       SetLoaderState(true);
+        SetLoaderState(true);
 
         if (RHBCtrlBike.instance.STATE_PREGAME == RHBCtrlBike.ST_SELECT_BIKE_TYPE)
         {
@@ -70,12 +70,12 @@ public class BikeGameUI : MonoBehaviour
     {
         if (RHBCtrlBike.instance.STATE_PREGAME == RHBCtrlBike.ST_SET_CTRL_MODE)
         {
-           SetLoaderText(
-               "Select CONTROL MODE: \n\n" +
-               "(1) ASSISTED CONTROL \n" +
-               "(2) AUTO STEER / AUTO THROTTLE \n" +
-               "(3) AUTO STEER / MANUAL THROTTLE \n" +
-               "(4) PURE MANUAL");
+            SetLoaderText(
+                "Select CONTROL MODE: \n\n" +
+                "(1) ASSISTED CONTROL \n" +
+                "(2) AUTO STEER / AUTO THROTTLE \n" +
+                "(3) AUTO STEER / MANUAL THROTTLE \n" +
+                "(4) PURE MANUAL");
         }
 
         else if (RHBCtrlBike.instance.STATE_PREGAME == RHBCtrlBike.ST_SET_FACT_ASSIST_STEER)
@@ -91,7 +91,7 @@ public class BikeGameUI : MonoBehaviour
             {
                 game_level_next = RHBCtrlBike.instance.PerformGameLevelChange(
                     RHBCtrlBike.instance.game_level_curr,
-                    RHBCtrlBike.N_GAME_LEVELS, 
+                    RHBCtrlBike.N_GAME_LEVELS,
                     ref RHBCtrlBike.instance.game_level_change,
                     RHBCtrlBike.instance.frac_understeer,
                     MotorbikeController.instance.step_count_fall,
@@ -195,6 +195,7 @@ public class BikeGameUI : MonoBehaviour
         ref int race_direction,
         ref bool upright_constr_on)
     {
+        Debug.Log("Start Exercise: ");
         ////////////////////////////////////////////////////////////////////////////
         // Fixed settings for UNITY_GAME:
         ////////////////////////////////////////////////////////////////////////////
@@ -202,7 +203,7 @@ public class BikeGameUI : MonoBehaviour
         frac_pos_rot_input_patient = 0.4f;
         pos_radial_throt_zero = 0.029f;
         k_stiff_radial_throt_manual = 2500f;
-        speed_auto_throttle_max_kph = 150f;  
+        speed_auto_throttle_max_kph = 150f;
 
         ////////////////////////////////////////////////////////////////////////////
         // Selectable settings for UNITY_GAME:
@@ -217,7 +218,7 @@ public class BikeGameUI : MonoBehaviour
                 ref fact_assist_throttle,
                 ref race_direction,
                 OnSelectGameSettings_PreUnityGame);
-
+            Debug.Log("Game State: " + RHBCtrlBike.instance.STATE_PREGAME + " Calibrated: " + RHBCtrlBike.ST_CALIBRATE);
             // Convert game level to assistance factor (fraction)
             // Modified computation after user feedbacks (29.09.2025)
             fact_assist_steer = RHBCtrlBike.instance.FactorAssistCalc(game_level);
@@ -233,7 +234,7 @@ public class BikeGameUI : MonoBehaviour
                 RHBCtrlBike.instance.OnCalibrate_CmdStartExercise);
 
             // Enforce "bike upright" constraint - CRITICAL: 
-            MotorbikeController.instance.uprightConstraintEnforce(ref upright_constr_on); // constraint flag (13.09.2025) 
+            MotorbikeController.instance?.uprightConstraintEnforce(ref upright_constr_on); // constraint flag (13.09.2025) 
 
             // Display section:
             ExternalConsoleLogger.Log("_________________________________________________________________");
@@ -364,13 +365,14 @@ public class BikeGameUI : MonoBehaviour
 
     public void SetLoaderState(bool state)
     {
-        RHBCtrlBike.instance.loader.SetActive(state);
+        Debug.Log("Called SetLoader");
+        UnityMainThreadDispatcher.Instance().Enqueue(() => RHBCtrlBike.instance.loader.SetActive(state));
     }
 
     public void SetLoaderText(string text)
     {
-        RHBCtrlBike.instance.loaderText.text = text;
-        RHBCtrlBike.instance.loaderText.alignment = TextAlignmentOptions.MidlineLeft;
+        UnityMainThreadDispatcher.Instance().Enqueue(() => RHBCtrlBike.instance.loaderText.text = text);
+        UnityMainThreadDispatcher.Instance().Enqueue(() => RHBCtrlBike.instance.loaderText.alignment = TextAlignmentOptions.MidlineLeft);
     }
 
     /*

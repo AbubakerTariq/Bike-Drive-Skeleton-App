@@ -24,8 +24,8 @@ public class RHBCtrlBike : MonoBehaviour
     public const int DT_STEP_APP_MSEC = 25;
 
     // Real-time control flags - for debugging:
-    public const bool USE_RT_TIMER_LOCK  = false;
-    public const bool USE_STANDALONE_UI  = true; // make false for Care Platform game
+    public const bool USE_RT_TIMER_LOCK = false;
+    public const bool USE_STANDALONE_UI = true; // make false for Care Platform game
 
     ////////////////////////////////////////////////////////////////////////////
     // CARE_PLATFORM controlled parameters - Game control modes:
@@ -56,7 +56,7 @@ public class RHBCtrlBike : MonoBehaviour
 
     // Throttle stiffness for MANUAL throttle mode:
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient stiffness calibration data; keep default for first CARE_PLATFORM release)
-    public float K_STIFF_RADIAL_THROT_MANUAL;  
+    public float K_STIFF_RADIAL_THROT_MANUAL;
 
     // Offset of the THROTTLE zero position to account for initial calibration errors (PD discussion on 20.09.2025)
     public float OFFS_POS_RADIAL_CALIB = 0.0005f;
@@ -114,18 +114,18 @@ public class RHBCtrlBike : MonoBehaviour
     // NOTE: use [RHB ctrl params - stability v5b game settings 4-axis.xlsx] to calculate damping as a function of stiffness
     ////////////////////////////////////////////////////////////////////////////
 
-    public float FORCE_GAIN_RADIAL =  9.0f;
-    public float FORCE_GAIN_ROT    =  6.0f; // 14.0f; // Reduced gain for greater stability with ASSISTED and MANUAL control
+    public float FORCE_GAIN_RADIAL = 9.0f;
+    public float FORCE_GAIN_ROT = 6.0f; // 14.0f; // Reduced gain for greater stability with ASSISTED and MANUAL control
 
     private float K_STIFF_RADIAL_WALL = 2500f; // use with zero feedback gain
 
     // Extra damping to prevent limit cycles when handles contact physical limit
     // Normally should rely on embedded HL_SetTarget stability
     // TODO: check why limit cycle suppression doesn't act in firmware (29.09.2025):
-    private float B_DAMP_RADIAL_WALL  = 0f; 
+    private float B_DAMP_RADIAL_WALL = 0f;
 
     private float K_STIFF_ROT_WALL = 1.2f; // use with zero feedback gain
-    private float B_DAMP_ROT_WALL  = 0f; // rely on embedded HL_SetTarget stability
+    private float B_DAMP_ROT_WALL = 0f; // rely on embedded HL_SetTarget stability
 
     public float POS_RADIAL_MIN = 0.0145f;
     public float POS_RADIAL_MAX = 0.06f;
@@ -134,7 +134,7 @@ public class RHBCtrlBike : MonoBehaviour
     public float POS_RADIAL_MIN_OFFS;
 
     private float POS_ROT_MIN = -Mathf.PI / 2f;
-    private float POS_ROT_MAX =  Mathf.PI / 2f;
+    private float POS_ROT_MAX = Mathf.PI / 2f;
 
     // Throttle - additional haptics settings:
     public float K_STIFF_RADIAL_THROT_AUTO = 5000f; // makes handles essentially rigid
@@ -144,7 +144,7 @@ public class RHBCtrlBike : MonoBehaviour
     public const float POS_ROT_BASE = 0f;
 
     public float K_STIFF_ROT_BASE = 0.05f; // 0.1f; // 
-    public float B_DAMP_ROT_BASE  = 0f; // rely on embedded HL_SetTarget stability
+    public float B_DAMP_ROT_BASE = 0f; // rely on embedded HL_SetTarget stability
 
     // Stiffness for TRACKING control
     // NOTE: check stabilizing damping for K_STIFF_ROT_TRACKING + K_STIFF_ROT_BASE
@@ -178,7 +178,7 @@ public class RHBCtrlBike : MonoBehaviour
     //////////////////////////////////////////////////////////////////////////// 
 
     public const int THROTTLE_MODE_MANUAL = 0;
-    public const int THROTTLE_MODE_AUTO   = 1;
+    public const int THROTTLE_MODE_AUTO = 1;
 
     // Throttle mode (0: MANUAL, 1: AUTO, default is AUTO)
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM throttle setting)
@@ -188,7 +188,7 @@ public class RHBCtrlBike : MonoBehaviour
     // RHB motion limits: stiffness & angle
     ////////////////////////////////////////////////////////////////////////////   
 
-    private float K_STIFF_ROT_LIM  = 0.6f;
+    private float K_STIFF_ROT_LIM = 0.6f;
 
     public float ANGLE_ROT_LIM_DEG = 45f;
 
@@ -230,8 +230,8 @@ public class RHBCtrlBike : MonoBehaviour
     // Exercise-related variables:
     ////////////////////////////////////////////////////////////////////////////
 
-    private bool isSystemStarted    = false;
-    public bool  isExerciseStarted  = false; // changed to public for access by DataManager (27.08.2025)
+    private bool isSystemStarted = false;
+    public bool isExerciseStarted = false; // changed to public for access by DataManager (27.08.2025)
     private bool isExerciseStopping = false;
 
     // Flag to maintain 'upright' constraint while exercise is inactive and throttle input is zero:
@@ -243,7 +243,7 @@ public class RHBCtrlBike : MonoBehaviour
 
     private const int MaxAttempts = 10;
     private const string ServerIP = "192.168.102.1";
-    private const int ServerPort  = 3002;
+    private const int ServerPort = 3002;
 
     ////////////////////////////////////////////////////////////////////////////
     // CONNECTION thread:
@@ -255,7 +255,7 @@ public class RHBCtrlBike : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // REAL-TIME RHB control thread:
     //////////////////////////////////////////////////////////////////////////// 
-   
+
     private Queue<Action> mainThreadActionQueue = new();
 
     private Thread rtControlThread;
@@ -305,7 +305,7 @@ public class RHBCtrlBike : MonoBehaviour
     // NEW: RACE DIRECTION (29.09.2025)
     //////////////////////////////////////////////////////////////////////////// 
 
-    public const int DIR_CW  = +1; // clockwise direction
+    public const int DIR_CW = +1; // clockwise direction
     public const int DIR_CCW = -1; // counterclockwise direction 
 
     public int RACE_DIRECTION;
@@ -315,7 +315,7 @@ public class RHBCtrlBike : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     // UNDERSTEER parameters:
-    public const float FRAC_UNDERSTEER_LEVEL_UP_MAX   = 0.33f; // if understeer fraction is less than this, go up one level
+    public const float FRAC_UNDERSTEER_LEVEL_UP_MAX = 0.33f; // if understeer fraction is less than this, go up one level
     public const float FRAC_UNDERSTEER_LEVEL_DOWN_MIN = 0.67f; // if understeer fraction is more than this, go down one level
 
     public float frac_understeer = -1f;
@@ -338,7 +338,8 @@ public class RHBCtrlBike : MonoBehaviour
     // Loader variables - TODO: why don't they work if placed in BikeGameUI?
     ////////////////////////////////////////////////////////////////////////////
 
-    [Space] [Header("UI")]
+    [Space]
+    [Header("UI")]
     [SerializeField] public GameObject loader;
     // [SerializeField] public GameObject exerciseGuidelineText;
     [SerializeField] public TMP_Text loaderText;
@@ -372,7 +373,7 @@ public class RHBCtrlBike : MonoBehaviour
     private void Start()
     {
         // Reset Ethernet port to prevent those frequent connection delays:
-        System.Diagnostics.Process.Start("ethernet_reset.bat");
+        //System.Diagnostics.Process.Start("ethernet_reset.bat");
 
         ////////////////////////////////////////////////////////////////////////////
         // Launch connection thread - CRITICAL:
@@ -484,7 +485,7 @@ public class RHBCtrlBike : MonoBehaviour
             mainThreadActionQueue.Enqueue(() =>
             {
                 if (USE_STANDALONE_UI)
-                    BikeGameUI.instance.SetLoaderState(true);
+                BikeGameUI.instance.SetLoaderState(true);
             });
 
             bool success;
@@ -495,12 +496,10 @@ public class RHBCtrlBike : MonoBehaviour
             mainThreadActionQueue.Enqueue(() =>
             {
                 connectionTween.Kill();
-
                 if (success)
                 {
                     if (USE_STANDALONE_UI)
                         BikeGameUI.instance.SetLoaderState(false);
-                    
                     StartSystem(BikeGameUI.instance.OnConnect_PreUnityGame);
                 }
                 else
@@ -608,7 +607,7 @@ public class RHBCtrlBike : MonoBehaviour
     private void RealTimeControlLoop()
     {
         const bool DISP_LOOP_ON = true;
-        const int DECIM_DISP    = 80;
+        const int DECIM_DISP = 80;
 
         while (enabledControlThread)
         {
@@ -618,8 +617,8 @@ public class RHBCtrlBike : MonoBehaviour
             ////////////////////////////////////////////////////////////////////////////   
             //////////////////////////////////////////////////////////////////////////// 
 
-            if (!USE_RT_TIMER_LOCK) 
-            { 
+            if (!USE_RT_TIMER_LOCK)
+            {
                 // Unconditional thread sleep:
                 Thread.Sleep(DT_STEP_APP_MSEC);
             }
@@ -651,7 +650,8 @@ public class RHBCtrlBike : MonoBehaviour
             TimeSpan timeElapsedSpan = TimeSpan.FromSeconds(timeElapsedValue);
 
             // Display section:
-            if (DISP_LOOP_ON) {
+            if (DISP_LOOP_ON)
+            {
                 if (step_count % DECIM_DISP == 0)
                     ExternalConsoleLogger.Log("RealTimeControlLoop(): step_count = [" + step_count + "] \n");
             }
@@ -677,16 +677,19 @@ public class RHBCtrlBike : MonoBehaviour
                 //////////////////////////////////////////////////////////////////
                 // PERFORMANCE metrics - set up variables: 
                 //////////////////////////////////////////////////////////////////
+                if (MotorbikeController.instance)
+                {
+                    // Start UNDERSTEER event counter
+                    MotorbikeController.instance.step_count_understeer = 0;
 
-                // Start UNDERSTEER event counter
-                MotorbikeController.instance.step_count_understeer = 0;
+                    // Start FALL counter:
+                    MotorbikeController.instance.step_count_fall = 0;
+                    MotorbikeController.instance.bike_fallen_prev = false;
 
-                // Start FALL counter:
-                MotorbikeController.instance.step_count_fall = 0;
-                MotorbikeController.instance.bike_fallen_prev = false;
+                    // Distance traveled during exercise:
+                    MotorbikeController.instance.dist_traveled = 0f;
+                }
 
-                // Distance traveled during exercise:
-                MotorbikeController.instance.dist_traveled = 0f;
 
                 //////////////////////////////////////////////////////////////////
                 // Set force feedback gains:
@@ -704,8 +707,10 @@ public class RHBCtrlBike : MonoBehaviour
                 //////////////////////////////////////////////////////////////////
                 // PERFORMANCE metrics: compute UNDERSTEER fraction
                 //////////////////////////////////////////////////////////////////
-
-                frac_understeer = (float)MotorbikeController.instance.step_count_understeer / step_count;
+                if (MotorbikeController.instance)
+                {
+                    frac_understeer = (float)MotorbikeController.instance.step_count_understeer / step_count;
+                }
 
                 /////////////////////////////////////////////////////////
                 // Set feedback gains:
@@ -988,7 +993,8 @@ public class RHBCtrlBike : MonoBehaviour
     // Force feedback gains - CASES:
     ////////////////////////////////////////////////////////////////////////////
 
-    void SetForceFeebackGainCases(int case_ctrl_mode) { 
+    void SetForceFeebackGainCases(int case_ctrl_mode)
+    {
         switch (case_ctrl_mode)
         {
             case CTRL_ASSISTED:
@@ -1021,10 +1027,11 @@ public class RHBCtrlBike : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     void CmdSetTargetSteerAndThrottleCases(
-        float pos_rot_est, float dt_pos_rot_est, 
+        float pos_rot_est, float dt_pos_rot_est,
         float angle_roll_targ_this, float angle_roll_bike_this,
-        float dt_angle_roll_targ_this, float dt_angle_roll_bike_this, 
-        int case_ctrl_mode) {
+        float dt_angle_roll_targ_this, float dt_angle_roll_bike_this,
+        int case_ctrl_mode)
+    {
 
         switch (case_ctrl_mode)
         {
@@ -1039,7 +1046,7 @@ public class RHBCtrlBike : MonoBehaviour
                     k_stiff_radial_throt = K_STIFF_RADIAL_THROT_MANUAL;
 
                 // Reference equilibrium position:
-                pos_rot_eq_ref    = FRAC_POS_ROT_INPUT_PATIENT * angle_roll_targ_this;
+                pos_rot_eq_ref = FRAC_POS_ROT_INPUT_PATIENT * angle_roll_targ_this;
                 dt_pos_rot_eq_ref = FRAC_POS_ROT_INPUT_PATIENT * dt_angle_roll_targ_this;
 
                 ///////////////////////////////////////////////////////////////////////////
@@ -1047,10 +1054,10 @@ public class RHBCtrlBike : MonoBehaviour
                 ///////////////////////////////////////////////////////////////////////////
 
                 // Formula updated after updating offset force cmd in firmware (24.09.2025):
-                float TORQUE_ASSIST_LIM  = FACT_ASSIST_STEER * TORQUE_ASSIST_STEER_MAX;
+                float TORQUE_ASSIST_LIM = FACT_ASSIST_STEER * TORQUE_ASSIST_STEER_MAX;
 
                 // Angle-depenedent stiffness:
-                float K_STIFF_ROT_ASSIST = FRAC_ASSIST_STIFF * K_STIFF_ROT_TRACKING; 
+                float K_STIFF_ROT_ASSIST = FRAC_ASSIST_STIFF * K_STIFF_ROT_TRACKING;
 
                 // NOTE: adding a damping term using dt_pos_rot_est may introduce quantization noise:
                 float torque_assist_raw =
@@ -1093,7 +1100,7 @@ public class RHBCtrlBike : MonoBehaviour
             case CTRL_MANUAL_SIMPLE:
 
                 CmdSetTarget_FeedbackCtrl_WithLimit(
-                    pos_rot_est, 0f, 
+                    pos_rot_est, 0f,
                     0f, K_STIFF_RADIAL_THROT_MANUAL, 0f,
                     K_STIFF_ROT_BASE);
                 break;
@@ -1129,12 +1136,12 @@ public class RHBCtrlBike : MonoBehaviour
                 B_DAMP_RADIAL_BASE, b_damp_rot_steer,
                 SWITCH_RADIAL, SWITCH_ROT);
         else
-            success_set_target = false;        
+            success_set_target = false;
     }
 
     private void CmdSetTarget_FeedbackCtrl_WithLimit(
-        float pos_rot, float pos_rot_eq_ref, 
-        float k_stiff_rot_ref, float k_stiff_radial_throt, float b_damp_rot_equiv, 
+        float pos_rot, float pos_rot_eq_ref,
+        float k_stiff_rot_ref, float k_stiff_radial_throt, float b_damp_rot_equiv,
         float k_stiff_rot_base)
     {
         ////////////////////////////////////////////////////////////////////////////
@@ -1153,7 +1160,7 @@ public class RHBCtrlBike : MonoBehaviour
 
         // Equivalent impedance - combining reference (trajectory) equilibrium position and rotation limit position:
         float pos_eq_rot_equiv;
-        float k_stiff_rot_equiv;        
+        float k_stiff_rot_equiv;
 
         ////////////////////////////////////////////////////////////////////////////
         // Compute equivalent impedance parameters:
@@ -1162,28 +1169,28 @@ public class RHBCtrlBike : MonoBehaviour
         float pos_rot_eq_lim;
         float k_stiff_rot_lim;
 
-        if (pos_rot > ANGLE_ROT_LIM) 
+        if (pos_rot > ANGLE_ROT_LIM)
         {
-            pos_rot_eq_lim  = ANGLE_ROT_LIM;
+            pos_rot_eq_lim = ANGLE_ROT_LIM;
             k_stiff_rot_lim = K_STIFF_ROT_LIM;
         }
 
-        else if (pos_rot < -ANGLE_ROT_LIM) 
-        { 
-            pos_rot_eq_lim  = -ANGLE_ROT_LIM;
+        else if (pos_rot < -ANGLE_ROT_LIM)
+        {
+            pos_rot_eq_lim = -ANGLE_ROT_LIM;
             k_stiff_rot_lim = K_STIFF_ROT_LIM;
         }
 
-        else 
+        else
         {
-            pos_rot_eq_lim  = 0f; // dummy value
+            pos_rot_eq_lim = 0f; // dummy value
             k_stiff_rot_lim = 0f; // true value
         }
 
         k_stiff_rot_equiv = k_stiff_rot_ref + k_stiff_rot_lim + k_stiff_rot_base;
 
-        pos_eq_rot_equiv = 
-            (k_stiff_rot_ref*pos_rot_eq_ref + k_stiff_rot_lim*pos_rot_eq_lim)
+        pos_eq_rot_equiv =
+            (k_stiff_rot_ref * pos_rot_eq_ref + k_stiff_rot_lim * pos_rot_eq_lim)
              / k_stiff_rot_equiv;
 
         ////////////////////////////////////////////////////////////////////////////
@@ -1194,7 +1201,7 @@ public class RHBCtrlBike : MonoBehaviour
 
         // TODO: consider change to plain distalRobot.SetTarget to reduce overhead (possible risk is timeouts):
         if (ExerciseActive)
-            success_set_target = distalRobot.HL_SetTarget( 
+            success_set_target = distalRobot.HL_SetTarget(
                 IDX_TARG_BASE,
                 POS_RADIAL_THROT_ZERO_OFFS, pos_eq_rot_equiv,
                 k_stiff_radial_throt, k_stiff_rot_equiv,
@@ -1214,7 +1221,7 @@ public class RHBCtrlBike : MonoBehaviour
         int step_count_fall,
         float dist_traveled, float length_track)
     {
-        if (dist_traveled < FRAC_LENGTH_TRACK_LEGIT_RACE*length_track)
+        if (dist_traveled < FRAC_LENGTH_TRACK_LEGIT_RACE * length_track)
             game_level_change = 0;
         else if (frac_underst <= FRAC_UNDERSTEER_LEVEL_UP_MAX && step_count_fall == 0)
             level_change = 1;
@@ -1240,9 +1247,9 @@ public class RHBCtrlBike : MonoBehaviour
         float m2 = FACT_ASSIST_MID / GAME_LEVEL_MID;
 
         if (game_level <= GAME_LEVEL_MID)
-            fact_assist_steer = 1f - m1*(float)game_level;
+            fact_assist_steer = 1f - m1 * (float)game_level;
         else
-            fact_assist_steer = m2*(N_GAME_LEVELS - (float)game_level);
+            fact_assist_steer = m2 * (N_GAME_LEVELS - (float)game_level);
 
         return fact_assist_steer;
     }
@@ -1284,7 +1291,7 @@ public class RHBCtrlBike : MonoBehaviour
     private bool HL_SetTargetEmpty(UnityAction onComplete = null)
     {
         return distalRobot.HL_SetTarget(
-            IDX_TARG_BASE, 
+            IDX_TARG_BASE,
             POS_RADIAL_MIN_OFFS, 0f,
             0f, 0f,
             0f, 0f,
@@ -1366,6 +1373,7 @@ public class RHBCtrlBike : MonoBehaviour
 
     private void Update()
     {
+        //Debug.Log("Control thread is alive: " + rtControlThread.IsAlive + " isBackground: " + rtControlThread.IsBackground);
         if (USE_STANDALONE_UI && BikeGameUI.instance != null)
         {
             ////////////////////////////////////////////////////////////////////////////
