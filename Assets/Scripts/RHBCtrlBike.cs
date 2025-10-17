@@ -240,8 +240,6 @@ public class RHBCtrlBike : MonoBehaviour
     private bool runProceduresExerciseStart = false;
     private bool runProceduresExerciseStop  = false;
 
-    // private bool isExerciseStopping    = false;
-
     // Flag to maintain 'upright' constraint while exercise is inactive and throttle input is zero:
     public bool UPRIGHT_CONSTR_ON; // constraint flag (13.09.2025)
 
@@ -634,35 +632,20 @@ public class RHBCtrlBike : MonoBehaviour
     {
         const float CALL_DELAY = 0.1f;
 
-        // StartExerciseRHB(() =>
-        // {
-            //////////////////////////////////////////////////////////////////
-            // Engage brakes:
-            //////////////////////////////////////////////////////////////////
-            
-            /*
-            bool success = SetBrakesRHB(ENGAGE_BRAKE, ENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
+        //////////////////////////////////////////////////////////////////
+        // Call loader:
+        //////////////////////////////////////////////////////////////////
 
-            // Display section:
-            if (DISP_CONSOLE_ON)
-                ExternalConsoleLogger.Log("OnCalibrate_CmdStartExercise(): ENGAGE BRAKES success = [" + success + "]\n");
-            */
+        DOVirtual.DelayedCall(CALL_DELAY, () =>
+        {
+            // isExerciseStarted = false;
+            isCalibrated = true;
 
-            //////////////////////////////////////////////////////////////////
-            // Call loader:
-            //////////////////////////////////////////////////////////////////
+            if (USE_STANDALONE_UI)
+                BikeGameUI.instance.SetLoaderState(false);
 
-            DOVirtual.DelayedCall(CALL_DELAY, () =>
-            {
-                // isExerciseStarted = false;
-                isCalibrated = true;
-
-                if (USE_STANDALONE_UI)
-                    BikeGameUI.instance.SetLoaderState(false);
-
-                SceneManager.LoadScene(PrototypeSceneName);
-            });
-        // });
+            SceneManager.LoadScene(PrototypeSceneName);
+        });
     }
 
     private void SetGainRHB(float radialGain, float angularGain)
@@ -873,7 +856,7 @@ public class RHBCtrlBike : MonoBehaviour
                 // NOTE: proper game restart required for Care Platform
                 /////////////////////////////////////////////////////////
 
-                // STATE_PREGAME = ST_SELECT_BIKE_TYPE;
+                STATE_PREGAME = ST_SELECT_BIKE_TYPE;
 
                 BikeGameUI.instance.OnConnect_PreUnityGame();
             }
@@ -1093,15 +1076,6 @@ public class RHBCtrlBike : MonoBehaviour
             int att_count = 0;
             do
             {
-                /*
-                distalRobot.HL_StartExercise(
-                    NUM_TARGETS,
-                    unlockRadial, unlockRotational,
-                    OFFS_FORCE_RADIAL_INIT, OFFS_TORQUE_ROT_INIT,
-                    out bool startExerciseSuccess, out bool setGainResponse,
-                    FORCE_GAIN_RADIAL, FORCE_GAIN_ROT, STABILITY_SET_TARG_ON);
-                */
-
                 startExerciseSucess = distalRobot.StartExercise(1, BRAKES_INIT, FORCE_OFFS_INIT);
                 Thread.Sleep(DELAY_START_EXERC_MSEC);
             }
@@ -1170,10 +1144,6 @@ public class RHBCtrlBike : MonoBehaviour
     private bool StopExerciseRHB(UnityAction onComplete = null)
     {
         bool is_exerc_started;
-        // bool stopExerciseSucess;
-
-        // const int N_ATTEMPTS_MAX = 50;
-        // const int DELAY_START_EXERC_MSEC = 50;
 
         /*
         if (!isExerciseStarted)
@@ -1191,11 +1161,6 @@ public class RHBCtrlBike : MonoBehaviour
         }
         */
 
-        // if (isExerciseStopping)
-        //    return;
-
-        // isExerciseStopping = true;
-
         if (USE_STANDALONE_UI)
         {
             BikeGameUI.instance.SetLoaderText("Stopping Exercise...");
@@ -1204,20 +1169,6 @@ public class RHBCtrlBike : MonoBehaviour
 
         Time.timeScale = 0f;
         DOTween.PauseAll();
-
-        //////////////////////////////////////////////////////////////////
-        // Send Stop Exercise command to firmware:
-        //////////////////////////////////////////////////////////////////
-
-        /*
-        int att_count = 0;
-        do
-        {
-            stopExerciseSucess = distalRobot.StopExercise();
-            Thread.Sleep(DELAY_START_EXERC_MSEC);
-        }
-        while (++att_count <= N_ATTEMPTS_MAX && !stopExerciseSucess);
-        */
 
         /////////////////////////////////////////////////////////
         // Stop timer:
@@ -1239,9 +1190,7 @@ public class RHBCtrlBike : MonoBehaviour
         is_exerc_started = false;
         runProceduresExerciseStop = true;
 
-        // isExerciseStopping = false;
         // isCalibrated = false; // removed to avoid missed Enter commands
-
 
         // Display section:
         if (DISP_CONSOLE_ON)
