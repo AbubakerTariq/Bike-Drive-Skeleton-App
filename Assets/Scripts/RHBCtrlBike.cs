@@ -81,6 +81,8 @@ public class RHBCtrlBike : MonoBehaviour
     public const int ST_SET_FACT_ASSIST_STEER = 3;
     public const int ST_SET_FACT_ASSIST_THROTTLE = 4;
     public const int ST_CALIBRATE = 5;
+    public const int ST_RHB_READY = 6;
+    // public const int ST_EXERCISE_ACTIVE = 7;
 
     public int STATE_PREGAME = ST_SELECT_BIKE_TYPE; // initial state for UNITY_GAME procedures
 
@@ -226,23 +228,19 @@ public class RHBCtrlBike : MonoBehaviour
     private bool RHBConnected => distalRobot.is_device_connected;
     public DistalComm.ExerciseData distal_data => distalRobot.DistalData;
 
-    // public bool  ExerciseActive => isExerciseStarted;
-    // private bool ExerciseActivePrev =>  isExerciseStartedPrev; // added to avoid synchronization problems
-
     ////////////////////////////////////////////////////////////////////////////
     // Exercise-related variables:
     ////////////////////////////////////////////////////////////////////////////
 
-    private bool isSystemStarted       = false;
+    private bool isSystemStarted = false;
 
-    public bool  isExerciseStarted     = false; // changed to public for access by MotorbikeController (27.08.2025)
-    // private bool isExerciseStartedPrev = false;
+    public bool isExerciseStarted = false; // changed to public for access by MotorbikeController (27.08.2025)
 
     // Exercise START / STOP procedures - acivation flags (15.10.2025):
     private bool runProceduresExerciseStart = false;
     private bool runProceduresExerciseStop  = false;
 
-    private bool isExerciseStopping    = false;
+    // private bool isExerciseStopping    = false;
 
     // Flag to maintain 'upright' constraint while exercise is inactive and throttle input is zero:
     public bool UPRIGHT_CONSTR_ON; // constraint flag (13.09.2025)
@@ -251,7 +249,8 @@ public class RHBCtrlBike : MonoBehaviour
     // Constants:
     ////////////////////////////////////////////////////////////////////////////
 
-    private const int MaxAttempts = 10;
+    private const int MAX_ATTEMPTS = 10;
+
     private const string ServerIP = "192.168.102.1";
     private const int ServerPort = 3002;
 
@@ -289,14 +288,6 @@ public class RHBCtrlBike : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // Game control variables:
     ////////////////////////////////////////////////////////////////////////////
-
-    // Replaced by MotionRoutineRHBSimple() (22.08.2025):
-    /*
-    private Coroutine motionRoutineRadial;
-    private Coroutine motionRoutineRotational;
-    private bool isMoving = false;
-    private bool isRotating = false;
-    */
 
     public bool isCalibrated = false;
 
@@ -348,9 +339,16 @@ public class RHBCtrlBike : MonoBehaviour
     public int game_level_change = 0;
 
     ////////////////////////////////////////////////////////////////////////////
-    // Loader variables - TODO: why don't they work if placed in BikeGameUI?
+    // Brake variables:
     ////////////////////////////////////////////////////////////////////////////
 
+    const int N_ATTEMPTS_BRAKE = 50;
+    const int DELAY_BRAKE_MSEC = 20;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Loader variables - TODO: why don't they work if placed in BikeGameUI?
+    ////////////////////////////////////////////////////////////////////////////
+    
     [Space]
     [Header("UI")]
     [SerializeField] public GameObject loader;
@@ -441,7 +439,7 @@ public class RHBCtrlBike : MonoBehaviour
             return true;
         }
 
-        for (int i = 0; i < MaxAttempts; i++)
+        for (int i = 0; i < MAX_ATTEMPTS; i++)
         {
             bool success = distalRobot.EstablishConnection(ServerIP, ServerPort);
 
@@ -463,7 +461,7 @@ public class RHBCtrlBike : MonoBehaviour
             return;
         }
 
-        for (int i = 0; i < MaxAttempts; i++)
+        for (int i = 0; i < MAX_ATTEMPTS; i++)
         {
             bool success = distalRobot.StartSystem();
 
@@ -498,7 +496,10 @@ public class RHBCtrlBike : MonoBehaviour
         connectionThread?.Abort();
         connectionThread = new Thread(() =>
         {
+            //////////////////////////////////////////////////////////////////
             // Activate loader:
+            //////////////////////////////////////////////////////////////////
+            
             if (USE_STANDALONE_UI)
                 BikeGameUI.instance.SetLoaderState(true);
 
@@ -506,7 +507,10 @@ public class RHBCtrlBike : MonoBehaviour
             if (DISP_CONSOLE_ON)
                 ExternalConsoleLogger.Log("ConnectRHBSimple() set loader");
 
+            //////////////////////////////////////////////////////////////////
             // Attempt to establish RHB connection:
+            //////////////////////////////////////////////////////////////////
+            
             EstablishConnection(); // NOTE: this sets RHBConnected - no need for return value
 
             // Display section:
@@ -517,13 +521,34 @@ public class RHBCtrlBike : MonoBehaviour
                     ExternalConsoleLogger.Log("ConnectRHBSimple() result: MAKE NEW ATTEMPT \n"); 
             }
 
+            //////////////////////////////////////////////////////////////////
             // Next action: start system or make new connection attempt
+            //////////////////////////////////////////////////////////////////
+            
             if (RHBConnected)
             {
+                //////////////////////////////////////////////////////////////////
+                // Deactivate loader:
+                //////////////////////////////////////////////////////////////////
+
                 if (USE_STANDALONE_UI)
                     BikeGameUI.instance.SetLoaderState(false);
 
-                StartSystem(BikeGameUI.instance.OnConnect_PreUnityGame);
+                //////////////////////////////////////////////////////////////////
+                // Start system:
+                //////////////////////////////////////////////////////////////////
+
+                StartSystem(()=> {
+
+                    // Disengage brakes:
+                    bool success = SetBrakesRHB(DISENGAGE_BRAKE, DISENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
+
+                    // Display section:
+                    if (DISP_CONSOLE_ON)
+                        ExternalConsoleLogger.Log("ConnectRHBSimple(): DISENGAGE BRAKES success = [" + success + "]\n");
+                });
+
+                BikeGameUI.instance.OnConnect_PreUnityGame();
             }
             else {
                 connectionTween?.Kill();
@@ -588,12 +613,19 @@ public class RHBCtrlBike : MonoBehaviour
 
     public void CalibrateRHB(UnityAction onComplete = null)
     {
-        for (int i = 0; i < MaxAttempts; i++)
+        for (int i = 0; i < MAX_ATTEMPTS; i++)
             if (distalRobot.Calibration(DistalComm.CalibrationType.AxisCalib)) break;
 
         // NOTE: reinstated this routine after adding offset (OFFSET_CALIB_RADIAL) to the reference RADIAL positions (20.09.2025):
-        for (int i = 0; i < MaxAttempts; i++)
+        for (int i = 0; i < MAX_ATTEMPTS; i++)
             if (distalRobot.Calibration(DistalComm.CalibrationType.AllForceSensorsZeroCalib)) break;
+
+        // Engage brakes:
+        bool success = SetBrakesRHB(ENGAGE_BRAKE, ENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
+
+        // Display section:
+        if (DISP_CONSOLE_ON)
+            ExternalConsoleLogger.Log("CalibrateRHB((): ENGAGE BRAKES success = [" + success + "]\n");
 
         onComplete.Invoke();
     }
@@ -602,63 +634,66 @@ public class RHBCtrlBike : MonoBehaviour
     {
         const float CALL_DELAY = 0.1f;
 
-        StartExerciseRHB(ENGAGE_BRAKE, ENGAGE_BRAKE, () =>
-        {
+        // StartExerciseRHB(() =>
+        // {
+            //////////////////////////////////////////////////////////////////
+            // Engage brakes:
+            //////////////////////////////////////////////////////////////////
+            
+            /*
+            bool success = SetBrakesRHB(ENGAGE_BRAKE, ENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
+
+            // Display section:
+            if (DISP_CONSOLE_ON)
+                ExternalConsoleLogger.Log("OnCalibrate_CmdStartExercise(): ENGAGE BRAKES success = [" + success + "]\n");
+            */
+
+            //////////////////////////////////////////////////////////////////
+            // Call loader:
+            //////////////////////////////////////////////////////////////////
+
             DOVirtual.DelayedCall(CALL_DELAY, () =>
             {
+                // isExerciseStarted = false;
+                isCalibrated = true;
+
                 if (USE_STANDALONE_UI)
                     BikeGameUI.instance.SetLoaderState(false);
 
-                for (int i = 0; i < MaxAttempts; i++)
-                {
-                    bool success = distalRobot.StopExercise();
-
-                    if (success)
-                    {
-                        SetBrakesRHB(ENGAGE_BRAKE, ENGAGE_BRAKE);
-
-                        if (DISP_CONSOLE_ON)
-                            ExternalConsoleLogger.Log("        OnCalibrate(): SetBrakes(): cmd ENGAGE \n");
-
-                        isExerciseStarted = false;
-                        isCalibrated = true;
-
-                        SceneManager.LoadScene(PrototypeSceneName);
-
-                        break;
-                    }
-                }
+                SceneManager.LoadScene(PrototypeSceneName);
             });
-        });
+        // });
     }
 
     private void SetGainRHB(float radialGain, float angularGain)
     {
-        for (int i = 0; i < MaxAttempts; i++)
+        for (int i = 0; i < MAX_ATTEMPTS; i++)
             if (distalRobot.SetGain(radialGain, angularGain))
                 break;
     }
 
     public void SetOffsetForcesRHB(float radialOffsetForce, float angularOffsetForce)
     {
-        for (int i = 0; i < MaxAttempts; i++)
+        for (int i = 0; i < MAX_ATTEMPTS; i++)
             if (distalRobot.SetOffsetForces(radialOffsetForce, angularOffsetForce))
                 break;
     }
 
-    public void SetBrakesRHB(bool unlockRadial, bool unlockRotational, UnityAction onComplete = null)
+    public bool SetBrakesRHB(bool unlockRadial, bool unlockRotational, int N_attempt, int delay_msec)
     {
         bool success = false;
 
-        for (int i = 0; i < MaxAttempts; i++)
+        for (int i = 0; i < N_attempt; i++)
         {
             success = distalRobot.ControlBrakes(unlockRadial, unlockRotational);
 
             if (success)
                 break;
+
+            Task.Delay(delay_msec);
         }
 
-        onComplete?.Invoke();
+        return success;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -669,17 +704,23 @@ public class RHBCtrlBike : MonoBehaviour
 
     private void RealTimeControlLoop()
     {
+        ////////////////////////////////////////////////////////////////////////////
         // Motion routine (to baseline position / to home position) vars:
-        const int N_STEPS_MOUTION_ROUTINE = 80;
-        const int DT_MOTION_ROUTINE_MSEC  = 2000;
+        ////////////////////////////////////////////////////////////////////////////
+        
+        const int N_STEPS_MOTION_ROUTINE = 80;
 
-        bool motionRoutineCompletedBaseline = false;    
-        bool motionRoutineCompletedHome     = true;
+        bool motionRoutineActiveBaseline = false;    
+        bool motionRoutineActiveHome     = false;
 
+        float pos_radial_routine_end = POS_RADIAL_MIN_OFFS;
         float factor_blend;
 
+        ////////////////////////////////////////////////////////////////////////////
         // Display variables:
-        const int DECIM_DISP    = 80;
+        ////////////////////////////////////////////////////////////////////////////
+        
+        const int DECIM_DISP = 100;
 
         if (DISP_RT_LOOP_ON)
             ExternalConsoleLogger.Log("RealTimeControlLoop(): STARTING \n");
@@ -690,6 +731,12 @@ public class RHBCtrlBike : MonoBehaviour
 
         while (MotorbikeController.instance == null || Track.instance == null)
             Task.Delay(10);
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Enforce "bike upright" constraint - CRITICAL: 
+        ////////////////////////////////////////////////////////////////////////////
+        
+        MotorbikeController.instance.uprightConstraintEnforce(ref UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025) 
 
         ////////////////////////////////////////////////////////////////////////////
         // Real-time loop:
@@ -742,10 +789,10 @@ public class RHBCtrlBike : MonoBehaviour
                 ExternalConsoleLogger.Log("RealTimeControlLoop(): step_count = [" + step_count + "]");
 
                 if (runProceduresExerciseStart)
-                    ExternalConsoleLogger.Log("    runProceduresExerciseStart\n");
+                    ExternalConsoleLogger.Log("    runProceduresExerciseStart = [" + runProceduresExerciseStart + "]\n");
 
                 if (runProceduresExerciseStop)
-                    ExternalConsoleLogger.Log("    runProceduresExerciseStop\n");
+                    ExternalConsoleLogger.Log("    runProceduresExerciseStop = [" + runProceduresExerciseStop + "]\n");
             }
 
             ////////////////////////////////////////////////////////////////////////////
@@ -761,6 +808,12 @@ public class RHBCtrlBike : MonoBehaviour
             if (runProceduresExerciseStart)
             {
                 runProceduresExerciseStart = false; // reset flag - CRITICAL
+
+                //////////////////////////////////////////////////////////////////
+                // Motion to BASELINE point - activate:
+                //////////////////////////////////////////////////////////////////
+                
+                motionRoutineActiveBaseline = true;
 
                 //////////////////////////////////////////////////////////////////
                 // Start step counter:
@@ -781,22 +834,6 @@ public class RHBCtrlBike : MonoBehaviour
 
                 // Distance traveled during exercise:
                 MotorbikeController.instance.dist_traveled = 0f;
-
-                //////////////////////////////////////////////////////////////////
-                // Motion to baseline point - set flag:
-                //////////////////////////////////////////////////////////////////
-                
-                motionRoutineCompletedBaseline = false;
-
-                //////////////////////////////////////////////////////////////////
-                // Disengage brakes:
-                //////////////////////////////////////////////////////////////////
-                
-                SetBrakesRHB(DISENGAGE_BRAKE, DISENGAGE_BRAKE);
-
-                // Display section:
-                if (DISP_CONSOLE_ON)
-                    ExternalConsoleLogger.Log("RealTimeControlLoop(): runProceduresExerciseStart - DISENGAGE_BRAKE \n");
             }
 
             ////////////////////////////////////////////////////////////////////////////
@@ -808,33 +845,22 @@ public class RHBCtrlBike : MonoBehaviour
                 runProceduresExerciseStop = false; // reset flag - CRITICAL
 
                 //////////////////////////////////////////////////////////////////
+                // Motion to HOME point - activate:
+                //////////////////////////////////////////////////////////////////
+
+                motionRoutineActiveHome = true;
+
+                //////////////////////////////////////////////////////////////////
+                // Start step counter:
+                //////////////////////////////////////////////////////////////////
+
+                step_count = 0;
+
+                //////////////////////////////////////////////////////////////////
                 // PERFORMANCE metrics: compute UNDERSTEER fraction
                 //////////////////////////////////////////////////////////////////
-                
+
                 frac_understeer = (float)MotorbikeController.instance.step_count_understeer / step_count;
-
-                /////////////////////////////////////////////////////////
-                // Set feedback gains:
-                /////////////////////////////////////////////////////////
-
-                SetGainRHB(0f, 0f); // was SetGain(FORCE_GAIN_RADIAL, FORCE_GAIN_ROT) (29.09.2025)
-
-                /////////////////////////////////////////////////////////
-                // Move RHB end effector to 'home' position (with minimum radial position);
-                /////////////////////////////////////////////////////////
-
-                SetBrakesRHB(DISENGAGE_BRAKE, DISENGAGE_BRAKE);
-
-                // ExternalConsoleLogger.Log("        StopExercise(): SetBrakes(): before MotionRoutineRHBSimple - cmd DISENGAGE \n");
-
-                MotionRoutineRHBSimple(POS_RADIAL_MIN_OFFS, N_STEPS_MOUTION_ROUTINE, DT_MOTION_ROUTINE_MSEC);
-
-                // ExternalConsoleLogger.Log("        --------------------------------------------------------------------");
-                // ExternalConsoleLogger.Log("        MotionRoutineRHBSimple() radial target [" + POS_RADIAL_MIN_OFFS + "] EXECUTED, success all [" + success_all + "] \n");
-
-                SetBrakesRHB(ENGAGE_BRAKE, ENGAGE_BRAKE);
-
-                // ExternalConsoleLogger.Log("        StopExercise(): SetBrakes(): after MotionRoutineRHBSimple - cmd ENGAGE \n");
 
                 /////////////////////////////////////////////////////////
                 // Set DataManager 'race started' flag (27.08.2025):
@@ -847,18 +873,24 @@ public class RHBCtrlBike : MonoBehaviour
                 // NOTE: proper game restart required for Care Platform
                 /////////////////////////////////////////////////////////
 
-                STATE_PREGAME = ST_SELECT_BIKE_TYPE;
+                // STATE_PREGAME = ST_SELECT_BIKE_TYPE;
 
                 BikeGameUI.instance.OnConnect_PreUnityGame();
             }
 
+            //////////////////////////////////////////////////////////////////////////// 
             ////////////////////////////////////////////////////////////////////////////
-            // Perform exercise:
+            // RHB motion cases:
+            //////////////////////////////////////////////////////////////////////////// 
             //////////////////////////////////////////////////////////////////////////// 
 
-            if (isExerciseStarted)
-            {
-                if (motionRoutineCompletedBaseline && motionRoutineCompletedHome)
+            if (isExerciseStarted || motionRoutineActiveHome) {
+
+                ////////////////////////////////////////////////////////////////////////////
+                // Perform exercise:
+                //////////////////////////////////////////////////////////////////////////// 
+
+                if (!motionRoutineActiveBaseline && !motionRoutineActiveHome)
                 {
                     ////////////////////////////////////////////////////////////////////////////
                     // RHB coordinates:
@@ -891,38 +923,71 @@ public class RHBCtrlBike : MonoBehaviour
                         dt_angle_roll_targ, dt_angle_roll_bike,
                         CASE_CTRL_MODE);
                 }
-                else
+
+                //////////////////////////////////////////////////////////////////
+                // Perform motion to patient's BASELINE (zero throttle) or HOME position:
+                //////////////////////////////////////////////////////////////////
+
+                else if (motionRoutineActiveBaseline)
                 {
-                    //////////////////////////////////////////////////////////////////
-                    // Move end effector to radial baseline position:
-                    //////////////////////////////////////////////////////////////////
+                    // Blend factor for gains & stiffness values:
+                    factor_blend = (float)step_count / N_STEPS_MOTION_ROUTINE;
 
-                    factor_blend = (float)step_count / N_STEPS_MOUTION_ROUTINE;
+                    // Motion step:
+                    MotionRoutineRHBSimpleStep(POS_RADIAL_THROT_ZERO_OFFS,
+                        factor_blend);
 
-                    MotionRoutineRHBSimpleStep(POS_RADIAL_THROT_ZERO_OFFS, factor_blend);
-
-                    if (step_count == N_STEPS_MOUTION_ROUTINE)
+                    // Motion completion procedures:
+                    if (step_count == N_STEPS_MOTION_ROUTINE)
                     {
-                        motionRoutineCompletedBaseline = true;
+                        // Reset motion routine flags:
+                        motionRoutineActiveBaseline = false;
 
-                        //////////////////////////////////////////////////////////////////
                         // Set force feedback gains - CRITICAL:
-                        //////////////////////////////////////////////////////////////////
-
                         SetForceFeebackGainCases(CASE_CTRL_MODE);
+
+                        // Display section:
+                        if (DISP_CONSOLE_ON) { 
+                            ExternalConsoleLogger.Log("RealTimeControlLoop(): COMPLETED motionRoutineActiveBaseline \n");
+                        }
+                    }
+                }
+
+                //////////////////////////////////////////////////////////////////
+                // Perform motion to patient's HOME position:
+                //////////////////////////////////////////////////////////////////
+
+                else if (motionRoutineActiveHome)
+                {
+                    // Blend factor for gains & stiffness values:
+                    factor_blend = (float)step_count / N_STEPS_MOTION_ROUTINE;
+
+                    // Motion step:
+                    MotionRoutineRHBSimpleStep(POS_RADIAL_MIN_OFFS,
+                        factor_blend);
+
+                    // Motion completion procedures:
+                    if (step_count == N_STEPS_MOTION_ROUTINE)
+                    {
+                        // Reset motion routine flags:
+                        motionRoutineActiveHome = false;
+
+                        // Engage brakes:
+                        // bool success = SetBrakesRHB(ENGAGE_BRAKE, ENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
 
                         // Display section:
                         if (DISP_CONSOLE_ON)
                         {
-                            ExternalConsoleLogger.Log("RealTimeControlLoop(): isExerciseStarted - baselineMotionCompleted \n");
+                            // ExternalConsoleLogger.Log("RealTimeControlLoop(): motionRoutineActiveHome ENGAGE BRAKES success = [" + success + "]\n");
+                            ExternalConsoleLogger.Log("RealTimeControlLoop(): COMPLETED motionRoutineActiveHome \n");
                         }
                     }
                 }
-            } 
+            }
 
             // Display section:
             if (DISP_RT_LOOP_ON && step_count % DECIM_DISP == 0)
-                ExternalConsoleLogger.Log("    ExerciseActive [" + isExerciseStarted + "]\n");
+                ExternalConsoleLogger.Log("    Exercise active [" + isExerciseStarted + "]\n");
 
             ////////////////////////////////////////////////////////////////////////////
             // Update step counter - CRITICAL:
@@ -937,49 +1002,63 @@ public class RHBCtrlBike : MonoBehaviour
     // Ancillary functions - RHB control:
     ////////////////////////////////////////////////////////////////////////////
 
-    public void ToggleExerciseRHB()
+    public bool ToggleExerciseRHB(bool is_exerc_started)
     {
+        bool is_exerc_started_new;
+
+        //////////////////////////////////////////////////////////////////
         // Start exercise:
-        if (!isExerciseStarted)
+        //////////////////////////////////////////////////////////////////
+        
+        if (!is_exerc_started)
         {
-            StartExerciseRHB(DISENGAGE_BRAKE, DISENGAGE_BRAKE, () =>
-            {
-                // NOTE: moved this routine to RealTimeControlLoop()
-                /*
-                // Added this disengage command because the one in StartExerciseRHB() apparently has no effect (20.08.2025):
-                SetBrakesRHB(DISENGAGE_BRAKE, DISENGAGE_BRAKE);
+             is_exerc_started_new = StartExerciseRHB();
 
-                // Display section:
-                if (DISP_CONSOLE_ON)
-                    ExternalConsoleLogger.Log("        StartExercise(): SetBrakes(): before MotionRoutineRHBSimple - cmd DISENGAGE \n");
+            // Display section:
+            if (DISP_CONSOLE_ON)
+                ExternalConsoleLogger.Log("ToggleExerciseRHB() / StartExerciseRHB(): isExerciseStartedNew = [" + is_exerc_started_new + "] \n");
 
-                // Move end effector to radial baseline position:
-                bool success_all = MotionRoutineRHBSimple(POS_RADIAL_THROT_ZERO_OFFS);
+            // Disengage brakes:
+            bool success = SetBrakesRHB(DISENGAGE_BRAKE, DISENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
 
-                // Display section:
-                if (DISP_CONSOLE_ON)
-                {
-                    ExternalConsoleLogger.Log("        --------------------------------------------------------------------");
-                    ExternalConsoleLogger.Log("        MotionRoutineRadialRHBBaseline() EXECUTED, success all [" + success_all + "] \n");
-                }
-                */
-            });
+            // Display section:
+            if (DISP_CONSOLE_ON)
+                ExternalConsoleLogger.Log("ToggleExerciseRHB() / StartExerciseRHB(): DISENGAGE BRAKES success = [" + success + "]\n");
         }
 
+        //////////////////////////////////////////////////////////////////
         // Stop exercise:
+        //////////////////////////////////////////////////////////////////
+        
         else
-            StopExerciseRHB();
+        {
+            is_exerc_started_new = StopExerciseRHB(() => { });
+
+            // Display section:
+            if (DISP_CONSOLE_ON)
+                ExternalConsoleLogger.Log("ToggleExerciseRHB() / StopExerciseRHB(): isExerciseStartedNew = [" + is_exerc_started_new + "] \n");
+        }
+
+        return is_exerc_started_new;
     }
 
-    private void StartExerciseRHB(bool unlockRadial, bool unlockRotational, UnityAction onComplete = null)
+    private bool StartExerciseRHB(UnityAction onComplete = null) // bool unlockRadial, bool unlockRotational
     {
+        bool is_exerc_started;
+        bool startExerciseSucess;
+
+        const bool OVERRIDE_START_EXERC = false;
+
+        const int N_ATTEMPTS_MAX = 50;
+        const int DELAY_START_EXERC_MSEC = 50;
+
+        /*
         if (isExerciseStarted)
         {
             if (DISP_CONSOLE_ON)
             {
                 ExternalConsoleLogger.Log(" ");
-                ExternalConsoleLogger.Log("....................................................................");
-                ExternalConsoleLogger.Log("StartExercise(): isExerciseStarted  - return \n");
+                ExternalConsoleLogger.Log("StartExercise(): isExerciseStarted ALREADY \n");
             }
 
             onComplete?.Invoke();
@@ -989,29 +1068,45 @@ public class RHBCtrlBike : MonoBehaviour
 
             return;
         }
+        */
 
         //////////////////////////////////////////////////////////////////
         // Send Start Exercise command to firmware:
         //////////////////////////////////////////////////////////////////
 
-        bool startExerciseSucess = false;
-        const int N_ATTEMPTS_MAX = 50;
-
-        int i = 0;
-        do
+        DistalComm.CommandedBrakes BRAKES_INIT = new()
         {
-            distalRobot.HL_StartExercise(
-               NUM_TARGETS,
-               unlockRadial, unlockRotational,
-               OFFS_FORCE_RADIAL_INIT, OFFS_TORQUE_ROT_INIT,
-               out bool startExerciseResponse, out bool setGainResponse,
-               FORCE_GAIN_RADIAL, FORCE_GAIN_ROT, STABILITY_SET_TARG_ON);
+            R = DistalComm.BrakeCommand.Disengage,
+            P = DistalComm.BrakeCommand.Disengage
+        };
 
-            startExerciseSucess = startExerciseResponse;
+        DistalComm.OffsetForceTorque FORCE_OFFS_INIT = new()
+        {
+            OffsetRForce  = 0,
+            OffsetPTorque = 0
+        };
 
-            Thread.Sleep(10);
+        if (OVERRIDE_START_EXERC)
+            startExerciseSucess = true;
+        else
+        {
+            int att_count = 0;
+            do
+            {
+                /*
+                distalRobot.HL_StartExercise(
+                    NUM_TARGETS,
+                    unlockRadial, unlockRotational,
+                    OFFS_FORCE_RADIAL_INIT, OFFS_TORQUE_ROT_INIT,
+                    out bool startExerciseSuccess, out bool setGainResponse,
+                    FORCE_GAIN_RADIAL, FORCE_GAIN_ROT, STABILITY_SET_TARG_ON);
+                */
 
-        } while (++i <= N_ATTEMPTS_MAX && !startExerciseSucess);
+                startExerciseSucess = distalRobot.StartExercise(1, BRAKES_INIT, FORCE_OFFS_INIT);
+                Thread.Sleep(DELAY_START_EXERC_MSEC);
+            }
+            while (++att_count <= N_ATTEMPTS_MAX && !startExerciseSucess);
+        }
 
         //////////////////////////////////////////////////////////////////
         // Start Exercise procedures:
@@ -1019,7 +1114,7 @@ public class RHBCtrlBike : MonoBehaviour
 
         if (startExerciseSucess)
         {
-            isExerciseStarted = true;
+            is_exerc_started = true;
             runProceduresExerciseStart = true;
 
             //////////////////////////////////////////////////////////////////
@@ -1048,8 +1143,7 @@ public class RHBCtrlBike : MonoBehaviour
             if (DISP_CONSOLE_ON)
             {
                 ExternalConsoleLogger.Log(" ");
-                ExternalConsoleLogger.Log("____________________________________________________________________");
-                ExternalConsoleLogger.Log("StartExercise(): SUCCESS timerActivePrev [" + timerActivePrev + "], timerActive [" + timerActive + "]\n");
+                ExternalConsoleLogger.Log("StartExerciseRHB(): SUCCESS runProceduresExerciseStart [" + runProceduresExerciseStart + "]\n"); // timerActivePrev, timerActive
             }
 
             if (isCalibrated)
@@ -1059,18 +1153,29 @@ public class RHBCtrlBike : MonoBehaviour
         }
         else
         {
+            is_exerc_started = false;
+            runProceduresExerciseStart = false;
+
             // Display section:
             if (DISP_CONSOLE_ON)
             {
                 ExternalConsoleLogger.Log(" ");
-                ExternalConsoleLogger.Log("____________________________________________________________________");
-                ExternalConsoleLogger.Log("StartExercise(): FAIL \n");
+                ExternalConsoleLogger.Log("StartExerciseRHB(): FAIL runProceduresExerciseStart [" + runProceduresExerciseStart + "]\n");
             }
         }
+
+        return is_exerc_started;
     }
 
-    private void StopExerciseRHB(UnityAction onComplete = null)
+    private bool StopExerciseRHB(UnityAction onComplete = null)
     {
+        bool is_exerc_started;
+        // bool stopExerciseSucess;
+
+        // const int N_ATTEMPTS_MAX = 50;
+        // const int DELAY_START_EXERC_MSEC = 50;
+
+        /*
         if (!isExerciseStarted)
         {
             if (DISP_CONSOLE_ON)
@@ -1084,11 +1189,12 @@ public class RHBCtrlBike : MonoBehaviour
             onComplete?.Invoke();
             return;
         }
+        */
 
-        if (isExerciseStopping)
-            return;
+        // if (isExerciseStopping)
+        //    return;
 
-        isExerciseStopping = true;
+        // isExerciseStopping = true;
 
         if (USE_STANDALONE_UI)
         {
@@ -1098,6 +1204,20 @@ public class RHBCtrlBike : MonoBehaviour
 
         Time.timeScale = 0f;
         DOTween.PauseAll();
+
+        //////////////////////////////////////////////////////////////////
+        // Send Stop Exercise command to firmware:
+        //////////////////////////////////////////////////////////////////
+
+        /*
+        int att_count = 0;
+        do
+        {
+            stopExerciseSucess = distalRobot.StopExercise();
+            Thread.Sleep(DELAY_START_EXERC_MSEC);
+        }
+        while (++att_count <= N_ATTEMPTS_MAX && !stopExerciseSucess);
+        */
 
         /////////////////////////////////////////////////////////
         // Stop timer:
@@ -1116,11 +1236,19 @@ public class RHBCtrlBike : MonoBehaviour
         // NOTE: game-specific procedures removed 07.10.2025:
         //////////////////////////////////////////////////////////////////
 
-        isExerciseStarted = false;
+        is_exerc_started = false;
         runProceduresExerciseStop = true;
 
-        isExerciseStopping = false;
-        isCalibrated = false;
+        // isExerciseStopping = false;
+        // isCalibrated = false; // removed to avoid missed Enter commands
+
+
+        // Display section:
+        if (DISP_CONSOLE_ON)
+        {
+            ExternalConsoleLogger.Log(" ");
+            ExternalConsoleLogger.Log("StopExerciseRHB(): SUCCESS runProceduresExerciseStop [" + runProceduresExerciseStop + "]\n");
+        }
 
         OnExerciseStop?.Invoke();
         onComplete?.Invoke();
@@ -1132,6 +1260,8 @@ public class RHBCtrlBike : MonoBehaviour
         SceneManager.LoadScene(0);
         Time.timeScale = 1f;
         DOTween.PlayAll();
+
+        return is_exerc_started;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -1405,16 +1535,12 @@ public class RHBCtrlBike : MonoBehaviour
         float radialDamping, float rotationDamping,
         float radialGain, float rotationGain, UnityAction onComplete = null)
     {
-        const bool CHECK_EXERCISE_STATE = false;
         bool success = false;
-
-        if (CHECK_EXERCISE_STATE && (!isExerciseStarted || isExerciseStopping))
-            return success;
 
         radialValue = Mathf.Clamp(radialValue, POS_RADIAL_MIN_OFFS, POS_RADIAL_MAX);
         rotationValue = Mathf.Clamp(rotationValue, POS_ROT_MIN, POS_ROT_MAX);
 
-        for (int i = 0; i < MaxAttempts; i++)
+        for (int i = 0; i < MAX_ATTEMPTS; i++)
         {
             success = distalRobot.HL_SetTarget(
                 targetIndex,
@@ -1536,6 +1662,12 @@ public class RHBCtrlBike : MonoBehaviour
             rtControlThread?.Abort();
             rtControlThread = new Thread(RealTimeControlLoop);
             rtControlThread.Start();
+
+            // Display section:
+            if (DISP_CONSOLE_ON)
+            {
+                ExternalConsoleLogger.Log("RHBCtrlBike() / Update(): rtControlThread START \n");
+            }
         }
     }
 }

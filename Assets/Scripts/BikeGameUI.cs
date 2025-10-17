@@ -33,6 +33,14 @@ public class BikeGameUI : MonoBehaviour
     */
 
     ////////////////////////////////////////////////////////////////////////////
+    // Display variables:
+    ////////////////////////////////////////////////////////////////////////////
+
+    const bool DISP_CONSOLE_UI_ON = true;
+
+    int state_pregame_prev = 0; // for display purposes only
+
+    ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     // UNITY_GAME: Pre-game actions:
     ////////////////////////////////////////////////////////////////////////////
@@ -49,13 +57,6 @@ public class BikeGameUI : MonoBehaviour
 
     public void OnConnect_PreUnityGame()
     {
-        RHBCtrlBike.instance.SetBrakesRHB(
-            RHBCtrlBike.DISENGAGE_BRAKE,
-            RHBCtrlBike.DISENGAGE_BRAKE);
-
-        // Display section:
-        ExternalConsoleLogger.Log("        OnConnect(): SetBrakes(): cmd DISENGAGE \n");
-
         SetLoaderState(true);
 
         if (RHBCtrlBike.instance.STATE_PREGAME == RHBCtrlBike.ST_SELECT_BIKE_TYPE)
@@ -180,7 +181,7 @@ public class BikeGameUI : MonoBehaviour
                 "CONTROL MODE [" + RHBCtrlBike.instance.CASE_CTRL_MODE + "]\n\n" +
                 str_game_settings + "\n\n" +
                 "Align grippers horizontally and close the grippers \n\n" +
-                "Press Y to CALIBRATE");
+                "----------------------> Press <Enter> to CALIBRATE");
         }
     }
 
@@ -210,8 +211,8 @@ public class BikeGameUI : MonoBehaviour
         // Selectable settings for UNITY_GAME:
         ////////////////////////////////////////////////////////////////////////////
 
-        if (RHBCtrlBike.instance.STATE_PREGAME != RHBCtrlBike.ST_CALIBRATE)
-        {
+        // if (RHBCtrlBike.instance.STATE_PREGAME != RHBCtrlBike.ST_EXERCISE_ACTIVE)
+        // {
             SelectGameSettings_PreUnityGame(
                 ref use_beginner_bike_constr,
                 ref case_ctrl_mode,
@@ -220,36 +221,61 @@ public class BikeGameUI : MonoBehaviour
                 ref race_direction,
                 OnSelectGameSettings_PreUnityGame);
 
-            Debug.Log("STATE_PREGAME: " + RHBCtrlBike.instance.STATE_PREGAME);
-
             // Convert game level to assistance factor (fraction)
             // Modified computation after user feedbacks (29.09.2025)
             fact_assist_steer = RHBCtrlBike.instance.FactorAssistCalc(game_level);
-        }
-
-        ////////////////////////////////////////////////////////////////////////////
-        // Toggle Exercise state:
-        ////////////////////////////////////////////////////////////////////////////
-
-        else if (Input.GetKeyDown(KeyCode.Y))
-        {
-            RHBCtrlBike.instance.CalibrateRHB(
-                RHBCtrlBike.instance.OnCalibrate_CmdStartExercise);
-
-            // Enforce "bike upright" constraint - CRITICAL: 
-            MotorbikeController.instance?.uprightConstraintEnforce(ref upright_constr_on); // constraint flag (13.09.2025) 
 
             // Display section:
-            ExternalConsoleLogger.Log("_________________________________________________________________");
-            ExternalConsoleLogger.Log("Update(): upright constraint [TRUE] \n");
-        }
+            if (DISP_CONSOLE_UI_ON)
+                if (RHBCtrlBike.instance.STATE_PREGAME != state_pregame_prev)
+                    ExternalConsoleLogger.Log("InitUnityGame_StartExercise(): STATE PREGAME = [" + RHBCtrlBike.instance.STATE_PREGAME + "] \n");
+        // }
 
         ////////////////////////////////////////////////////////////////////////////
         // Toggle Exercise state:
         ////////////////////////////////////////////////////////////////////////////
 
-        if (RHBCtrlBike.instance.isCalibrated && Input.GetKeyDown(KeyCode.Return))
+        /*
+        else if (!RHBCtrlBike.instance.isCalibrated)
+        {
+            while (!Input.GetKeyDown(KeyCode.Y) && !Input.GetKeyUp(KeyCode.Y))
+                Task.Delay(100);
+            
+            // Run Calibration if required:
+            if (!RHBCtrlBike.instance.isCalibrated)
+                RHBCtrlBike.instance.CalibrateRHB();
+
+            RHBCtrlBike.instance.OnCalibrate_CmdStartExercise();
+
+            // Display section:
+            if (DISP_CONSOLE_UI_ON)
+                ExternalConsoleLogger.Log("InitUnityGame_StartExercise(): KeyCode Y, OnCalibrate_CmdStartExercise \n");
+        }
+        */
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Toggle Exercise state:
+        ////////////////////////////////////////////////////////////////////////////
+
+        /*
+        else {
+            // Display section:
+            if (DISP_CONSOLE_UI_ON)
+                ExternalConsoleLogger.Log("InitUnityGame_StartExercise(): IS CALIBRATED \n");
+
+            while (!Input.GetKeyDown(KeyCode.Return))
+                Task.Delay(50);
+
+            // Toggle exercise state:
             RHBCtrlBike.instance.ToggleExerciseRHB();
+
+            // Display section:
+            if (DISP_CONSOLE_UI_ON)
+                ExternalConsoleLogger.Log("InitUnityGame_StartExercise(): KeyCode <Enter>, ToggleExerciseRHB() \n");
+        }
+        */
+
+        state_pregame_prev = RHBCtrlBike.instance.STATE_PREGAME;
     }
 
     private void SelectGameSettings_PreUnityGame(
@@ -277,7 +303,6 @@ public class BikeGameUI : MonoBehaviour
                 return;
 
             RHBCtrlBike.instance.STATE_PREGAME = RHBCtrlBike.ST_SET_CTRL_MODE;
-
             onComplete.Invoke();
         }
 
@@ -358,6 +383,65 @@ public class BikeGameUI : MonoBehaviour
             RHBCtrlBike.instance.STATE_PREGAME = RHBCtrlBike.ST_CALIBRATE;
             onComplete.Invoke();
         }
+
+        ////////////////////////////////////////////////
+        // Enable CALIBRATION:
+        ////////////////////////////////////////////////
+
+        else if (RHBCtrlBike.instance.STATE_PREGAME == RHBCtrlBike.ST_CALIBRATE)
+        {
+            if (Input.GetKeyDown(KeyCode.Return)) { 
+                // Run Calibration if required:
+                if (!RHBCtrlBike.instance.isCalibrated)
+                    RHBCtrlBike.instance.CalibrateRHB(RHBCtrlBike.instance.OnCalibrate_CmdStartExercise);
+
+                // Only post-calibration routine:
+                else
+                    RHBCtrlBike.instance.OnCalibrate_CmdStartExercise();
+
+                // Display section:
+                if (DISP_CONSOLE_UI_ON) 
+                    ExternalConsoleLogger.Log("SelectGameSettings_PreUnityGame(): KeyCode <Enter>, OnCalibrate_CmdStartExercise() \n");
+            }
+            else
+                return;
+
+            RHBCtrlBike.instance.STATE_PREGAME = RHBCtrlBike.ST_RHB_READY;
+            onComplete.Invoke();
+        }
+
+        ////////////////////////////////////////////////
+        // Enable START EXERCISE:
+        ////////////////////////////////////////////////
+
+        else {
+            if (Input.GetKeyDown(KeyCode.Return)) {
+
+                bool is_exerc_started = RHBCtrlBike.instance.isExerciseStarted;
+                
+                // Toggle exercise state:
+                bool is_exerc_started_new = RHBCtrlBike.instance.ToggleExerciseRHB(is_exerc_started);
+
+                // 'Stop exercise' flag: if legit, reset pregame state:
+                if (is_exerc_started && !is_exerc_started_new)
+                    RHBCtrlBike.instance.STATE_PREGAME = RHBCtrlBike.ST_SELECT_BIKE_TYPE;
+
+                RHBCtrlBike.instance.isExerciseStarted = is_exerc_started_new;
+
+                // Display section:
+                if (DISP_CONSOLE_UI_ON)
+                    ExternalConsoleLogger.Log("SelectGameSettings_PreUnityGame(): KeyCode <Enter>, ToggleExerciseRHB() \n");
+            }
+            else
+                return;
+
+            /*
+            if (RHBCtrlBike.instance.STATE_PREGAME == RHBCtrlBike.ST_RHB_READY)
+                RHBCtrlBike.instance.STATE_PREGAME = RHBCtrlBike.ST_EXERCISE_ACTIVE;
+            */
+
+            onComplete.Invoke();
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -368,7 +452,7 @@ public class BikeGameUI : MonoBehaviour
 
     public void SetLoaderState(bool state)
     {
-        Debug.Log("Called SetLoaderState");
+        // Debug.Log("Called SetLoaderState");
         UnityMainThreadDispatcher.Instance().Enqueue(() => RHBCtrlBike.instance.loader.SetActive(state));
     }
 

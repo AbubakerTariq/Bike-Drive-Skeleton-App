@@ -632,8 +632,7 @@ public class MotorbikeController : MonoBehaviour
 
         if (RHBCtrlBike.instance.isExerciseStarted)
             bike_input.steer_scaled = InputSteerCases(
-                input_steer_manual, input_steer_targ,
-                RHBCtrlBike.instance.CASE_CTRL_MODE);
+                input_steer_manual, input_steer_targ, RHBCtrlBike.instance.CASE_CTRL_MODE);
         else
             bike_input.steer_scaled = 0f;
 
