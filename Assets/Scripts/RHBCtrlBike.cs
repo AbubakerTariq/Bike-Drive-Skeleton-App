@@ -117,17 +117,17 @@ public class RHBCtrlBike : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     public float FORCE_GAIN_RADIAL = 9.0f;
-    public float FORCE_GAIN_ROT = 6.0f; // 14.0f; // Reduced gain for greater stability with ASSISTED and MANUAL control
+    public float FORCE_GAIN_ROT    = 6.0f; // 14.0f; // Reduced gain for greater stability with ASSISTED and MANUAL control
 
     private float K_STIFF_RADIAL_WALL = 2500f; // use with zero feedback gain
 
     // Extra damping to prevent limit cycles when handles contact physical limit
     // Normally should rely on embedded HL_SetTarget stability
     // TODO: check why limit cycle suppression doesn't act in firmware (29.09.2025):
-    private float B_DAMP_RADIAL_WALL = 0f;
+    private float B_DAMP_RADIAL_WALL  = 10f;
 
     private float K_STIFF_ROT_WALL = 1.2f; // use with zero feedback gain
-    private float B_DAMP_ROT_WALL = 0f; // rely on embedded HL_SetTarget stability
+    private float B_DAMP_ROT_WALL  = 0f; // rely on embedded HL_SetTarget stability
 
     public float POS_RADIAL_MIN = 0.0145f;
     public float POS_RADIAL_MAX = 0.06f;
@@ -136,7 +136,7 @@ public class RHBCtrlBike : MonoBehaviour
     public float POS_RADIAL_MIN_OFFS;
 
     private float POS_ROT_MIN = -Mathf.PI / 2f;
-    private float POS_ROT_MAX = Mathf.PI / 2f;
+    private float POS_ROT_MAX =  Mathf.PI / 2f;
 
     // Throttle - additional haptics settings:
     public float K_STIFF_RADIAL_THROT_AUTO = 5000f; // makes handles essentially rigid
@@ -357,6 +357,8 @@ public class RHBCtrlBike : MonoBehaviour
     // [SerializeField] public GameObject exerciseGuidelineText;
     [SerializeField] public TMP_Text loaderText;
 
+    int connect_count = 0; // connection attempts counter - for debugging
+
     ////////////////////////////////////////////////////////////////////////////
     // Display variables:
     ////////////////////////////////////////////////////////////////////////////
@@ -403,7 +405,11 @@ public class RHBCtrlBike : MonoBehaviour
             while (BikeGameUI.instance == null)
                 Task.Delay(10);
 
-        ConnectRHB();
+        // ConnectRHB();
+        ConnectRHBSimple();
+
+        while (mainThreadActionQueue.Count > 0)
+            mainThreadActionQueue.Dequeue().Invoke();
     }
 
     private void OnApplicationQuit()
@@ -475,6 +481,60 @@ public class RHBCtrlBike : MonoBehaviour
     // Game-specific RHB functions:
     ////////////////////////////////////////////////////////////////////////////
 
+    public void ConnectRHBSimple()
+    {
+        const float CALL_DELAY_VALUE = 1.0f;
+
+        if (DISP_CONSOLE_ON)
+        {
+            ExternalConsoleLogger.Log("__________________________________________");
+            ExternalConsoleLogger.Log("ConnectRHBSimple() call count [" + connect_count++ + "]");
+        }
+
+        ////////////////////////////////////////////////////////////////////////////
+        // Start CONNECTION thread:
+        ////////////////////////////////////////////////////////////////////////////
+
+        connectionThread?.Abort();
+        connectionThread = new Thread(() =>
+        {
+            // Activate loader:
+            if (USE_STANDALONE_UI)
+                BikeGameUI.instance.SetLoaderState(true);
+
+            // Display section:
+            if (DISP_CONSOLE_ON)
+                ExternalConsoleLogger.Log("ConnectRHBSimple() set loader");
+
+            // Attempt to establish RHB connection:
+            EstablishConnection(); // NOTE: this sets RHBConnected - no need for return value
+
+            // Display section:
+            if (DISP_CONSOLE_ON) {
+                if (RHBConnected)
+                    ExternalConsoleLogger.Log("ConnectRHBSimple() result: CONNECTED \n");
+                else
+                    ExternalConsoleLogger.Log("ConnectRHBSimple() result: MAKE NEW ATTEMPT \n"); 
+            }
+
+            // Next action: start system or make new connection attempt
+            if (RHBConnected)
+            {
+                if (USE_STANDALONE_UI)
+                    BikeGameUI.instance.SetLoaderState(false);
+
+                StartSystem(BikeGameUI.instance.OnConnect_PreUnityGame);
+            }
+            else {
+                connectionTween?.Kill();
+                connectionTween = DOVirtual.DelayedCall(CALL_DELAY_VALUE, ConnectRHBSimple);
+            }
+        });
+
+        connectionThread.Start();
+    }
+
+    /*
     public void ConnectRHB()
     {
         const float CALL_DELAY_VALUE = 10f;
@@ -485,15 +545,6 @@ public class RHBCtrlBike : MonoBehaviour
         
         connectionTween?.Kill();
         connectionTween = DOVirtual.DelayedCall(CALL_DELAY_VALUE, ReConnectRHB);
-        /*
-        connectionTween = DOVirtual.DelayedCall(CALL_DELAY_VALUE, ()=> 
-        {
-            if (RHBConnected)
-                StartSystem(BikeGameUI.instance.OnConnect_PreUnityGame);
-            else
-                ConnectRHB();
-        });
-        */
 
         connectionThread?.Abort();
         connectionThread = new Thread(() =>
@@ -520,20 +571,6 @@ public class RHBCtrlBike : MonoBehaviour
                 }
                 else
                     ReConnectRHB();
-
-                /*
-                connectionTween?.Kill();
-
-                if (success || RHBConnected)
-                {
-                    if (USE_STANDALONE_UI && success)
-                        BikeGameUI.instance.SetLoaderState(false);
-
-                    StartSystem(BikeGameUI.instance.OnConnect_PreUnityGame);
-                }
-                else
-                    ConnectRHB();
-                */
             });
         });
 
@@ -547,6 +584,7 @@ public class RHBCtrlBike : MonoBehaviour
         else
             ConnectRHB();
     }
+    */
 
     public void CalibrateRHB(UnityAction onComplete = null)
     {
@@ -583,14 +621,9 @@ public class RHBCtrlBike : MonoBehaviour
                             ExternalConsoleLogger.Log("        OnCalibrate(): SetBrakes(): cmd ENGAGE \n");
 
                         isExerciseStarted = false;
-                        // runProceduresExerciseStop = true;
-
                         isCalibrated = true;
 
                         SceneManager.LoadScene(PrototypeSceneName);
-
-                        // if (USE_STANDALONE_UI)
-                        //   BikeGameUI.instance.SetExerciseGuidelineTextState(true);
 
                         break;
                     }
@@ -636,6 +669,16 @@ public class RHBCtrlBike : MonoBehaviour
 
     private void RealTimeControlLoop()
     {
+        // Motion routine (to baseline position / to home position) vars:
+        const int N_STEPS_MOUTION_ROUTINE = 80;
+        const int DT_MOTION_ROUTINE_MSEC  = 2000;
+
+        bool motionRoutineCompletedBaseline = false;    
+        bool motionRoutineCompletedHome     = true;
+
+        float factor_blend;
+
+        // Display variables:
         const int DECIM_DISP    = 80;
 
         if (DISP_RT_LOOP_ON)
@@ -700,6 +743,7 @@ public class RHBCtrlBike : MonoBehaviour
 
                 if (runProceduresExerciseStart)
                     ExternalConsoleLogger.Log("    runProceduresExerciseStart\n");
+
                 if (runProceduresExerciseStop)
                     ExternalConsoleLogger.Log("    runProceduresExerciseStop\n");
             }
@@ -728,24 +772,31 @@ public class RHBCtrlBike : MonoBehaviour
                 // PERFORMANCE metrics - set up variables: 
                 //////////////////////////////////////////////////////////////////
                 
-                // if (MotorbikeController.instance)
-                // {
-                    // Start UNDERSTEER event counter
-                    MotorbikeController.instance.step_count_understeer = 0;
+                // Start UNDERSTEER event counter
+                MotorbikeController.instance.step_count_understeer = 0;
 
-                    // Start FALL counter:
-                    MotorbikeController.instance.step_count_fall = 0;
-                    MotorbikeController.instance.bike_fallen_prev = false;
+                // Start FALL counter:
+                MotorbikeController.instance.step_count_fall = 0;
+                MotorbikeController.instance.bike_fallen_prev = false;
 
-                    // Distance traveled during exercise:
-                    MotorbikeController.instance.dist_traveled = 0f;
-                // }
+                // Distance traveled during exercise:
+                MotorbikeController.instance.dist_traveled = 0f;
 
                 //////////////////////////////////////////////////////////////////
-                // Set force feedback gains:
+                // Motion to baseline point - set flag:
                 //////////////////////////////////////////////////////////////////
+                
+                motionRoutineCompletedBaseline = false;
 
-                SetForceFeebackGainCases(CASE_CTRL_MODE);
+                //////////////////////////////////////////////////////////////////
+                // Disengage brakes:
+                //////////////////////////////////////////////////////////////////
+                
+                SetBrakesRHB(DISENGAGE_BRAKE, DISENGAGE_BRAKE);
+
+                // Display section:
+                if (DISP_CONSOLE_ON)
+                    ExternalConsoleLogger.Log("RealTimeControlLoop(): runProceduresExerciseStart - DISENGAGE_BRAKE \n");
             }
 
             ////////////////////////////////////////////////////////////////////////////
@@ -760,10 +811,7 @@ public class RHBCtrlBike : MonoBehaviour
                 // PERFORMANCE metrics: compute UNDERSTEER fraction
                 //////////////////////////////////////////////////////////////////
                 
-                // if (MotorbikeController.instance)
-                // {
-                    frac_understeer = (float)MotorbikeController.instance.step_count_understeer / step_count;
-                // }
+                frac_understeer = (float)MotorbikeController.instance.step_count_understeer / step_count;
 
                 /////////////////////////////////////////////////////////
                 // Set feedback gains:
@@ -779,7 +827,7 @@ public class RHBCtrlBike : MonoBehaviour
 
                 // ExternalConsoleLogger.Log("        StopExercise(): SetBrakes(): before MotionRoutineRHBSimple - cmd DISENGAGE \n");
 
-                bool success_all = MotionRoutineRHBSimple(POS_RADIAL_MIN_OFFS);
+                MotionRoutineRHBSimple(POS_RADIAL_MIN_OFFS, N_STEPS_MOUTION_ROUTINE, DT_MOTION_ROUTINE_MSEC);
 
                 // ExternalConsoleLogger.Log("        --------------------------------------------------------------------");
                 // ExternalConsoleLogger.Log("        MotionRoutineRHBSimple() radial target [" + POS_RADIAL_MIN_OFFS + "] EXECUTED, success all [" + success_all + "] \n");
@@ -810,9 +858,8 @@ public class RHBCtrlBike : MonoBehaviour
 
             if (isExerciseStarted)
             {
-                // if (MotorbikeController.instance != null && Track.instance != null)
-                // {
-
+                if (motionRoutineCompletedBaseline && motionRoutineCompletedHome)
+                {
                     ////////////////////////////////////////////////////////////////////////////
                     // RHB coordinates:
                     ////////////////////////////////////////////////////////////////////////////
@@ -843,17 +890,35 @@ public class RHBCtrlBike : MonoBehaviour
                         angle_roll_targ, angle_roll_bike,
                         dt_angle_roll_targ, dt_angle_roll_bike,
                         CASE_CTRL_MODE);
+                }
+                else
+                {
+                    //////////////////////////////////////////////////////////////////
+                    // Move end effector to radial baseline position:
+                    //////////////////////////////////////////////////////////////////
 
-                    ////////////////////////////////////////////////////////////////////////////
-                    // Using an action queue to perform Unity related tasks (i.e UI changes)
-                    // which are not allowed to be done from a background thread:
-                    ////////////////////////////////////////////////////////////////////////////
+                    factor_blend = (float)step_count / N_STEPS_MOUTION_ROUTINE;
 
-                    while (mainThreadActionQueue.Count > 0)
-                        mainThreadActionQueue.Dequeue().Invoke();
+                    MotionRoutineRHBSimpleStep(POS_RADIAL_THROT_ZERO_OFFS, factor_blend);
 
-                // } // if (MotorbikeController.instance != null || Track.instance != null)
-            } // if (ExerciseActive)
+                    if (step_count == N_STEPS_MOUTION_ROUTINE)
+                    {
+                        motionRoutineCompletedBaseline = true;
+
+                        //////////////////////////////////////////////////////////////////
+                        // Set force feedback gains - CRITICAL:
+                        //////////////////////////////////////////////////////////////////
+
+                        SetForceFeebackGainCases(CASE_CTRL_MODE);
+
+                        // Display section:
+                        if (DISP_CONSOLE_ON)
+                        {
+                            ExternalConsoleLogger.Log("RealTimeControlLoop(): isExerciseStarted - baselineMotionCompleted \n");
+                        }
+                    }
+                }
+            } 
 
             // Display section:
             if (DISP_RT_LOOP_ON && step_count % DECIM_DISP == 0)
@@ -879,7 +944,9 @@ public class RHBCtrlBike : MonoBehaviour
         {
             StartExerciseRHB(DISENGAGE_BRAKE, DISENGAGE_BRAKE, () =>
             {
-                // Added this disengage command because the one in StartExercise() apparently has no effect (20.08.2025):
+                // NOTE: moved this routine to RealTimeControlLoop()
+                /*
+                // Added this disengage command because the one in StartExerciseRHB() apparently has no effect (20.08.2025):
                 SetBrakesRHB(DISENGAGE_BRAKE, DISENGAGE_BRAKE);
 
                 // Display section:
@@ -887,7 +954,7 @@ public class RHBCtrlBike : MonoBehaviour
                     ExternalConsoleLogger.Log("        StartExercise(): SetBrakes(): before MotionRoutineRHBSimple - cmd DISENGAGE \n");
 
                 // Move end effector to radial baseline position:
-                bool success_all = MotionRoutineRadialRHBBaseline();
+                bool success_all = MotionRoutineRHBSimple(POS_RADIAL_THROT_ZERO_OFFS);
 
                 // Display section:
                 if (DISP_CONSOLE_ON)
@@ -895,6 +962,7 @@ public class RHBCtrlBike : MonoBehaviour
                     ExternalConsoleLogger.Log("        --------------------------------------------------------------------");
                     ExternalConsoleLogger.Log("        MotionRoutineRadialRHBBaseline() EXECUTED, success all [" + success_all + "] \n");
                 }
+                */
             });
         }
 
@@ -942,8 +1010,8 @@ public class RHBCtrlBike : MonoBehaviour
             startExerciseSucess = startExerciseResponse;
 
             Thread.Sleep(10);
-        }
-        while (++i <= N_ATTEMPTS_MAX && !startExerciseSucess);
+
+        } while (++i <= N_ATTEMPTS_MAX && !startExerciseSucess);
 
         //////////////////////////////////////////////////////////////////
         // Start Exercise procedures:
@@ -966,10 +1034,6 @@ public class RHBCtrlBike : MonoBehaviour
                 Thread.Sleep(DT_STEP_APP_MSEC);
                 timerLocked = false;
             }
-
-            //////////////////////////////////////////////////////////////////
-            // NOTE: game-specific procedures removed 07.10.2025:
-            //////////////////////////////////////////////////////////////////
 
             //////////////////////////////////////////////////////////////////
             // Initiate recording on new data file - can't remove this without missing the call (07.10.2025):
@@ -1385,65 +1449,36 @@ public class RHBCtrlBike : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
 
-    private bool MotionRoutineRHBSimple(float pos_rad_targ)
+    private bool MotionRoutineRHBSimple(float pos_rad_targ, int N_steps, int Dt_motion_msec)
     {
-        const int DT_MOTION_ROUTINE_MSEC = 1500;
-        const int N_STEPS_MOTION_ROUTINE = 60;
+        bool success_all = true;
+        bool success_step;
 
-        bool success_all = false;
-
-        float switch_var = 0f;
-
-        for (int i = 0; i <= N_STEPS_MOTION_ROUTINE; i++)
+        for (int step_count = 0; step_count <= N_steps; step_count++)
         {
+            float factor_blend = (float)step_count / N_steps;
 
-            // Note use of baseline impedance:
-            bool success_step = SetTargetValidated(
-                IDX_TARG_BASE,
-                pos_rad_targ, 0f,
-                K_STIFF_RADIAL_WALL, K_STIFF_ROT_WALL,
-                B_DAMP_RADIAL_WALL, B_DAMP_ROT_WALL,
-                switch_var, switch_var);
+            success_step = MotionRoutineRHBSimpleStep(pos_rad_targ, factor_blend);
 
             if (success_all && !success_step)
-                success_all = success_step;
+                success_all = false;
 
-            Thread.Sleep(DT_MOTION_ROUTINE_MSEC / N_STEPS_MOTION_ROUTINE);
-
-            switch_var += 1f / N_STEPS_MOTION_ROUTINE;
+            Thread.Sleep(Dt_motion_msec / N_steps);
         }
 
         return success_all;
     }
 
-    private bool MotionRoutineRadialRHBBaseline()
+    private bool MotionRoutineRHBSimpleStep(float pos_rad_targ, float factor_blend)
     {
-        const int DT_MOTION_BASE_MSEC = 1000;
-        const int N_STEPS_MOTION_BASE = 40;
+        bool success_step = SetTargetValidated(
+            IDX_TARG_BASE,
+            pos_rad_targ, POS_ROT_BASE,
+            factor_blend * K_STIFF_RADIAL_WALL, factor_blend * K_STIFF_ROT_WALL,
+            B_DAMP_RADIAL_WALL, B_DAMP_ROT_WALL,
+            factor_blend, factor_blend);
 
-        bool success_all = true;
-
-        float switch_var = 0f;
-
-        for (int i = 0; i <= N_STEPS_MOTION_BASE; i++)
-        {
-            // Note use of baseline impedance:
-            bool success_step = SetTargetValidated(
-                IDX_TARG_BASE,
-                POS_RADIAL_THROT_ZERO_OFFS, POS_ROT_BASE,
-                K_STIFF_RADIAL_THROT_MANUAL, K_STIFF_ROT_BASE,
-                B_DAMP_RADIAL_BASE, B_DAMP_ROT_BASE,
-                switch_var, 1f);
-
-            if (success_all && !success_step)
-                success_all = success_step;
-
-            Thread.Sleep(DT_MOTION_BASE_MSEC / N_STEPS_MOTION_BASE);
-
-            switch_var += 1f / N_STEPS_MOTION_BASE;
-        }
-
-        return success_all;
+        return success_step;
     }
 
     ////////////////////////////////////////////////////////////////////////////
