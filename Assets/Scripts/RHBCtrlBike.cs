@@ -391,7 +391,7 @@ public class RHBCtrlBike : MonoBehaviour
     private void Start()
     {
         // Reset Ethernet port to prevent those frequent connection delays:
-        System.Diagnostics.Process.Start("ethernet_reset.bat");
+        // System.Diagnostics.Process.Start("ethernet_reset.bat");
 
         ////////////////////////////////////////////////////////////////////////////
         // Launch connection thread - CRITICAL:
