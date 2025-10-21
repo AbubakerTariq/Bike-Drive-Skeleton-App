@@ -5,6 +5,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp", "Assembly
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp-firstpass", "Assembly-CSharp-firstpass.csproj", "{3EA77D43-E562-A307-AAB3-B6A3C0974ED5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PimDeWitte.UnityMainThreadDispatcher", "PimDeWitte.UnityMainThreadDispatcher.csproj", "{00618A21-A1E4-0B48-AC67-D047A7996480}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp-Editor", "Assembly-CSharp-Editor.csproj", "{5732CB87-AD0A-86C9-D89E-6E0ECBBC18C2}"
 EndProject
 Global
@@ -21,6 +23,10 @@ Global
 		{3EA77D43-E562-A307-AAB3-B6A3C0974ED5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3EA77D43-E562-A307-AAB3-B6A3C0974ED5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3EA77D43-E562-A307-AAB3-B6A3C0974ED5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{00618A21-A1E4-0B48-AC67-D047A7996480}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{00618A21-A1E4-0B48-AC67-D047A7996480}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{00618A21-A1E4-0B48-AC67-D047A7996480}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{00618A21-A1E4-0B48-AC67-D047A7996480}.Release|Any CPU.Build.0 = Release|Any CPU
 		{5732CB87-AD0A-86C9-D89E-6E0ECBBC18C2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{5732CB87-AD0A-86C9-D89E-6E0ECBBC18C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5732CB87-AD0A-86C9-D89E-6E0ECBBC18C2}.Release|Any CPU.ActiveCfg = Release|Any CPU

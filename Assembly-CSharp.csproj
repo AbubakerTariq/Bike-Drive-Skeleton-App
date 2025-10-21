@@ -60,7 +60,6 @@
   <ItemGroup>
     <Compile Include="Assets\Scripts\Track.cs" />
     <Compile Include="Assets\Bike game assets\RTG 1.3\Big Screen\Source\Camera_BigScreens.cs" />
-    <Compile Include="Assets\Scripts\UnityMainThreadDispatcher.cs" />
     <Compile Include="Assets\Bike game assets\Simple Motorcycle Physics\Scripts\MotorbikeController.cs" />
     <Compile Include="Assets\Bike game assets\RTG 1.3\Scripts\Track_Generator.cs" />
     <Compile Include="Assets\Bike game assets\RTG 1.3\MiniMap\Content\MiniMap.cs" />
@@ -460,6 +459,14 @@
     </Reference>
     <Reference Include="ReportGeneratorMerged">
       <HintPath>Library\PackageCache\com.unity.testtools.codecoverage@1.2.2\lib\ReportGenerator\ReportGeneratorMerged.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.Android.Types">
+      <HintPath>C:\Program Files\Unity\Hub\Editor\2021.3.19f1\Editor\Data\PlaybackEngines\AndroidPlayer\Unity.Android.Types.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.Android.Gradle">
+      <HintPath>C:\Program Files\Unity\Hub\Editor\2021.3.19f1\Editor\Data\PlaybackEngines\AndroidPlayer\Unity.Android.Gradle.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="netstandard">
@@ -1047,6 +1054,10 @@
     <ProjectReference Include="Assembly-CSharp-firstpass.csproj">
       <Project>{3EA77D43-E562-A307-AAB3-B6A3C0974ED5}</Project>
       <Name>Assembly-CSharp-firstpass</Name>
+    </ProjectReference>
+    <ProjectReference Include="PimDeWitte.UnityMainThreadDispatcher.csproj">
+      <Project>{00618A21-A1E4-0B48-AC67-D047A7996480}</Project>
+      <Name>PimDeWitte.UnityMainThreadDispatcher</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
