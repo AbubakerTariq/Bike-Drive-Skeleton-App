@@ -3,6 +3,8 @@ using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Threading;
+using System.Threading.Tasks;
 
 public class MotorbikeController : MonoBehaviour
 {
@@ -406,6 +408,12 @@ public class MotorbikeController : MonoBehaviour
         thisTransform = GetComponent<Transform>();
         rigid_body = GetComponent<Rigidbody>();
         rigid_body.centerOfMass = com;
+
+        // Safety catch: wait for class instances to build (21.10.2025):
+        /*
+        while (RHBCtrlBike.instance == null)
+            Task.Delay(10);
+        */
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -1007,7 +1015,16 @@ public class MotorbikeController : MonoBehaviour
             if (dt_pos_bike_magn < dt_pos_bike_magn_prev && RHBCtrlBike.instance.UPRIGHT_CONSTR_ON == false)
             {
                 wheel_coll_fwd.steerAngle = 0f; // Mathf.Clamp(bike_input.steer_scaled, -dt_pos_bike_magn, dt_pos_bike_magn);
-                uprightConstraintEnforce(ref RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
+
+                try
+                {
+                    uprightConstraintEnforce(ref RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
+                }
+                catch
+                { 
+                    ExternalConsoleLogger.Log("_________________________________________________________________");
+                    ExternalConsoleLogger.Log("MotorbikeController / MotorbikeControl(): CAN'T APPLY UPRIGHT CONSTRAINT \n");
+                }
 
                 // Display section:
                 if (DISP_MOTOR_CONTROL_ON)
@@ -1256,7 +1273,15 @@ public class MotorbikeController : MonoBehaviour
         bike_fallen_this = false;
         hard_hit_this    = false;
 
-        uprightConstraintEnforce(ref RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
+        try
+        {
+            uprightConstraintEnforce(ref RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
+        }
+        catch
+        {
+            ExternalConsoleLogger.Log("_________________________________________________________________");
+            ExternalConsoleLogger.Log("MotorbikeController / Reset(): CAN'T APPLY UPRIGHT CONSTRAINT \n");
+        }
 
         //////////////////////////////////////////////////////////////////////////////////////
         // Reset rider states:
