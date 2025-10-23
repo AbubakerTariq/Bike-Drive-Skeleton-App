@@ -127,7 +127,7 @@ public class RHBCtrlBike : MonoBehaviour
     // Extra damping to prevent limit cycles when handles contact physical limit
     // Normally should rely on embedded HL_SetTarget stability
     // TODO: check why limit cycle suppression doesn't act in firmware (29.09.2025):
-    private float B_DAMP_RADIAL_WALL = 10f;
+    private float B_DAMP_RADIAL_WALL = 1.2f;
 
     private float K_STIFF_ROT_WALL = 1.2f; // use with zero feedback gain
     private float B_DAMP_ROT_WALL = 0f; // rely on embedded HL_SetTarget stability
@@ -143,7 +143,7 @@ public class RHBCtrlBike : MonoBehaviour
 
     // Throttle - additional haptics settings:
     public float K_STIFF_RADIAL_THROT_AUTO = 5000f; // makes handles essentially rigid
-    public float B_DAMP_RADIAL_BASE = 0f; // rely on embedded HL_SetTarget stability 
+    public float B_DAMP_RADIAL_BASE = 1.2f; // 0f; // rely on embedded HL_SetTarget stability 
 
     // Steering - BASELINE haptics settings:
     public const float POS_ROT_BASE = 0f;
@@ -539,7 +539,6 @@ public class RHBCtrlBike : MonoBehaviour
 
                 StartSystem(() =>
                 {
-
                     // Disengage brakes:
                     bool success = SetBrakesRHB(DISENGAGE_BRAKE, DISENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
 
@@ -560,57 +559,7 @@ public class RHBCtrlBike : MonoBehaviour
         connectionThread.Start();
     }
 
-    /*
-    public void ConnectRHB()
-    {
-        const float CALL_DELAY_VALUE = 10f;
-
-        ////////////////////////////////////////////////////////////////////////////
-        // Start CONNECTION thread:
-        ////////////////////////////////////////////////////////////////////////////
-        
-        connectionTween?.Kill();
-        connectionTween = DOVirtual.DelayedCall(CALL_DELAY_VALUE, ReConnectRHB);
-
-        connectionThread?.Abort();
-        connectionThread = new Thread(() =>
-        {
-            mainThreadActionQueue.Enqueue(() =>
-            {
-                if (USE_STANDALONE_UI)
-                    BikeGameUI.instance.SetLoaderState(true);
-            });
-
-            // Establish RHB connection:
-            bool success = EstablishConnection();
-
-            mainThreadActionQueue.Enqueue(() =>
-            {
-                connectionTween?.Kill();
-
-                if (success)
-                {
-                    if (USE_STANDALONE_UI)
-                        BikeGameUI.instance.SetLoaderState(false);
-
-                    StartSystem(BikeGameUI.instance.OnConnect_PreUnityGame);
-                }
-                else
-                    ReConnectRHB();
-            });
-        });
-
-        connectionThread.Start();
-    }
-
-    private void ReConnectRHB()
-    {
-        if (RHBConnected)
-            StartSystem(BikeGameUI.instance.OnConnect_PreUnityGame);
-        else
-            ConnectRHB();
-    }
-    */
+    // ConnectRHB() and ReConnectRHB() removed 23.10.2025
 
     public void CalibrateRHB(UnityAction onComplete = null)
     {
@@ -694,12 +643,16 @@ public class RHBCtrlBike : MonoBehaviour
         // Motion routine (to baseline position / to home position) vars:
         ////////////////////////////////////////////////////////////////////////////
 
-        const int N_STEPS_MOTION_ROUTINE = 80;
+        const int N_STEPS_MOTION_ROUTINE = 40;
 
         bool motionRoutineActiveBaseline = false;
         bool motionRoutineActiveHome = false;
 
-        float pos_radial_routine_end = POS_RADIAL_MIN_OFFS;
+        float pos_rad_routine_start = 0; // dummy value
+        float pos_rot_routine_start = 0; // dummy value
+
+        float k_stiff_rad_routine = K_STIFF_RADIAL_THROT_MANUAL; // dummy value
+
         float factor_blend;
 
         ////////////////////////////////////////////////////////////////////////////
@@ -721,7 +674,24 @@ public class RHBCtrlBike : MonoBehaviour
         ////////////////////////////////////////////////////////////////////////////
         // Enforce "bike upright" constraint - CRITICAL: 
         ////////////////////////////////////////////////////////////////////////////
+        
         UnityMainThreadDispatcher.Instance().Enqueue(() => MotorbikeController.instance.uprightConstraintEnforce(ref UPRIGHT_CONSTR_ON)); // constraint flag (13.09.2025) 
+
+        //////////////////////////////////////////////////////////////////
+        // Motion routine end stiffness:
+        //////////////////////////////////////////////////////////////////
+
+        if (CASE_CTRL_MODE == CTRL_ASSISTED)
+        {
+            if (FACT_ASSIST_THROTTLE > 0f)
+                k_stiff_rad_routine = K_STIFF_RADIAL_THROT_AUTO;
+            else
+                k_stiff_rad_routine = K_STIFF_RADIAL_THROT_MANUAL;
+        }
+        else if (CASE_CTRL_MODE == CTRL_AUTO_STEER_AUTO_THROT)
+            k_stiff_rad_routine = K_STIFF_RADIAL_THROT_AUTO;
+        else // CASE_CTRL_MODE == CTRL_AUTO_STEER_MANUAL_THROT
+            k_stiff_rad_routine = K_STIFF_RADIAL_THROT_MANUAL;
 
         ////////////////////////////////////////////////////////////////////////////
         // Real-time loop:
@@ -801,12 +771,6 @@ public class RHBCtrlBike : MonoBehaviour
                 motionRoutineActiveBaseline = true;
 
                 //////////////////////////////////////////////////////////////////
-                // Start step counter:
-                //////////////////////////////////////////////////////////////////
-
-                step_count = 0;
-
-                //////////////////////////////////////////////////////////////////
                 // PERFORMANCE metrics - set up variables: 
                 //////////////////////////////////////////////////////////////////
 
@@ -819,6 +783,19 @@ public class RHBCtrlBike : MonoBehaviour
 
                 // Distance traveled during exercise:
                 MotorbikeController.instance.dist_traveled = 0f;
+
+                //////////////////////////////////////////////////////////////////
+                // Start step counter:
+                //////////////////////////////////////////////////////////////////
+
+                step_count = 0;
+
+                //////////////////////////////////////////////////////////////////
+                // Motion routine start positions: 
+                //////////////////////////////////////////////////////////////////
+
+                pos_rad_routine_start = distal_data.PositionR;
+                pos_rot_routine_start = distal_data.PositionP;
             }
 
             ////////////////////////////////////////////////////////////////////////////
@@ -836,12 +813,6 @@ public class RHBCtrlBike : MonoBehaviour
                 motionRoutineActiveHome = true;
 
                 //////////////////////////////////////////////////////////////////
-                // Start step counter:
-                //////////////////////////////////////////////////////////////////
-
-                step_count = 0;
-
-                //////////////////////////////////////////////////////////////////
                 // PERFORMANCE metrics: compute UNDERSTEER fraction
                 //////////////////////////////////////////////////////////////////
 
@@ -852,6 +823,19 @@ public class RHBCtrlBike : MonoBehaviour
                 /////////////////////////////////////////////////////////
 
                 DataManager.instance.isRaceStarted = false;
+
+                //////////////////////////////////////////////////////////////////
+                // Start step counter:
+                //////////////////////////////////////////////////////////////////
+
+                step_count = 0;
+
+                //////////////////////////////////////////////////////////////////
+                // Motion routine start positions: 
+                //////////////////////////////////////////////////////////////////
+
+                pos_rad_routine_start = distal_data.PositionR;
+                pos_rot_routine_start = distal_data.PositionP;
 
                 /////////////////////////////////////////////////////////
                 // Go back to menu and restart game
@@ -871,7 +855,6 @@ public class RHBCtrlBike : MonoBehaviour
 
             if (isExerciseStarted || motionRoutineActiveHome)
             {
-
                 ////////////////////////////////////////////////////////////////////////////
                 // Perform exercise:
                 //////////////////////////////////////////////////////////////////////////// 
@@ -920,11 +903,20 @@ public class RHBCtrlBike : MonoBehaviour
                     factor_blend = (float)step_count / N_STEPS_MOTION_ROUTINE;
 
                     // Motion step:
-                    MotionRoutineRHBSimpleStep(POS_RADIAL_THROT_ZERO_OFFS,
+                    float switch_end = 1f;
+
+                    MotionRoutineRHBBlendStep(
+                        pos_rad_routine_start, POS_RADIAL_THROT_ZERO_OFFS,
+                        pos_rot_routine_start, 0,
+                        K_STIFF_RADIAL_WALL, k_stiff_rad_routine,
+                        K_STIFF_ROT_WALL, K_STIFF_ROT_WALL,
+                        B_DAMP_RADIAL_WALL, B_DAMP_RADIAL_BASE, 
+                        B_DAMP_ROT_WALL, B_DAMP_ROT_WALL,
+                        0, switch_end,
                         factor_blend);
 
                     // Motion completion procedures:
-                    if (step_count == N_STEPS_MOTION_ROUTINE)
+                    if (step_count >= N_STEPS_MOTION_ROUTINE)
                     {
                         // Reset motion routine flags:
                         motionRoutineActiveBaseline = false;
@@ -934,9 +926,7 @@ public class RHBCtrlBike : MonoBehaviour
 
                         // Display section:
                         if (DISP_CONSOLE_ON)
-                        {
                             ExternalConsoleLogger.Log("RealTimeControlLoop(): COMPLETED motionRoutineActiveBaseline \n");
-                        }
                     }
                 }
 
@@ -950,11 +940,23 @@ public class RHBCtrlBike : MonoBehaviour
                     factor_blend = (float)step_count / N_STEPS_MOTION_ROUTINE;
 
                     // Motion step:
-                    MotionRoutineRHBSimpleStep(POS_RADIAL_MIN_OFFS,
+                    // MotionRoutineRHBSimpleStep(POS_RADIAL_MIN_OFFS,
+                    //    factor_blend);
+
+                    float switch_start = 1f;
+
+                    MotionRoutineRHBBlendStep(
+                        pos_rad_routine_start, POS_RADIAL_MIN_OFFS,
+                        pos_rot_routine_start, 0,
+                        k_stiff_rad_routine, K_STIFF_RADIAL_WALL,
+                        K_STIFF_ROT_WALL, K_STIFF_ROT_WALL,
+                        B_DAMP_RADIAL_BASE, B_DAMP_RADIAL_WALL,
+                        B_DAMP_ROT_WALL, B_DAMP_ROT_WALL,
+                        switch_start, 0,
                         factor_blend);
 
                     // Motion completion procedures:
-                    if (step_count == N_STEPS_MOTION_ROUTINE)
+                    if (step_count >= N_STEPS_MOTION_ROUTINE)
                     {
                         // Reset motion routine flags:
                         motionRoutineActiveHome = false;
@@ -964,10 +966,7 @@ public class RHBCtrlBike : MonoBehaviour
 
                         // Display section:
                         if (DISP_CONSOLE_ON)
-                        {
-                            // ExternalConsoleLogger.Log("RealTimeControlLoop(): motionRoutineActiveHome ENGAGE BRAKES success = [" + success + "]\n");
                             ExternalConsoleLogger.Log("RealTimeControlLoop(): COMPLETED motionRoutineActiveHome \n");
-                        }
                     }
                 }
             }
@@ -1043,6 +1042,7 @@ public class RHBCtrlBike : MonoBehaviour
         const int N_ATTEMPTS_MAX = 50;
         const int DELAY_START_EXERC_MSEC = 50;
 
+        // TODO: remove at a later date
         /*
         if (isExerciseStarted)
         {
@@ -1153,6 +1153,7 @@ public class RHBCtrlBike : MonoBehaviour
     {
         bool is_exerc_started;
 
+        // TODO: remove at a later date
         /*
         if (!isExerciseStarted)
         {
@@ -1532,6 +1533,7 @@ public class RHBCtrlBike : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
 
+    /*
     private bool MotionRoutineRHBSimple(float pos_rad_targ, int N_steps, int Dt_motion_msec)
     {
         bool success_all = true;
@@ -1551,6 +1553,7 @@ public class RHBCtrlBike : MonoBehaviour
 
         return success_all;
     }
+    */
 
     private bool MotionRoutineRHBSimpleStep(float pos_rad_targ, float factor_blend)
     {
@@ -1560,6 +1563,35 @@ public class RHBCtrlBike : MonoBehaviour
             factor_blend * K_STIFF_RADIAL_WALL, factor_blend * K_STIFF_ROT_WALL,
             B_DAMP_RADIAL_WALL, B_DAMP_ROT_WALL,
             factor_blend, factor_blend);
+
+        return success_step;
+    }
+
+    private bool MotionRoutineRHBBlendStep(
+        float pos_rad_start,     float pos_rad_end, 
+        float pos_rot_start,     float pos_rot_end,
+        float k_stiff_rad_start, float k_stiff_rad_end,
+        float k_stiff_rot_start, float k_stiff_rot_end,
+        float b_damp_rad_start,  float b_damp_rad_end,
+        float b_damp_rot_start,  float b_damp_rot_end,
+        float switch_start,      float switch_end,
+        float fact) // fact: blending factor (between 0 and 1)
+    {
+
+        float pos_rad = pos_rad_start + fact * (pos_rad_end - pos_rad_start);
+        float pos_rot = pos_rot_start + fact * (pos_rot_end - pos_rot_start);
+        float k_stiff_rad = k_stiff_rad_start + fact * (k_stiff_rad_end - k_stiff_rad_start);
+        float k_stiff_rot = k_stiff_rot_start + fact * (k_stiff_rot_end - k_stiff_rot_start);
+        float b_damp_rad = b_damp_rad_start + fact * (b_damp_rad_end - b_damp_rad_start);
+        float b_damp_rot = b_damp_rot_start + fact * (b_damp_rot_end - b_damp_rot_start);
+        float gain = switch_start + fact * (switch_end - switch_start);
+
+        bool success_step = SetTargetValidated(
+            IDX_TARG_BASE,
+            pos_rad, pos_rot,
+            k_stiff_rad, k_stiff_rot,
+            b_damp_rad,  b_damp_rot,
+            gain, gain);
 
         return success_step;
     }

@@ -4,6 +4,7 @@ using System.Timers;
 using System.Threading;
 using UnityEngine;
 using Articares.Distal;
+using PimDeWitte.UnityMainThreadDispatcher;
 
 public class DataManager : MonoBehaviour
 {
@@ -404,7 +405,7 @@ public class DataManager : MonoBehaviour
         dataFilePath        = DATA_FILE_DIR + dataFileName;
 
         // Create new DATA csv file:
-        SetupDataFile(dataFilePath);
+        UnityMainThreadDispatcher.Instance().Enqueue(() => SetupDataFile(dataFilePath));
 
         ////////////////////////////////////////////////////////////////
         // Set up PARAMETERS file:
@@ -414,13 +415,13 @@ public class DataManager : MonoBehaviour
         paramFilePath        = DATA_FILE_DIR + paramFileName;
 
         // Create new PARAMETERS csv file:
-        SetupParametersFile(paramFilePath);
+        UnityMainThreadDispatcher.Instance().Enqueue(() => SetupParametersFile(paramFilePath));
 
         ////////////////////////////////////////////////////////////////
         // Record PARAMETERS values in file:
         ////////////////////////////////////////////////////////////////
 
-        SaveParametersEntry(paramFilePath);
+        UnityMainThreadDispatcher.Instance().Enqueue(() => SaveParametersEntry(paramFilePath));
 
         ////////////////////////////////////////////////////////////////
         // 'Race started' flag:
