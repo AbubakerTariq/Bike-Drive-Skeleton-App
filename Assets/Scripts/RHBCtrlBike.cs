@@ -91,11 +91,11 @@ public class RHBCtrlBike : MonoBehaviour
     // SetExercise() parameters:
     //////////////////////////////////////////////////////////////////////////// 
 
-    private float OFFS_FORCE_RADIAL_INIT = 0f;
-    private float OFFS_TORQUE_ROT_INIT = 0f;
+    // private float OFFS_FORCE_RADIAL_INIT = 0f;
+    // private float OFFS_TORQUE_ROT_INIT = 0f;
 
     private bool SAFETY_TCP_APP_ON = false;
-    private bool STABILITY_SET_TARG_ON = true;
+    // private bool STABILITY_SET_TARG_ON = true;
 
     public const bool ENGAGE_BRAKE = false;
     public const bool DISENGAGE_BRAKE = true;
@@ -120,17 +120,15 @@ public class RHBCtrlBike : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     public float FORCE_GAIN_RADIAL = 9.0f;
-    public float FORCE_GAIN_ROT = 6.0f; // 14.0f; // Reduced gain for greater stability with ASSISTED and MANUAL control
+    public float FORCE_GAIN_ROT    = 6.0f; // 14.0f; // Reduced gain for greater stability with ASSISTED and MANUAL control
 
-    private float K_STIFF_RADIAL_WALL = 2500f; // use with zero feedback gain
-
-    // Extra damping to prevent limit cycles when handles contact physical limit
+    // NOTE: Extra damping to prevent limit cycles when handles contact physical limit
     // Normally should rely on embedded HL_SetTarget stability
-    // TODO: check why limit cycle suppression doesn't act in firmware (29.09.2025):
-    private float B_DAMP_RADIAL_WALL = 1.2f;
+    // private float K_STIFF_RADIAL_WALL = 5000f;  
+    private float B_DAMP_RADIAL_WALL  =   60f; // 0f to rely on embedded HL_SetTarget stability
 
-    private float K_STIFF_ROT_WALL = 1.2f; // use with zero feedback gain
-    private float B_DAMP_ROT_WALL = 0f; // rely on embedded HL_SetTarget stability
+    private float K_STIFF_ROT_WALL = 2.4f;  
+    private float B_DAMP_ROT_WALL  = 0.24f; // 0f to rely on embedded HL_SetTarget stability
 
     public float POS_RADIAL_MIN = 0.0145f;
     public float POS_RADIAL_MAX = 0.06f;
@@ -139,26 +137,26 @@ public class RHBCtrlBike : MonoBehaviour
     public float POS_RADIAL_MIN_OFFS;
 
     private float POS_ROT_MIN = -Mathf.PI / 2f;
-    private float POS_ROT_MAX = Mathf.PI / 2f;
+    private float POS_ROT_MAX =  Mathf.PI / 2f;
 
     // Throttle - additional haptics settings:
     public float K_STIFF_RADIAL_THROT_AUTO = 5000f; // makes handles essentially rigid
-    public float B_DAMP_RADIAL_BASE = 1.2f; // 0f; // rely on embedded HL_SetTarget stability 
+    public float B_DAMP_RADIAL_BASE        = 0f; // 0f to rely on embedded HL_SetTarget stability 
 
     // Steering - BASELINE haptics settings:
     public const float POS_ROT_BASE = 0f;
 
-    public float K_STIFF_ROT_BASE = 0.05f; // 0.1f; // 
-    public float B_DAMP_ROT_BASE = 0f; // rely on embedded HL_SetTarget stability
+    public float K_STIFF_ROT_BASE = 0.05f; // 0.1f;
+    public float B_DAMP_ROT_BASE  = 0f; // 0f to rely on embedded HL_SetTarget stability
 
     // Stiffness for TRACKING control
-    // NOTE: check stabilizing damping for K_STIFF_ROT_TRACKING + K_STIFF_ROT_BASE
+    // NOTE: check stabilizing damping for K_STIFF_ROT_TRACKING & K_STIFF_ROT_BASE
     // (use RHB ctrl params - stability v5b game settings 4-axis)
     public float K_STIFF_ROT_TRACKING = 2.2f;
-    public float B_DAMP_ROT_TRACKING = 0.05f; // 0.045f; // 0.040f; // 
+    public float B_DAMP_ROT_TRACKING  = 0f; // 0.2f; // 0f to rely on embedded HL_SetTarget stability 
 
     // Stiffness for ASSISTIVE control - fraction of TRACKING stiffness:
-    public float FRAC_ASSIST_STIFF = 0.5f; // 0.45f; // 0.35f; // 
+    public float FRAC_ASSIST_STIFF = 0.5f; // 0.45f; // 0.35f; 
 
     ////////////////////////////////////////////////////////////////////////////
     // CARE_PLATFORM controlled parameters - STEERING assistance:
@@ -308,7 +306,7 @@ public class RHBCtrlBike : MonoBehaviour
     // NEW: RACE DIRECTION (29.09.2025)
     //////////////////////////////////////////////////////////////////////////// 
 
-    public const int DIR_CW = +1; // clockwise direction
+    public const int DIR_CW  = +1; // clockwise direction
     public const int DIR_CCW = -1; // counterclockwise direction 
 
     public int RACE_DIRECTION;
@@ -318,7 +316,7 @@ public class RHBCtrlBike : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     // UNDERSTEER parameters:
-    public const float FRAC_UNDERSTEER_LEVEL_UP_MAX = 0.33f; // if understeer fraction is less than this, go up one level
+    public const float FRAC_UNDERSTEER_LEVEL_UP_MAX   = 0.33f; // if understeer fraction is less than this, go up one level
     public const float FRAC_UNDERSTEER_LEVEL_DOWN_MIN = 0.67f; // if understeer fraction is more than this, go down one level
 
     public float frac_understeer = -1f;
@@ -643,13 +641,15 @@ public class RHBCtrlBike : MonoBehaviour
         // Motion routine (to baseline position / to home position) vars:
         ////////////////////////////////////////////////////////////////////////////
 
-        const int N_STEPS_MOTION_ROUTINE = 40;
+        const int DT_MOTION_ROUTINE_MSEC = 1000;
+        const int DECIM_MOTION_ROUTINE = 1;
+        int N_STEPS_MOTION_ROUTINE = DT_MOTION_ROUTINE_MSEC / DT_STEP_APP_MSEC / DECIM_MOTION_ROUTINE;
 
         bool motionRoutineActiveBaseline = false;
         bool motionRoutineActiveHome = false;
 
-        float pos_rad_routine_start = 0; // dummy value
-        float pos_rot_routine_start = 0; // dummy value
+        float pos_radial_routine_start = 0; // dummy value
+        float pos_rot_routine_start    = 0; // dummy value
 
         float k_stiff_rad_routine = K_STIFF_RADIAL_THROT_MANUAL; // dummy value
 
@@ -794,7 +794,7 @@ public class RHBCtrlBike : MonoBehaviour
                 // Motion routine start positions: 
                 //////////////////////////////////////////////////////////////////
 
-                pos_rad_routine_start = distal_data.PositionR;
+                pos_radial_routine_start = distal_data.PositionR;
                 pos_rot_routine_start = distal_data.PositionP;
             }
 
@@ -831,10 +831,16 @@ public class RHBCtrlBike : MonoBehaviour
                 step_count = 0;
 
                 //////////////////////////////////////////////////////////////////
+                // Set feedback gains to zero:
+                //////////////////////////////////////////////////////////////////
+                
+                SetGainRHB(0f, 0f);
+
+                //////////////////////////////////////////////////////////////////
                 // Motion routine start positions: 
                 //////////////////////////////////////////////////////////////////
 
-                pos_rad_routine_start = distal_data.PositionR;
+                pos_radial_routine_start = distal_data.PositionR;
                 pos_rot_routine_start = distal_data.PositionP;
 
                 /////////////////////////////////////////////////////////
@@ -897,22 +903,23 @@ public class RHBCtrlBike : MonoBehaviour
                 // Perform motion to patient's BASELINE (zero throttle) or HOME position:
                 //////////////////////////////////////////////////////////////////
 
-                else if (motionRoutineActiveBaseline)
+                else if (motionRoutineActiveBaseline && step_count % DECIM_MOTION_ROUTINE == 0)
                 {
                     // Blend factor for gains & stiffness values:
                     factor_blend = (float)step_count / N_STEPS_MOTION_ROUTINE;
 
                     // Motion step:
-                    float switch_end = 1f;
+                    float switch_start = 1f;
+                    float switch_end   = 1f;
 
                     MotionRoutineRHBBlendStep(
-                        pos_rad_routine_start, POS_RADIAL_THROT_ZERO_OFFS,
+                        pos_radial_routine_start, POS_RADIAL_THROT_ZERO_OFFS,
                         pos_rot_routine_start, 0,
-                        K_STIFF_RADIAL_WALL, k_stiff_rad_routine,
+                        0, k_stiff_rad_routine,
                         K_STIFF_ROT_WALL, K_STIFF_ROT_WALL,
-                        B_DAMP_RADIAL_WALL, B_DAMP_RADIAL_BASE, 
+                        B_DAMP_RADIAL_WALL, B_DAMP_RADIAL_WALL, 
                         B_DAMP_ROT_WALL, B_DAMP_ROT_WALL,
-                        0, switch_end,
+                        switch_start, switch_end,
                         factor_blend);
 
                     // Motion completion procedures:
@@ -934,25 +941,22 @@ public class RHBCtrlBike : MonoBehaviour
                 // Perform motion to patient's HOME position:
                 //////////////////////////////////////////////////////////////////
 
-                else if (motionRoutineActiveHome)
+                else if (motionRoutineActiveHome && step_count % DECIM_MOTION_ROUTINE == 0)
                 {
                     // Blend factor for gains & stiffness values:
                     factor_blend = (float)step_count / N_STEPS_MOTION_ROUTINE;
 
-                    // Motion step:
-                    // MotionRoutineRHBSimpleStep(POS_RADIAL_MIN_OFFS,
-                    //    factor_blend);
-
                     float switch_start = 1f;
+                    float switch_end   = 1f;
 
                     MotionRoutineRHBBlendStep(
-                        pos_rad_routine_start, POS_RADIAL_MIN_OFFS,
+                        pos_radial_routine_start, POS_RADIAL_MIN_OFFS,
                         pos_rot_routine_start, 0,
-                        k_stiff_rad_routine, K_STIFF_RADIAL_WALL,
+                        k_stiff_rad_routine, k_stiff_rad_routine,
                         K_STIFF_ROT_WALL, K_STIFF_ROT_WALL,
-                        B_DAMP_RADIAL_BASE, B_DAMP_RADIAL_WALL,
+                        B_DAMP_RADIAL_WALL, B_DAMP_RADIAL_WALL,
                         B_DAMP_ROT_WALL, B_DAMP_ROT_WALL,
-                        switch_start, 0,
+                        switch_start, switch_end,
                         factor_blend);
 
                     // Motion completion procedures:
@@ -961,7 +965,7 @@ public class RHBCtrlBike : MonoBehaviour
                         // Reset motion routine flags:
                         motionRoutineActiveHome = false;
 
-                        // Engage brakes:
+                        // Engage brakes (removed 21.10.2025):
                         // bool success = SetBrakesRHB(ENGAGE_BRAKE, ENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
 
                         // Display section:
@@ -1533,60 +1537,26 @@ public class RHBCtrlBike : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
 
-    /*
-    private bool MotionRoutineRHBSimple(float pos_rad_targ, int N_steps, int Dt_motion_msec)
-    {
-        bool success_all = true;
-        bool success_step;
-
-        for (int step_count = 0; step_count <= N_steps; step_count++)
-        {
-            float factor_blend = (float)step_count / N_steps;
-
-            success_step = MotionRoutineRHBSimpleStep(pos_rad_targ, factor_blend);
-
-            if (success_all && !success_step)
-                success_all = false;
-
-            Thread.Sleep(Dt_motion_msec / N_steps);
-        }
-
-        return success_all;
-    }
-    */
-
-    private bool MotionRoutineRHBSimpleStep(float pos_rad_targ, float factor_blend)
-    {
-        bool success_step = SetTargetValidated(
-            IDX_TARG_BASE,
-            pos_rad_targ, POS_ROT_BASE,
-            factor_blend * K_STIFF_RADIAL_WALL, factor_blend * K_STIFF_ROT_WALL,
-            B_DAMP_RADIAL_WALL, B_DAMP_ROT_WALL,
-            factor_blend, factor_blend);
-
-        return success_step;
-    }
-
     private bool MotionRoutineRHBBlendStep(
-        float pos_rad_start,     float pos_rad_end, 
-        float pos_rot_start,     float pos_rot_end,
-        float k_stiff_rad_start, float k_stiff_rad_end,
-        float k_stiff_rot_start, float k_stiff_rot_end,
-        float b_damp_rad_start,  float b_damp_rad_end,
+        float pos_radial_start,     float pos_rad_end, 
+        float pos_rot_start,        float pos_rot_end,
+        float k_stiff_radial_start, float k_stiff_rad_end,
+        float k_stiff_rot_start,    float k_stiff_rot_end,
+        float b_damp_radial_start,  float b_damp_rad_end,
         float b_damp_rot_start,  float b_damp_rot_end,
         float switch_start,      float switch_end,
         float fact) // fact: blending factor (between 0 and 1)
     {
 
-        float pos_rad = pos_rad_start + fact * (pos_rad_end - pos_rad_start);
+        float pos_rad = pos_radial_start + fact * (pos_rad_end - pos_radial_start);
         float pos_rot = pos_rot_start + fact * (pos_rot_end - pos_rot_start);
-        float k_stiff_rad = k_stiff_rad_start + fact * (k_stiff_rad_end - k_stiff_rad_start);
+        float k_stiff_rad = k_stiff_radial_start + fact * (k_stiff_rad_end - k_stiff_radial_start);
         float k_stiff_rot = k_stiff_rot_start + fact * (k_stiff_rot_end - k_stiff_rot_start);
-        float b_damp_rad = b_damp_rad_start + fact * (b_damp_rad_end - b_damp_rad_start);
+        float b_damp_rad = b_damp_radial_start + fact * (b_damp_rad_end - b_damp_radial_start);
         float b_damp_rot = b_damp_rot_start + fact * (b_damp_rot_end - b_damp_rot_start);
         float gain = switch_start + fact * (switch_end - switch_start);
 
-        bool success_step = SetTargetValidated(
+        bool success_step = distalRobot.HL_SetTarget( // SetTargetValidated(
             IDX_TARG_BASE,
             pos_rad, pos_rot,
             k_stiff_rad, k_stiff_rot,

@@ -66,10 +66,7 @@ public class MotorbikeController : MonoBehaviour
     public const float FACT_ASSIST_STEER_MAX      = 0.9f;
 
     // Sensitivity of bike steering to RHB's ASSISTED control stiffness
-    // TODO: test this formula for the different ASSISTANCE & THROTTLE levels (25.09.2025)
-    // OFFS_FACT_ASSIST_STEER = -1.55f*ReHandyBotController.instance.FRAC_ASSIST_STIFF + 1.0f;
-
-    public const float OFFS_FACT_ASSIST_STEER = 0.5f; // 0.25f; // 
+    public const float OFFS_FACT_ASSIST_STEER = 0.5f; // 0.25f; 
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - Throttle (CRITICAL):

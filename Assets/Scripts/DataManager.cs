@@ -21,17 +21,17 @@ public class DataManager : MonoBehaviour
     // Data storage vars:
     /////////////////////////////////////////////////////////////////////////
 
-    public string FILE_EXT = ".csv";
+    private string FILE_EXT = ".csv";
 
     // DATA file name identifiers:
-    public string DATA_FILE_DIR = "_data_rhb_unity_bike/";
-    public string DATA_FILENAME_DEF = "data_rhb_bike_";
+    private string DATA_FILE_DIR = "C:/_data_rhb_unity_bike/";
+    private string DATA_FILENAME_DEF = "data_rhb_bike_";
 
     // DATA file: variable to store file path of the 
     private string dataFilePath;
 
     // PARAMETER file name identifiers:
-    public string PARAM_FILENAME_DEF = "param_rhb_bike_";
+    private string PARAM_FILENAME_DEF = "param_rhb_bike_";
 
     // PARAMETER file: variable to store file path of the 
     private string paramFilePath;
