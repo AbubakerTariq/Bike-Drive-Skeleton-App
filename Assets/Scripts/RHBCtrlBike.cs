@@ -415,9 +415,7 @@ public class RHBCtrlBike : MonoBehaviour
             while (BikeGameUI.instance == null)
                 Task.Delay(10);
 
-        // while (!is_rhb_connected || ++connect_count <= N_ATTEMPTS_CONNECT) {
-            ConnectRHBSimple();
-        // }
+        ConnectRHBSimple(); // NOTE: this sets RHBConnected - CRITICAL
 
         if (RHBConnected)
         {
@@ -461,7 +459,8 @@ public class RHBCtrlBike : MonoBehaviour
 
         rhb_connected = distalRobot.EstablishConnection(ServerIP, ServerPort);
 
-        // This cycle of attempts actually delays establishing teh connection (25.10.2025):
+        // This cycle of attempts actually delays establishing the connection (25.10.2025)
+        // TODO: remove at a later date
         /*
         for (int i = 0; i < MAX_ATTEMPTS; i++)
         {
@@ -527,8 +526,6 @@ public class RHBCtrlBike : MonoBehaviour
 
         bool connect_on = false;
         bool brakes_disengaged = false;
-        
-        // const float CALL_DELAY_VALUE = 0.1f;
 
         connectionThread = new Thread(() =>
         {
@@ -567,17 +564,6 @@ public class RHBCtrlBike : MonoBehaviour
                 BikeGameUI.instance.OnConnect_PreUnityGame();
             }
         });
-
-        /*
-            else
-            {
-                connectionThread?.Join();
-                connectionTween?.Kill();
-
-                UnityMainThreadDispatcher.Instance().Enqueue(() => connectionTween = DOVirtual.DelayedCall(CALL_DELAY_VALUE, ConnectRHBSimple));
-            }
-        });
-        */
 
         connectionThread.Start();
     }
@@ -721,8 +707,10 @@ public class RHBCtrlBike : MonoBehaviour
             else
                 k_stiff_rad_routine = K_STIFF_RADIAL_THROT_MANUAL;
         }
+
         else if (CASE_CTRL_MODE == CTRL_AUTO_STEER_AUTO_THROT)
             k_stiff_rad_routine = K_STIFF_RADIAL_THROT_AUTO;
+
         else // CASE_CTRL_MODE == CTRL_AUTO_STEER_MANUAL_THROT
             k_stiff_rad_routine = K_STIFF_RADIAL_THROT_MANUAL;
 
@@ -1001,7 +989,7 @@ public class RHBCtrlBike : MonoBehaviour
                         // Reset motion routine flags:
                         motionRoutineActiveHome = false;
 
-                        // Engage brakes (removed 21.10.2025):
+                        // Engage brakes (removed 21.10.2025)
                         // bool success = SetBrakesRHB(ENGAGE_BRAKE, ENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
 
                         // Display section:
@@ -1062,11 +1050,7 @@ public class RHBCtrlBike : MonoBehaviour
 
         else
         {
-            // Debug.Log("is exercise started: " + is_exerc_started);
-
              StopExerciseRHB(ref is_exerc_started);
-
-            // Debug.Log("is exercise started new: " + is_exerc_started_new);
 
             // Display section:
             if (DISP_CONSOLE_ON)
@@ -1200,7 +1184,6 @@ public class RHBCtrlBike : MonoBehaviour
             if (DISP_CONSOLE_ON)
             {
                 ExternalConsoleLogger.Log(" ");
-                ExternalConsoleLogger.Log("....................................................................");
                 ExternalConsoleLogger.Log("StopExercise(): !isExerciseStarted  - return \n");
             }
 
@@ -1414,14 +1397,12 @@ public class RHBCtrlBike : MonoBehaviour
 
         bool success_set_target;
 
-        // if (isExerciseStarted)
-            success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
-                POS_RADIAL_THROT_ZERO_OFFS, pos_rot_eq_ref,
-                k_stiff_radial_throt, k_stiff_rot_steer,
-                B_DAMP_RADIAL_WALL, b_damp_rot_steer, // was B_DAMP_RADIAL_BASE, b_damp_rot_steer, (25.10.2025)
-                SWITCH_RADIAL, SWITCH_ROT);
-        // else
-        //    success_set_target = false;
+        // NOTE: removed problematic if (isExerciseStarted) condition (25.10.2025)
+        success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
+            POS_RADIAL_THROT_ZERO_OFFS, pos_rot_eq_ref,
+            k_stiff_radial_throt, k_stiff_rot_steer,
+            B_DAMP_RADIAL_WALL, b_damp_rot_steer, // was B_DAMP_RADIAL_BASE, b_damp_rot_steer, (25.10.2025)
+            SWITCH_RADIAL, SWITCH_ROT);
     }
 
     private void CmdSetTarget_FeedbackCtrl_WithLimit(
@@ -1484,15 +1465,13 @@ public class RHBCtrlBike : MonoBehaviour
 
         bool success_set_target;
 
-        // if (isExerciseStarted)
-            success_set_target = distalRobot.HL_SetTarget(  
-                IDX_TARG_BASE,
-                POS_RADIAL_THROT_ZERO_OFFS, pos_eq_rot_equiv, 
-                k_stiff_radial_throt, k_stiff_rot_equiv,
-                B_DAMP_RADIAL_WALL, b_damp_rot_equiv, // was B_DAMP_RADIAL_BASE, b_damp_rot_equiv,  (25.10.2025)
-                SWITCH_RADIAL, SWITCH_ROT);
-        // else
-        //    success_set_target = false;
+        // NOTE: removed problematic if (isExerciseStarted) condition (25.10.2025)
+        success_set_target = distalRobot.HL_SetTarget(  
+            IDX_TARG_BASE,
+            POS_RADIAL_THROT_ZERO_OFFS, pos_eq_rot_equiv, 
+            k_stiff_radial_throt, k_stiff_rot_equiv,
+            B_DAMP_RADIAL_WALL, b_damp_rot_equiv, // was B_DAMP_RADIAL_BASE, b_damp_rot_equiv,  (25.10.2025)
+            SWITCH_RADIAL, SWITCH_ROT);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -1661,7 +1640,7 @@ public class RHBCtrlBike : MonoBehaviour
         // Launch real-time control thread - CRITICAL:
         ////////////////////////////////////////////////////////////////////////////
 
-        if (!enabledControlThread && RHBConnected)
+        if (!enabledControlThread)
         {
             enabledControlThread = true;
 

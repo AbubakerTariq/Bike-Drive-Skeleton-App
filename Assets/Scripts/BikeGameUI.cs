@@ -340,27 +340,6 @@ public class BikeGameUI : MonoBehaviour
         // Enable CALIBRATION:
         ////////////////////////////////////////////////
 
-        /*
-            if (Input.GetKeyDown(KeyCode.Return)) { 
-                // Run Calibration if required:
-                if (!RHBCtrlBike.instance.isCalibrated)
-                    RHBCtrlBike.instance.CalibrateRHB(RHBCtrlBike.instance.OnCalibrate_CmdStartExercise);
-
-                // Only post-calibration routine:
-                else
-                    RHBCtrlBike.instance.OnCalibrate_CmdStartExercise();
-
-                // Display section:
-                if (DISP_CONSOLE_UI_ON) 
-                    ExternalConsoleLogger.Log("SelectGameSettings_PreUnityGame(): KeyCode <Enter>, OnCalibrate_CmdStartExercise() \n");
-            }
-            else
-                return;
-
-            RHBCtrlBike.instance.STATE_PREGAME = RHBCtrlBike.ST_RHB_READY;
-            onComplete.Invoke();
-        */
-
         else if (RHBCtrlBike.instance.STATE_PREGAME == RHBCtrlBike.ST_CALIBRATE)
         {
             if (!RHBCtrlBike.instance.isCalibrated)
@@ -439,7 +418,6 @@ public class BikeGameUI : MonoBehaviour
 
     public void SetLoaderState(bool state)
     {
-        // Debug.Log("Called SetLoaderState");
         UnityMainThreadDispatcher.Instance().Enqueue(() => RHBCtrlBike.instance.loader.SetActive(state));
     }
 
