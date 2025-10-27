@@ -405,12 +405,6 @@ public class MotorbikeController : MonoBehaviour
         thisTransform = GetComponent<Transform>();
         rigid_body = GetComponent<Rigidbody>();
         rigid_body.centerOfMass = com;
-
-        // Safety catch: wait for class instances to build (21.10.2025):
-        /*
-        while (RHBCtrlBike.instance == null)
-            Task.Delay(10);
-        */
     }
 
     ////////////////////////////////////////////////////////////////////////////

@@ -367,12 +367,6 @@ public class DataManager : MonoBehaviour
         RHBCtrlBike.instance.OnExerciseStop += StopDataRecording;
     }
 
-    // This is for usage for SetOffsetForces command, currently being called with dummy values
-    private void SetOffsetForces()
-    {
-        RHBCtrlBike.instance.SetOffsetForcesRHB(0f, 0f);
-    }
-
     private void Destroy()
     {
         StopDataRecording();
@@ -451,7 +445,7 @@ public class DataManager : MonoBehaviour
 
     private void StopDataRecording()
     {
-        threadTimerData?.Abort();
+        threadTimerData?.Join(); // removed unsafe Abort() call (27.10.2025)
         timerData?.Stop();
         timerData?.Dispose();
     }

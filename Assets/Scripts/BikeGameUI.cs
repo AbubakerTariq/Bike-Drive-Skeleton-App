@@ -50,11 +50,21 @@ public class BikeGameUI : MonoBehaviour
 
         if (RHBCtrlBike.instance.STATE_PREGAME == RHBCtrlBike.ST_SELECT_BIKE_TYPE)
         {
-            SetLoaderText(
-               "CLICK on this screen and \n\n" +
-               "Select BIKE TYPE: \n\n" +
-               "PRO bike: hit [Enter] \n" +
-               "Beginner: hit [B]");
+            string str_offset_force_cmd_old = 
+                "WARNING: \n" +
+                "SetOffsetForces() modified for OLD firmware formulas!\n" +
+                "Verify OLD firmware version is installed! \n\n";
+
+            string str_initial_menu = 
+                "CLICK on this screen and \n\n" +
+                "Select BIKE TYPE: \n\n" +
+                "PRO bike: hit [Enter] \n" +
+                "Beginner: hit [B]";
+
+            if (RHBCtrlBike.USE_OFFSET_FORCE_CMD_OLD)
+                SetLoaderText(str_offset_force_cmd_old + str_initial_menu);
+            else
+                SetLoaderText(str_initial_menu); 
         }
     }
 
@@ -330,8 +340,7 @@ public class BikeGameUI : MonoBehaviour
         // Enable CALIBRATION:
         ////////////////////////////////////////////////
 
-        else if (RHBCtrlBike.instance.STATE_PREGAME == RHBCtrlBike.ST_CALIBRATE)
-        {
+        /*
             if (Input.GetKeyDown(KeyCode.Return)) { 
                 // Run Calibration if required:
                 if (!RHBCtrlBike.instance.isCalibrated)
@@ -350,36 +359,75 @@ public class BikeGameUI : MonoBehaviour
 
             RHBCtrlBike.instance.STATE_PREGAME = RHBCtrlBike.ST_RHB_READY;
             onComplete.Invoke();
+        */
+
+        else if (RHBCtrlBike.instance.STATE_PREGAME == RHBCtrlBike.ST_CALIBRATE)
+        {
+            if (!RHBCtrlBike.instance.isCalibrated)
+            {
+                // Task.Delay(10);
+
+                if (Input.GetKeyDown(KeyCode.Return))
+                {
+                    // Display section:
+                    if (DISP_CONSOLE_UI_ON)
+                        ExternalConsoleLogger.Log("SelectGameSettings_PreUnityGame(): ST_CALIBRATE KeyCode <Enter> \n");
+
+                    // Attempt calibration of axes and sensors:
+                    if (!RHBCtrlBike.instance.CalibrateRHB())
+                        return;
+
+                    // Attempt engaging brakes if required:
+                    if (RHBCtrlBike.USE_CALIBRATION_BRAKING)
+                    {
+                        if (!RHBCtrlBike.instance.SetBrakesRHB(
+                                RHBCtrlBike.ENGAGE_BRAKE,
+                                RHBCtrlBike.ENGAGE_BRAKE,
+                                RHBCtrlBike.N_ATTEMPTS_BRAKE,
+                                RHBCtrlBike.DELAY_BRAKE_MSEC))
+
+                            return;
+                    }
+                    
+                    // Calibration successful:
+                    RHBCtrlBike.instance.isCalibrated = true;
+                }
+            }
+            else
+            {        
+                // Only post-calibration routine:
+                RHBCtrlBike.instance.OnCalibrate_CmdStartExercise();
+
+                RHBCtrlBike.instance.STATE_PREGAME = RHBCtrlBike.ST_RHB_READY;
+                onComplete.Invoke();
+            }
         }
 
         ////////////////////////////////////////////////
         // Enable START EXERCISE:
         ////////////////////////////////////////////////
 
-        else {
+        else // RHBCtrlBike.instance.STATE_PREGAME == RHBCtrlBike.ST_RHB_READY
+        { 
+            Task.Delay(10);
+
             if (Input.GetKeyDown(KeyCode.Return)) {
 
                 bool is_exerc_started = RHBCtrlBike.instance.isExerciseStarted;
                 
                 // Toggle exercise state:
-                bool is_exerc_started_new = RHBCtrlBike.instance.ToggleExerciseRHB(is_exerc_started);
+                RHBCtrlBike.instance.ToggleExerciseRHB(ref is_exerc_started);
 
-                // 'Stop exercise' flag: if legit, reset pregame state:
-                /*
-                if (is_exerc_started && !is_exerc_started_new)
-                    RHBCtrlBike.instance.STATE_PREGAME = RHBCtrlBike.ST_SELECT_BIKE_TYPE;
-                */
-
-                RHBCtrlBike.instance.isExerciseStarted = is_exerc_started_new;
+                RHBCtrlBike.instance.isExerciseStarted = is_exerc_started;
 
                 // Display section:
                 if (DISP_CONSOLE_UI_ON)
                     ExternalConsoleLogger.Log("SelectGameSettings_PreUnityGame(): KeyCode <Enter>, ToggleExerciseRHB() \n");
+
+                onComplete.Invoke();
             }
             else
                 return;
-
-            onComplete.Invoke();
         }
     }
 

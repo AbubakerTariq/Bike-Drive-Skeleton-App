@@ -83,7 +83,6 @@ public class RHBCtrlBike : MonoBehaviour
     public const int ST_SET_FACT_ASSIST_THROTTLE = 4;
     public const int ST_CALIBRATE = 5;
     public const int ST_RHB_READY = 6;
-    // public const int ST_EXERCISE_ACTIVE = 7;
 
     public int STATE_PREGAME = ST_SELECT_BIKE_TYPE; // initial state for UNITY_GAME procedures
 
@@ -105,7 +104,7 @@ public class RHBCtrlBike : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
 
     public const int NUM_TARGETS = 1;
-    private const byte IDX_TARG_BASE = 1;
+    public const byte IDX_TARG_BASE = 1;
 
     ////////////////////////////////////////////////////////////////////////////
     // Object instances:
@@ -224,7 +223,9 @@ public class RHBCtrlBike : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     // RHB info related variables:
     ////////////////////////////////////////////////////////////////////////////
-    private bool RHBConnected => distalRobot.is_device_connected;
+    
+    private bool RHBConnected = false; // was => distalRobot.is_device_connected;
+
     public DistalComm.ExerciseData distal_data => distalRobot.DistalData;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -339,8 +340,24 @@ public class RHBCtrlBike : MonoBehaviour
     // Brake variables:
     ////////////////////////////////////////////////////////////////////////////
 
-    const int N_ATTEMPTS_BRAKE = 50;
-    const int DELAY_BRAKE_MSEC = 20;
+    public const int N_ATTEMPTS_BRAKE = 10;
+    public const int DELAY_BRAKE_MSEC = 50;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Option to engage / disengage brakes after calibration - CRITICAL (24.10.2025):
+    ////////////////////////////////////////////////////////////////////////////
+
+    public const bool USE_CALIBRATION_BRAKING = true;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Option to use OLD offset force formulas in firmware - CRITICAL - use with care (24.10.2025):
+    ////////////////////////////////////////////////////////////////////////////
+
+    public const bool USE_OFFSET_FORCE_CMD_OLD = false;
+
+    // Force feedback gains applicable to current control CASE:
+    float gain_force_case_radial = 0f;
+    float gain_force_case_rot = 0f;
 
     ////////////////////////////////////////////////////////////////////////////
     // Loader variables - TODO: why don't they work if placed in BikeGameUI?
@@ -352,12 +369,10 @@ public class RHBCtrlBike : MonoBehaviour
     // [SerializeField] public GameObject exerciseGuidelineText;
     [SerializeField] public TMP_Text loaderText;
 
-    int connect_count = 0; // connection attempts counter - for debugging
-
     ////////////////////////////////////////////////////////////////////////////
     // Display variables:
     ////////////////////////////////////////////////////////////////////////////
-
+    
     const bool DISP_RT_LOOP_ON = true;
     const bool DISP_CONSOLE_ON = true;
 
@@ -400,18 +415,27 @@ public class RHBCtrlBike : MonoBehaviour
             while (BikeGameUI.instance == null)
                 Task.Delay(10);
 
-        // ConnectRHB();
-        ConnectRHBSimple();
+        // while (!is_rhb_connected || ++connect_count <= N_ATTEMPTS_CONNECT) {
+            ConnectRHBSimple();
+        // }
 
-        while (mainThreadActionQueue.Count > 0)
-            mainThreadActionQueue.Dequeue().Invoke();
+        if (RHBConnected)
+        {
+            while (mainThreadActionQueue.Count > 0)
+                mainThreadActionQueue.Dequeue().Invoke();
+        }
+        else if (DISP_CONSOLE_ON)
+        {
+            ExternalConsoleLogger.Log("__________________________________________");
+            ExternalConsoleLogger.Log("RHBCtrlBike() CONNECTION FAILED \n");
+        }
     }
 
     private void OnApplicationQuit()
     {
         // Destroy connnection thread:
-        connectionThread?.Abort();
-        connectionTween?.Kill();
+        connectionThread?.Join(); // removed unsafe Abort() call
+        connectionTween.Kill();
 
         // Destroy real-time control thread:
         enabledControlThread = false;
@@ -427,25 +451,29 @@ public class RHBCtrlBike : MonoBehaviour
         distalRobot = null;
         instance = null;
     }
-    private bool EstablishConnection(UnityAction onComplete = null)
+
+    private void EstablishConnection(ref bool rhb_connected, UnityAction onComplete = null)
     {
-        if (RHBConnected)
+        if (rhb_connected)
         {
             onComplete?.Invoke();
-            return true;
         }
 
+        rhb_connected = distalRobot.EstablishConnection(ServerIP, ServerPort);
+
+        // This cycle of attempts actually delays establishing teh connection (25.10.2025):
+        /*
         for (int i = 0; i < MAX_ATTEMPTS; i++)
         {
-            bool success = distalRobot.EstablishConnection(ServerIP, ServerPort);
+            rhb_connected = distalRobot.EstablishConnection(ServerIP, ServerPort);
 
-            if (success)
+            if (rhb_connected)
             {
                 onComplete?.Invoke();
                 break;
             }
         }
-        return RHBConnected;
+        */
     }
 
     private void StartSystem(UnityAction onComplete = null)
@@ -477,105 +505,110 @@ public class RHBCtrlBike : MonoBehaviour
 
     public void ConnectRHBSimple()
     {
-        const float CALL_DELAY_VALUE = 1.0f;
+        //////////////////////////////////////////////////////////////////
+        // Activate loader:
+        //////////////////////////////////////////////////////////////////
 
+        if (USE_STANDALONE_UI)
+            BikeGameUI.instance.SetLoaderState(true);
+
+        // Display section:
         if (DISP_CONSOLE_ON)
-        {
-            ExternalConsoleLogger.Log("__________________________________________");
-            ExternalConsoleLogger.Log("ConnectRHBSimple() call count [" + connect_count++ + "]");
-        }
+            ExternalConsoleLogger.Log("ConnectRHBSimple() set loader");
 
         ////////////////////////////////////////////////////////////////////////////
         // Start CONNECTION thread:
         ////////////////////////////////////////////////////////////////////////////
 
-        connectionThread?.Abort();
+        // connectionThread?.Abort(); // removed unsafe Abort() call (27.10.2025)
+
+        const int N_ATTEMPTS_CONNECT = 5;
+        int connect_count = 0;
+
+        bool connect_on = false;
+        bool brakes_disengaged = false;
+        
+        // const float CALL_DELAY_VALUE = 0.1f;
+
         connectionThread = new Thread(() =>
         {
-            //////////////////////////////////////////////////////////////////
-            // Activate loader:
-            //////////////////////////////////////////////////////////////////
-
-            if (USE_STANDALONE_UI)
-                BikeGameUI.instance.SetLoaderState(true);
-
-            // Display section:
-            if (DISP_CONSOLE_ON)
-                ExternalConsoleLogger.Log("ConnectRHBSimple() set loader");
-
-            //////////////////////////////////////////////////////////////////
-            // Attempt to establish RHB connection:
-            //////////////////////////////////////////////////////////////////
-
-            EstablishConnection(); // NOTE: this sets RHBConnected - no need for return value
-
-            // Display section:
-            if (DISP_CONSOLE_ON)
+            while (!(connect_on && brakes_disengaged) && ++connect_count <= N_ATTEMPTS_CONNECT)
             {
-                if (RHBConnected)
-                    ExternalConsoleLogger.Log("ConnectRHBSimple() result: CONNECTED \n");
+                if (DISP_CONSOLE_ON)
+                    ExternalConsoleLogger.Log("ConnectRHBSimple() call count [" + connect_count + "]");
+
+                //////////////////////////////////////////////////////////////////
+                // Attempt to establish RHB connection:
+                //////////////////////////////////////////////////////////////////
+
+                if (!connect_on)
+                    EstablishConnection(ref connect_on);
+
+                //////////////////////////////////////////////////////////////////
+                // Next action: start system or make new connection attempt
+                //////////////////////////////////////////////////////////////////
+
                 else
-                    ExternalConsoleLogger.Log("ConnectRHBSimple() result: MAKE NEW ATTEMPT \n");
-            }
+                    StartSystem(() =>
+                    {
+                        brakes_disengaged = SetBrakesRHB(DISENGAGE_BRAKE, DISENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
+                    });
+            } // end while()
 
-            //////////////////////////////////////////////////////////////////
-            // Next action: start system or make new connection attempt
-            //////////////////////////////////////////////////////////////////
-
-            if (RHBConnected)
+            if (connect_on && brakes_disengaged)
             {
-                //////////////////////////////////////////////////////////////////
-                // Deactivate loader:
-                //////////////////////////////////////////////////////////////////
+                RHBConnected = true;
 
+                // Set loader:
                 if (USE_STANDALONE_UI)
                     BikeGameUI.instance.SetLoaderState(false);
 
-                //////////////////////////////////////////////////////////////////
-                // Start system:
-                //////////////////////////////////////////////////////////////////
-
-                StartSystem(() =>
-                {
-                    // Disengage brakes:
-                    bool success = SetBrakesRHB(DISENGAGE_BRAKE, DISENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
-
-                    // Display section:
-                    if (DISP_CONSOLE_ON)
-                        ExternalConsoleLogger.Log("ConnectRHBSimple(): DISENGAGE BRAKES success = [" + success + "]\n");
-                });
-
+                // Pre-game procedures (for standalone game only):
                 BikeGameUI.instance.OnConnect_PreUnityGame();
             }
+        });
+
+        /*
             else
             {
+                connectionThread?.Join();
                 connectionTween?.Kill();
+
                 UnityMainThreadDispatcher.Instance().Enqueue(() => connectionTween = DOVirtual.DelayedCall(CALL_DELAY_VALUE, ConnectRHBSimple));
             }
         });
+        */
 
         connectionThread.Start();
     }
 
     // ConnectRHB() and ReConnectRHB() removed 23.10.2025
 
-    public void CalibrateRHB(UnityAction onComplete = null)
+    public bool CalibrateRHB()
     {
+        bool success = false;
+
         for (int i = 0; i < MAX_ATTEMPTS; i++)
-            if (distalRobot.Calibration(DistalComm.CalibrationType.AxisCalib)) break;
+            if (distalRobot.Calibration(DistalComm.CalibrationType.AxisCalib))
+            {
+                success = true;
+                break;
+            }
+
+        if (!success)
+            return false;
 
         // NOTE: reinstated this routine after adding offset (OFFSET_CALIB_RADIAL) to the reference RADIAL positions (20.09.2025):
+        success = false; // reset success flag for next calibration step
+
         for (int i = 0; i < MAX_ATTEMPTS; i++)
-            if (distalRobot.Calibration(DistalComm.CalibrationType.AllForceSensorsZeroCalib)) break;
+            if (distalRobot.Calibration(DistalComm.CalibrationType.AllForceSensorsZeroCalib))
+            {
+                success = true;
+                break;
+            }
 
-        // Engage brakes:
-        bool success = SetBrakesRHB(ENGAGE_BRAKE, ENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
-
-        // Display section:
-        if (DISP_CONSOLE_ON)
-            ExternalConsoleLogger.Log("CalibrateRHB((): ENGAGE BRAKES success = [" + success + "]\n");
-
-        onComplete.Invoke();
+        return success;
     }
 
     public void OnCalibrate_CmdStartExercise()
@@ -910,7 +943,7 @@ public class RHBCtrlBike : MonoBehaviour
 
                     // Motion step:
                     float switch_start = 1f;
-                    float switch_end   = 1f;
+                    float switch_end = 1f;
 
                     MotionRoutineRHBBlendStep(
                         pos_radial_routine_start, POS_RADIAL_THROT_ZERO_OFFS,
@@ -929,10 +962,13 @@ public class RHBCtrlBike : MonoBehaviour
                         motionRoutineActiveBaseline = false;
 
                         // Set force feedback gains - CRITICAL:
-                        SetForceFeebackGainCases(CASE_CTRL_MODE);
+                        SetForceFeedbackGainCases(CASE_CTRL_MODE, ref gain_force_case_radial, ref gain_force_case_rot);
 
                         // Display section:
                         if (DISP_CONSOLE_ON)
+                            ExternalConsoleLogger.Log("RealTimeControlLoop(): CASE_CTRL_MODE [" + CASE_CTRL_MODE + 
+                                "]: gain_force_case_radial [" + gain_force_case_radial + 
+                                "], gain_force_case_rot ["    + gain_force_case_rot    + "]");
                             ExternalConsoleLogger.Log("RealTimeControlLoop(): COMPLETED motionRoutineActiveBaseline \n");
                     }
                 }
@@ -992,9 +1028,8 @@ public class RHBCtrlBike : MonoBehaviour
     // Ancillary functions - RHB control:
     ////////////////////////////////////////////////////////////////////////////
 
-    public bool ToggleExerciseRHB(bool is_exerc_started)
+    public void ToggleExerciseRHB(ref bool is_exerc_started)
     {
-        bool is_exerc_started_new;
 
         //////////////////////////////////////////////////////////////////
         // Start exercise:
@@ -1002,19 +1037,23 @@ public class RHBCtrlBike : MonoBehaviour
 
         if (!is_exerc_started)
         {
-            Debug.Log("is exercise started: " + is_exerc_started);
-            is_exerc_started_new = StartExerciseRHB();
+            // Debug.Log("is exercise started: " + is_exerc_started);
+
+            is_exerc_started = StartExerciseRHB();
 
             // Display section:
             if (DISP_CONSOLE_ON)
-                ExternalConsoleLogger.Log("ToggleExerciseRHB() / StartExerciseRHB(): isExerciseStartedNew = [" + is_exerc_started_new + "] \n");
+                ExternalConsoleLogger.Log("ToggleExerciseRHB() / StartExerciseRHB(): isExerciseStartedNew = [" + is_exerc_started + "] \n");
 
             // Disengage brakes:
-            bool success = SetBrakesRHB(DISENGAGE_BRAKE, DISENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
+            if (USE_CALIBRATION_BRAKING)
+            {
+                bool success = SetBrakesRHB(DISENGAGE_BRAKE, DISENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
 
-            // Display section:
-            if (DISP_CONSOLE_ON)
-                ExternalConsoleLogger.Log("ToggleExerciseRHB() / StartExerciseRHB(): DISENGAGE BRAKES success = [" + success + "]\n");
+                // Display section:
+                if (DISP_CONSOLE_ON)
+                    ExternalConsoleLogger.Log("ToggleExerciseRHB() / StartExerciseRHB(): DISENGAGE BRAKES success = [" + success + "]\n");
+            }
         }
 
         //////////////////////////////////////////////////////////////////
@@ -1023,17 +1062,16 @@ public class RHBCtrlBike : MonoBehaviour
 
         else
         {
-            Debug.Log("is exercise started: " + is_exerc_started);
+            // Debug.Log("is exercise started: " + is_exerc_started);
 
-            is_exerc_started_new = StopExerciseRHB(() => { });
-            Debug.Log("is exercise started new: " + is_exerc_started_new);
+             StopExerciseRHB(ref is_exerc_started);
+
+            // Debug.Log("is exercise started new: " + is_exerc_started_new);
 
             // Display section:
             if (DISP_CONSOLE_ON)
-                ExternalConsoleLogger.Log("ToggleExerciseRHB() / StopExerciseRHB(): isExerciseStartedNew = [" + is_exerc_started_new + "] \n");
+                ExternalConsoleLogger.Log("ToggleExerciseRHB() / StopExerciseRHB(): isExerciseStartedNew = [" + is_exerc_started + "] \n");
         }
-
-        return is_exerc_started_new;
     }
 
     private bool StartExerciseRHB(UnityAction onComplete = null) // bool unlockRadial, bool unlockRotational
@@ -1153,10 +1191,8 @@ public class RHBCtrlBike : MonoBehaviour
         return is_exerc_started;
     }
 
-    private bool StopExerciseRHB(UnityAction onComplete = null)
+    private void StopExerciseRHB(ref bool is_exerc_started, UnityAction onComplete = null)
     {
-        bool is_exerc_started;
-
         // TODO: remove at a later date
         /*
         if (!isExerciseStarted)
@@ -1203,8 +1239,6 @@ public class RHBCtrlBike : MonoBehaviour
         is_exerc_started = false;
         runProceduresExerciseStop = true;
 
-        // isCalibrated = false; // removed to avoid missed Enter commands
-
         // Display section:
         if (DISP_CONSOLE_ON)
         {
@@ -1222,41 +1256,40 @@ public class RHBCtrlBike : MonoBehaviour
         SceneManager.LoadScene(0);
         Time.timeScale = 1f;
         DOTween.PlayAll();
-
-        return is_exerc_started;
     }
 
     ////////////////////////////////////////////////////////////////////////////
     // Force feedback gains - CASES:
     ////////////////////////////////////////////////////////////////////////////
 
-    void SetForceFeebackGainCases(int case_ctrl_mode)
-    {
+    void SetForceFeedbackGainCases(int case_ctrl_mode, ref float gain_radial, ref float gain_rot) { 
+
         switch (case_ctrl_mode)
         {
             case CTRL_ASSISTED:
+                gain_radial = FORCE_GAIN_RADIAL;
+                gain_rot = FORCE_GAIN_ROT;
 
-                SetGainRHB(
-                    FORCE_GAIN_RADIAL,
-                    FORCE_GAIN_ROT);
                 break;
 
             case CTRL_AUTO_STEER_AUTO_THROT:
             case CTRL_AUTO_STEER_MANUAL_THROT:
+                gain_radial = 0f;
+                gain_rot = 0f;
 
-                SetGainRHB(0f, 0f);
                 break;
 
             case CTRL_MANUAL_SIMPLE:
+                gain_radial = FORCE_GAIN_RADIAL;
+                gain_rot = FORCE_GAIN_ROT;
 
-                SetGainRHB(
-                    FORCE_GAIN_RADIAL,
-                    FORCE_GAIN_ROT);
                 break;
 
             default: // no command
                 break;
         }
+
+        SetGainRHB(gain_radial, gain_rot);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -1311,9 +1344,24 @@ public class RHBCtrlBike : MonoBehaviour
                     0f, k_stiff_radial_throt, B_DAMP_ROT_TRACKING,
                     K_STIFF_ROT_BASE);
 
-                // Command offset forces for ASSISTANCE - CRITICAL:
-                // SetOffsetForces(0f, torque_assist); // changed from this to avoid stacking messages (25.09.2025)
-                distalRobot.SetOffsetForces(0f, torque_assist);
+                // Command offset forces for ASSISTANCE - CRITICAL
+                // NOTE option to use OLD offset force formulas in firmware (24.10.2025):
+                float FACTOR_GAIN_FORCE_RADIAL;
+                float FACTOR_GAIN_FORCE_ROT;
+
+                if (USE_OFFSET_FORCE_CMD_OLD) { 
+                    FACTOR_GAIN_FORCE_RADIAL = 2 * (1f + gain_force_case_radial);
+                    FACTOR_GAIN_FORCE_ROT    = 2 * (1f + gain_force_case_rot);
+                }
+                else
+                {
+                    FACTOR_GAIN_FORCE_RADIAL = 1f;
+                    FACTOR_GAIN_FORCE_ROT    = 1f;
+                }
+
+                distalRobot.SetOffsetForces(
+                    0f, 
+                    FACTOR_GAIN_FORCE_ROT*torque_assist);
                 break;
 
             case CTRL_AUTO_STEER_AUTO_THROT:
@@ -1366,14 +1414,14 @@ public class RHBCtrlBike : MonoBehaviour
 
         bool success_set_target;
 
-        if (isExerciseStarted)
+        // if (isExerciseStarted)
             success_set_target = distalRobot.HL_SetTarget(IDX_TARG_BASE,
                 POS_RADIAL_THROT_ZERO_OFFS, pos_rot_eq_ref,
                 k_stiff_radial_throt, k_stiff_rot_steer,
-                B_DAMP_RADIAL_BASE, b_damp_rot_steer,
+                B_DAMP_RADIAL_WALL, b_damp_rot_steer, // was B_DAMP_RADIAL_BASE, b_damp_rot_steer, (25.10.2025)
                 SWITCH_RADIAL, SWITCH_ROT);
-        else
-            success_set_target = false;
+        // else
+        //    success_set_target = false;
     }
 
     private void CmdSetTarget_FeedbackCtrl_WithLimit(
@@ -1436,16 +1484,15 @@ public class RHBCtrlBike : MonoBehaviour
 
         bool success_set_target;
 
-        // TODO: consider change to plain distalRobot.SetTarget to reduce overhead (possible risk is timeouts):
-        if (isExerciseStarted)
-            success_set_target = distalRobot.HL_SetTarget(
+        // if (isExerciseStarted)
+            success_set_target = distalRobot.HL_SetTarget(  
                 IDX_TARG_BASE,
-                POS_RADIAL_THROT_ZERO_OFFS, pos_eq_rot_equiv,
+                POS_RADIAL_THROT_ZERO_OFFS, pos_eq_rot_equiv, 
                 k_stiff_radial_throt, k_stiff_rot_equiv,
-                B_DAMP_RADIAL_BASE, b_damp_rot_equiv,
+                B_DAMP_RADIAL_WALL, b_damp_rot_equiv, // was B_DAMP_RADIAL_BASE, b_damp_rot_equiv,  (25.10.2025)
                 SWITCH_RADIAL, SWITCH_ROT);
-        else
-            success_set_target = false;
+        // else
+        //    success_set_target = false;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -1491,7 +1538,7 @@ public class RHBCtrlBike : MonoBehaviour
         return fact_assist_steer;
     }
 
-    private bool SetTargetValidated(byte targetIndex,
+    public bool SetTargetValidated(byte targetIndex,
         float radialValue, float rotationValue,
         float radialStiffness, float rotationStiffness,
         float radialDamping, float rotationDamping,
@@ -1574,7 +1621,7 @@ public class RHBCtrlBike : MonoBehaviour
 
     private void Update()
     {
-        if (USE_STANDALONE_UI)
+        if (USE_STANDALONE_UI && RHBConnected)
         {
             ////////////////////////////////////////////////////////////////////////////
             // Initialize Unity game & launch exercise (19.09.2025):
@@ -1614,11 +1661,12 @@ public class RHBCtrlBike : MonoBehaviour
         // Launch real-time control thread - CRITICAL:
         ////////////////////////////////////////////////////////////////////////////
 
-        if (!enabledControlThread)
+        if (!enabledControlThread && RHBConnected)
         {
             enabledControlThread = true;
 
-            rtControlThread?.Abort();
+            // rtControlThread?.Abort(); // removed unsafe Abort() call (27.10.2025)
+
             rtControlThread = new Thread(RealTimeControlLoop);
             rtControlThread.Start();
 
@@ -1628,5 +1676,5 @@ public class RHBCtrlBike : MonoBehaviour
                 ExternalConsoleLogger.Log("RHBCtrlBike() / Update(): rtControlThread START \n");
             }
         }
-    }
+    } // if (USE_STANDALONE_UI && is_rhb_connected)
 }
