@@ -1233,7 +1233,7 @@ public class RHBCtrlBike : MonoBehaviour
         onComplete?.Invoke();
 
         /////////////////////////////////////////////////////////
-        // Go back to menu and restart game
+        // Go back to menu and restart game:
         /////////////////////////////////////////////////////////
 
         SceneManager.LoadScene(0);
@@ -1345,6 +1345,7 @@ public class RHBCtrlBike : MonoBehaviour
                 distalRobot.SetOffsetForces(
                     0f, 
                     FACTOR_GAIN_FORCE_ROT*torque_assist);
+
                 break;
 
             case CTRL_AUTO_STEER_AUTO_THROT:
@@ -1363,6 +1364,7 @@ public class RHBCtrlBike : MonoBehaviour
                     pos_rot_eq_ref,
                     K_STIFF_ROT_TRACKING,
                     k_stiff_radial_throt);
+
                 break;
 
             case CTRL_MANUAL_SIMPLE:
@@ -1371,6 +1373,15 @@ public class RHBCtrlBike : MonoBehaviour
                     pos_rot_est, 0f,
                     0f, K_STIFF_RADIAL_THROT_MANUAL, 0f,
                     K_STIFF_ROT_BASE);
+
+                ///////////////////////////////////////////////////////////////////////////
+                // Safety catch to prevent spurious offset forces (28.10.2025)
+                ///////////////////////////////////////////////////////////////////////////
+
+                pos_rot_eq_ref = 0;
+
+                distalRobot.SetOffsetForces(0f, 0f);
+
                 break;
 
             default: // no command
