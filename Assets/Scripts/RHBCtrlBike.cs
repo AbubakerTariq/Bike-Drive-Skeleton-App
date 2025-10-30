@@ -350,12 +350,16 @@ public class RHBCtrlBike : MonoBehaviour
     public const bool USE_CALIBRATION_BRAKING = true;
 
     ////////////////////////////////////////////////////////////////////////////
-    // Option to use OLD offset force formulas in firmware - CRITICAL - use with care (24.10.2025):
+    // Option to use OLD offset force formulas in firmware
+    // NOTE: option removed; we will only use the OLD offset forces in firmware (30.10.2025)
     ////////////////////////////////////////////////////////////////////////////
 
-    public const bool USE_OFFSET_FORCE_CMD_OLD = false;
+    // public const bool USE_OFFSET_FORCE_CMD_OLD = false; 
 
+    ////////////////////////////////////////////////////////////////////////////
     // Force feedback gains applicable to current control CASE:
+    ////////////////////////////////////////////////////////////////////////////
+    
     float gain_force_case_radial = 0f;
     float gain_force_case_rot = 0f;
 
@@ -529,10 +533,13 @@ public class RHBCtrlBike : MonoBehaviour
 
         connectionThread = new Thread(() =>
         {
-            while (!(connect_on && brakes_disengaged) && ++connect_count <= N_ATTEMPTS_CONNECT)
+            while (!(connect_on && brakes_disengaged) && connect_count++ <= N_ATTEMPTS_CONNECT)
             {
+
                 if (DISP_CONSOLE_ON)
                     ExternalConsoleLogger.Log("ConnectRHBSimple() call count [" + connect_count + "]");
+
+                Task.Delay(10);
 
                 //////////////////////////////////////////////////////////////////
                 // Attempt to establish RHB connection:
@@ -563,6 +570,8 @@ public class RHBCtrlBike : MonoBehaviour
                 // Pre-game procedures (for standalone game only):
                 BikeGameUI.instance.OnConnect_PreUnityGame();
             }
+            else if (DISP_CONSOLE_ON)
+                ExternalConsoleLogger.Log("ConnectRHBSimple() FAIL \n");
         });
 
         connectionThread.Start();
@@ -910,14 +919,16 @@ public class RHBCtrlBike : MonoBehaviour
                     dt_angle_roll_targ = MotorbikeController.instance.fbk_ctrl_data.dt_angle_roll_targ;
 
                     ////////////////////////////////////////////////////////////////////////////
-                    // Set Target commands for steering and throttle - CRITICAL:
+                    // Set Target commands for steering and throttle - CRITICAL
+                    // NOTE: added force feedback gains as arguments in order to use _SetComputedInputForces() (30.10.2025)
                     //////////////////////////////////////////////////////////////////////////// 
 
                     CmdSetTargetSteerAndThrottleCases(
-                        pos_rot, dt_pos_rot, // was dt_pos_rot_kal (24.09.2025)
+                        pos_rot, dt_pos_rot, 
                         angle_roll_targ, angle_roll_bike,
                         dt_angle_roll_targ, dt_angle_roll_bike,
-                        CASE_CTRL_MODE);
+                        CASE_CTRL_MODE,
+                        gain_force_case_radial, gain_force_case_rot);
                 }
 
                 //////////////////////////////////////////////////////////////////
@@ -1276,14 +1287,15 @@ public class RHBCtrlBike : MonoBehaviour
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    // Control commands using Set Target - CASES:
+    // Control commands using Set Target - CASES
+    // NOTE: added force feedback gains as arguments in order to use _SetComputedInputForces() (30.10.2025)
     ////////////////////////////////////////////////////////////////////////////
 
     void CmdSetTargetSteerAndThrottleCases(
         float pos_rot_est, float dt_pos_rot_est,
         float angle_roll_targ_this, float angle_roll_bike_this,
         float dt_angle_roll_targ_this, float dt_angle_roll_bike_this,
-        int case_ctrl_mode)
+        int case_ctrl_mode, float gain_force_radial, float gain_force_rot)
     {
 
         switch (case_ctrl_mode)
@@ -1327,24 +1339,10 @@ public class RHBCtrlBike : MonoBehaviour
                     0f, k_stiff_radial_throt, B_DAMP_ROT_TRACKING,
                     K_STIFF_ROT_BASE);
 
-                // Command offset forces for ASSISTANCE - CRITICAL
-                // NOTE option to use OLD offset force formulas in firmware (24.10.2025):
-                float FACTOR_GAIN_FORCE_RADIAL;
-                float FACTOR_GAIN_FORCE_ROT;
-
-                if (USE_OFFSET_FORCE_CMD_OLD) { 
-                    FACTOR_GAIN_FORCE_RADIAL = 2 * (1f + gain_force_case_radial);
-                    FACTOR_GAIN_FORCE_ROT    = 2 * (1f + gain_force_case_rot);
-                }
-                else
-                {
-                    FACTOR_GAIN_FORCE_RADIAL = 1f;
-                    FACTOR_GAIN_FORCE_ROT    = 1f;
-                }
-
-                distalRobot.SetOffsetForces(
-                    0f, 
-                    FACTOR_GAIN_FORCE_ROT*torque_assist);
+                // Computed input forces for ASSISTANCE - CRITICAL
+                // NOTE: this function is to be used ONLY with the OLD offset force formulas in firmware (30.10.2025):
+                _SetComputedInputForces(0f, torque_assist,
+                    gain_force_radial, gain_force_rot);
 
                 break;
 
@@ -1566,6 +1564,22 @@ public class RHBCtrlBike : MonoBehaviour
             0f, 0f,
             0f, 0f,
             0f, 0f);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Computed input forces - CRITICAL
+    // NOTE: this function is to be used ONLY with the OLD offset force formulas in firmware (30.10.2025):
+    ////////////////////////////////////////////////////////////////////////////
+
+    public void _SetComputedInputForces(float force_radial_input, float torque_rot_input, 
+        float gain_force_radial, float gain_force_rot) {
+        
+        float factor_gain_radial = 2 * (1f + gain_force_radial);
+        float factor_gain_rot    = 2 * (1f + gain_force_rot);
+
+        distalRobot.SetOffsetForces(
+            factor_gain_radial * force_radial_input,
+            factor_gain_rot    * torque_rot_input);
     }
 
     ////////////////////////////////////////////////////////////////////////////

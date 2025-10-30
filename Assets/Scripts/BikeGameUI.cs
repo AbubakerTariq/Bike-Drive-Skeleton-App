@@ -50,10 +50,13 @@ public class BikeGameUI : MonoBehaviour
 
         if (RHBCtrlBike.instance.STATE_PREGAME == RHBCtrlBike.ST_SELECT_BIKE_TYPE)
         {
+            // Warning removed 30.10.2025:
+            /*
             string str_offset_force_cmd_old = 
                 "WARNING: \n" +
                 "SetOffsetForces() modified for OLD firmware formulas!\n" +
                 "Verify OLD firmware version is installed! \n\n";
+            */
 
             string str_initial_menu = 
                 "CLICK on this screen and \n\n" +
@@ -61,10 +64,15 @@ public class BikeGameUI : MonoBehaviour
                 "PRO bike: hit [Enter] \n" +
                 "Beginner: hit [B]";
 
+            // Warning removed 30.10.2025:
+            /*
             if (RHBCtrlBike.USE_OFFSET_FORCE_CMD_OLD)
                 SetLoaderText(str_offset_force_cmd_old + str_initial_menu);
             else
-                SetLoaderText(str_initial_menu); 
+                SetLoaderText(str_initial_menu);
+            */
+
+            SetLoaderText(str_initial_menu);
         }
     }
 
