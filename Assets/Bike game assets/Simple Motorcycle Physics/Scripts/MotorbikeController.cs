@@ -413,6 +413,7 @@ public class MotorbikeController : MonoBehaviour
 
     void FixedUpdate()
     {
+        bool reset_prev = false;
         int step_count = RHBCtrlBike.instance.step_count;
 
         ////////////////////////////////////////////////////////////////
@@ -433,13 +434,28 @@ public class MotorbikeController : MonoBehaviour
 
         if (!bike_fallen)
         {
+            ////////////////////////////////////////////////////////////////
+            // Check if there was a reset in previous step
+            // This allows zeroing the throttle and fwd force after a collision(30.10.2025):
+            ////////////////////////////////////////////////////////////////
+            
+            if (bike_fallen_prev)
+                reset_prev = true;
+            else
+                reset_prev = false;
+
+            ////////////////////////////////////////////////////////////////
+            // Generate bike motion and control states:
+            ////////////////////////////////////////////////////////////////
+            
             BikeMotionAndControlStates(step_count, RHBCtrlBike.instance.distal_data,
                 ref bike_coords_data,
                 ref bike_input_data,
                 ref bike_pose_data,
                 ref track_coords_data,
                 ref steer_calc_data,
-                ref fbk_ctrl_data);
+                ref fbk_ctrl_data,
+                reset_prev);
 
             ////////////////////////////////////////////////////////////////
             // Update wheels rotation - CRITICAL: 
@@ -550,7 +566,8 @@ public class MotorbikeController : MonoBehaviour
         ref BikePose bike_pose_this,
         ref TrackCoords track_coords_this,
         ref SteerCalc steer_calc_this,
-        ref FeedbackControl fbk_ctrl_this)
+        ref FeedbackControl fbk_ctrl_this,
+        bool reset_prev)
     {
         ////////////////////////////////////////////////////////////////
         // Bike - local variables:
@@ -579,12 +596,13 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////
 
-        if (RHBCtrlBike.instance.isExerciseStarted) {
+        if (RHBCtrlBike.instance.isExerciseStarted && !reset_prev)
+        {
 
             bike_input.throttle = InputThrottleCases(pos_radial, MotorbikeController.instance, RHBCtrlBike.instance.CASE_CTRL_MODE);
 
             if (MagnitudeXZ(bike_coords_this.dt_pos_bike) > SPEED_TRANSITION_UPRIGHT // was bike_input.throttle > 0
-                && RHBCtrlBike.instance.UPRIGHT_CONSTR_ON == true) 
+                && RHBCtrlBike.instance.UPRIGHT_CONSTR_ON == true)
             {
                 uprightConstraintRemove(out RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
 
@@ -597,7 +615,15 @@ public class MotorbikeController : MonoBehaviour
             }
         }
         else
+        {
+            ////////////////////////////////////////////////////////////////
+            // NOTE: (reset_prev == true) allows zeroing the throttle and fwd force after a collision(30.10.2025):
+            ////////////////////////////////////////////////////////////////
+            
             bike_input.throttle = 0f;
+            rigid_body.AddForce(Vector3.zero);
+
+        }
 
         ////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////
@@ -1317,14 +1343,24 @@ public class MotorbikeController : MonoBehaviour
 
     void OnCollisionEnter(Collision collision)
     {
+        const bool TEST_VELOCITY_REL = false;
+        const float VELOCITY_REL_HARD_HIT = 3.0f;
+
         velocity_rel_collision = collision.relativeVelocity;
-        if (collision.relativeVelocity.magnitude > 30)
+        
+        if (collision.relativeVelocity.magnitude > VELOCITY_REL_HARD_HIT || !TEST_VELOCITY_REL)
             hard_hit = true;
+
+        if (hard_hit)
+        {
+            ExternalConsoleLogger.Log("_________________________________________________________________");
+            ExternalConsoleLogger.Log("OnCollisionEnter(): hard hit \n");
+        }
     }
 
     public void uprightCheck(out bool bike_fallen_this, bool hard_hit_this)
     {
-        if ((Mathf.Abs(angle_roll_bike) > FACT_DEG_2_RAD * ANGLE_ROLL_NONSLIP_MAX_DEG || Input.GetKeyDown(KeyCode.F) || hard_hit_this == true)
+        if ((Mathf.Abs(angle_roll_bike) > FACT_DEG_2_RAD * ANGLE_ROLL_NONSLIP_MAX_DEG || Input.GetKeyDown(KeyCode.F) || hard_hit_this)
             ) // && bike_fallen_this == false
         {
             Rider.SetActive(false);
