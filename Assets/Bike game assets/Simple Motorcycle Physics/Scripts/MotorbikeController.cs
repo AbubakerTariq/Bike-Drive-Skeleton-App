@@ -370,6 +370,9 @@ public class MotorbikeController : MonoBehaviour
     // Distance traveled during exercise:
     public float dist_traveled = 0f;
 
+    // Step counter post reset:
+    private int step_count_post_reset = 0;
+
     /////////////////////////////////////////////////////////////
     // Display settings:
     /////////////////////////////////////////////////////////////
@@ -413,7 +416,6 @@ public class MotorbikeController : MonoBehaviour
 
     void FixedUpdate()
     {
-        bool reset_prev = false;
         int step_count = RHBCtrlBike.instance.step_count;
 
         ////////////////////////////////////////////////////////////////
@@ -422,6 +424,18 @@ public class MotorbikeController : MonoBehaviour
 
         float dt_step = Time.fixedDeltaTime;
 
+        ////////////////////////////////////////////////////////////////
+        // Post-reset procedures: variables (31.10.2025)
+        ////////////////////////////////////////////////////////////////
+
+        // bool reset_prev = false; // TODO: remove at a later date
+
+        const float T_RISE_POST_RESET_SEC = 2.0f;
+        float sigma_rise = 3f / T_RISE_POST_RESET_SEC; // for 95% rise
+
+        float t_post_reset = 0f;
+        float switch_exp_rise = 0f;
+        
         ////////////////////////////////////////////////////////////////
         // Check if bike is balanced:
         ////////////////////////////////////////////////////////////////
@@ -436,18 +450,28 @@ public class MotorbikeController : MonoBehaviour
         {
             ////////////////////////////////////////////////////////////////
             // Check if there was a reset in previous step
-            // This allows zeroing the throttle and fwd force after a collision(30.10.2025):
+            // This allows zeroing & restarting the throttle and fwd force after a collision(30.10.2025):
             ////////////////////////////////////////////////////////////////
             
+            // TODO: remove at a later date
+            /*
             if (bike_fallen_prev)
-                reset_prev = true;
+                reset_prev = true; 
             else
                 reset_prev = false;
+            */
+
+            if (bike_fallen_prev)
+                step_count_post_reset = 0;
+
+            // Update exponential rise switch after reset:
+            t_post_reset = dt_step * step_count_post_reset;
+            switch_exp_rise = ExpRise(t_post_reset, sigma_rise);
 
             ////////////////////////////////////////////////////////////////
             // Generate bike motion and control states:
             ////////////////////////////////////////////////////////////////
-            
+
             BikeMotionAndControlStates(step_count, RHBCtrlBike.instance.distal_data,
                 ref bike_coords_data,
                 ref bike_input_data,
@@ -455,7 +479,7 @@ public class MotorbikeController : MonoBehaviour
                 ref track_coords_data,
                 ref steer_calc_data,
                 ref fbk_ctrl_data,
-                reset_prev);
+                switch_exp_rise); // reset_prev)
 
             ////////////////////////////////////////////////////////////////
             // Update wheels rotation - CRITICAL: 
@@ -525,6 +549,12 @@ public class MotorbikeController : MonoBehaviour
         step_count_prev = step_count;
 
         ////////////////////////////////////////////////////////////////
+        // Update post-reset step count:
+        ////////////////////////////////////////////////////////////////
+
+        step_count_post_reset++;
+
+        ////////////////////////////////////////////////////////////////
         // Update text for speed display in Unity (21.08.2025):
         ////////////////////////////////////////////////////////////////       
 
@@ -567,7 +597,7 @@ public class MotorbikeController : MonoBehaviour
         ref TrackCoords track_coords_this,
         ref SteerCalc steer_calc_this,
         ref FeedbackControl fbk_ctrl_this,
-        bool reset_prev)
+        float switch_exp_rise) // bool reset_prev
     {
         ////////////////////////////////////////////////////////////////
         // Bike - local variables:
@@ -596,10 +626,13 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////
 
-        if (RHBCtrlBike.instance.isExerciseStarted && !reset_prev)
+        if (RHBCtrlBike.instance.isExerciseStarted) // && !reset_prev
         {
 
             bike_input.throttle = InputThrottleCases(pos_radial, MotorbikeController.instance, RHBCtrlBike.instance.CASE_CTRL_MODE);
+
+            // Exponential rise term to reset throttle after Reset() call (31.10.2025):
+            bike_input.throttle *= switch_exp_rise;
 
             if (MagnitudeXZ(bike_coords_this.dt_pos_bike) > SPEED_TRANSITION_UPRIGHT // was bike_input.throttle > 0
                 && RHBCtrlBike.instance.UPRIGHT_CONSTR_ON == true)
@@ -617,7 +650,7 @@ public class MotorbikeController : MonoBehaviour
         else
         {
             ////////////////////////////////////////////////////////////////
-            // NOTE: (reset_prev == true) allows zeroing the throttle and fwd force after a collision(30.10.2025):
+            // NOTE: (reset_prev == true) allows zeroing & resetting the throttle and fwd force after a collision(30.10.2025):
             ////////////////////////////////////////////////////////////////
             
             bike_input.throttle = 0f;
@@ -1509,6 +1542,11 @@ public class MotorbikeController : MonoBehaviour
     public float ConvertSpeedMStoKMH(float speed_mpersec)
     {
         return speed_mpersec * 3.6f;
+    }
+
+    public float ExpRise(float t, float sigma)
+    {
+        return 1f - Mathf.Exp(-sigma * t);
     }
 
     ///////////////////////////////////////////////////////////
