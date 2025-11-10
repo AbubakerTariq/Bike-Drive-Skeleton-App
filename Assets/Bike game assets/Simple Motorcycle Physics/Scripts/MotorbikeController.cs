@@ -1365,8 +1365,8 @@ public class MotorbikeController : MonoBehaviour
         // Handlebar constraint (10.11.2025):
         wheel_coll_fwd.steerAngle = 0f;
 
-        ExternalConsoleLogger.Log("_________________________________________________________________");
-        ExternalConsoleLogger.Log("MotorbikeController(): UPRIGHT CONSTRAINT [ON]\n");
+        // ExternalConsoleLogger.Log("_________________________________________________________________");
+        // ExternalConsoleLogger.Log("MotorbikeController(): UPRIGHT CONSTRAINT [ON]\n");
     }
 
     public void uprightConstraintRemove(out bool upright_constr_on_this) {
@@ -1526,6 +1526,11 @@ public class MotorbikeController : MonoBehaviour
         track_coords.dist_ctrline_near = Track.instance.GetDistanceAtPosition(pos_bike);
 
         return track_coords;
+    }
+
+    public void ThrottleTimerOff()
+    {
+        step_count_post_reset = 0;
     }
 
     ///////////////////////////////////////////////////////////

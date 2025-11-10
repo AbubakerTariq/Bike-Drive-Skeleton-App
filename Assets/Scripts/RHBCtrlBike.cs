@@ -416,7 +416,7 @@ public class RHBCtrlBike : MonoBehaviour
     private void Start()
     {
         // Reset Ethernet port to prevent those frequent connection delays:
-        // System.Diagnostics.Process.Start("ethernet_reset.bat");
+        System.Diagnostics.Process.Start("ethernet_reset.bat");
 
         ////////////////////////////////////////////////////////////////////////////
         // Launch connection thread - CRITICAL:
@@ -709,7 +709,7 @@ public class RHBCtrlBike : MonoBehaviour
         ////////////////////////////////////////////////////////////////////////////
         // Enforce "bike upright" constraint - CRITICAL: 
         ////////////////////////////////////////////////////////////////////////////
-        
+
         UnityMainThreadDispatcher.Instance().Enqueue(() => MotorbikeController.instance.uprightConstraintEnforce(out UPRIGHT_CONSTR_ON, out UPRIGHT_CONSTR_PRERELEASE)); // constraint flag (13.09.2025) 
 
         //////////////////////////////////////////////////////////////////
@@ -931,7 +931,7 @@ public class RHBCtrlBike : MonoBehaviour
                     //////////////////////////////////////////////////////////////////////////// 
 
                     CmdSetTargetSteerAndThrottleCases(
-                        pos_rot, dt_pos_rot, 
+                        pos_rot, dt_pos_rot,
                         angle_roll_targ, angle_roll_bike,
                         dt_angle_roll_targ, dt_angle_roll_bike,
                         CASE_CTRL_MODE,
@@ -956,7 +956,7 @@ public class RHBCtrlBike : MonoBehaviour
                         pos_rot_routine_start, 0,
                         0, k_stiff_rad_routine,
                         K_STIFF_ROT_WALL, K_STIFF_ROT_WALL,
-                        B_DAMP_RADIAL_WALL, B_DAMP_RADIAL_WALL, 
+                        B_DAMP_RADIAL_WALL, B_DAMP_RADIAL_WALL,
                         B_DAMP_ROT_WALL, B_DAMP_ROT_WALL,
                         switch_start, switch_end,
                         factor_blend);
@@ -972,10 +972,10 @@ public class RHBCtrlBike : MonoBehaviour
 
                         // Display section:
                         if (DISP_CONSOLE_ON)
-                            ExternalConsoleLogger.Log("RealTimeControlLoop(): CASE_CTRL_MODE [" + CASE_CTRL_MODE + 
-                                "]: gain_force_case_radial [" + gain_force_case_radial + 
-                                "], gain_force_case_rot ["    + gain_force_case_rot    + "]");
-                            ExternalConsoleLogger.Log("RealTimeControlLoop(): COMPLETED motionRoutineActiveBaseline \n");
+                            ExternalConsoleLogger.Log("RealTimeControlLoop(): CASE_CTRL_MODE [" + CASE_CTRL_MODE +
+                                "]: gain_force_case_radial [" + gain_force_case_radial +
+                                "], gain_force_case_rot [" + gain_force_case_rot + "]");
+                        ExternalConsoleLogger.Log("RealTimeControlLoop(): COMPLETED motionRoutineActiveBaseline \n");
                     }
                 }
 
@@ -989,7 +989,7 @@ public class RHBCtrlBike : MonoBehaviour
                     factor_blend = (float)step_count / N_STEPS_MOTION_ROUTINE;
 
                     float switch_start = 1f;
-                    float switch_end   = 1f;
+                    float switch_end = 1f;
 
                     MotionRoutineRHBBlendStep(
                         pos_radial_routine_start, POS_RADIAL_MIN_OFFS,
@@ -1015,6 +1015,11 @@ public class RHBCtrlBike : MonoBehaviour
                             ExternalConsoleLogger.Log("RealTimeControlLoop(): COMPLETED motionRoutineActiveHome \n");
                     }
                 }
+            }
+            else
+            {
+                // Safety catch: zero the throttle reference timer:
+                MotorbikeController.instance.ThrottleTimerOff();
             }
 
             // Display section:
