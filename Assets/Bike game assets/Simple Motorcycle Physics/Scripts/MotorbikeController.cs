@@ -57,7 +57,7 @@ public class MotorbikeController : MonoBehaviour
     const float FACTOR_ANGLE_WHEEL_FWD     = 60f;
 
     const float RATIO_ANG_ROLL_2_ANG_WHEEL = 0.030f; // for USE_CONSTRAINED_STEER option
-    const float SPEED_TRANSITION_UPRIGHT   = 1.0f; // transition speed for wheel steering angle behavior
+    const float SPEED_TRANSITION_UPRIGHT   = 3.0f; // transition speed for wheel steering angle behavior
 
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - STEERING - Factor adjustment:
@@ -446,7 +446,7 @@ public class MotorbikeController : MonoBehaviour
         // If bike is balanced, process control inputs and update bike's kinematic state - CRITICAL:
         ////////////////////////////////////////////////////////////////
 
-        if (!bike_fallen)
+        if (!bike_fallen && !RHBCtrlBike.instance.motionRoutineActiveBaseline) //  added motionRoutineActiveBaseline condition to prevent unexpected accelerations (10.11.2025)
         {
             ////////////////////////////////////////////////////////////////
             // Check if there was a reset in previous step
@@ -634,9 +634,9 @@ public class MotorbikeController : MonoBehaviour
             // Exponential rise term to reset throttle after Reset() call (31.10.2025):
             bike_input.throttle *= switch_exp_rise;
 
-            if (MagnitudeXZ(bike_coords_this.dt_pos_bike) > SPEED_TRANSITION_UPRIGHT // was bike_input.throttle > 0
-                && RHBCtrlBike.instance.UPRIGHT_CONSTR_ON == true)
-            {
+            // if (MagnitudeXZ(bike_coords_this.dt_pos_bike) > SPEED_TRANSITION_UPRIGHT && RHBCtrlBike.instance.UPRIGHT_CONSTR_ON == true)
+            if (dt_pos_bike_magn > SPEED_TRANSITION_UPRIGHT && RHBCtrlBike.instance.UPRIGHT_CONSTR_ON)
+            { 
                 uprightConstraintRemove(out RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
 
                 // Display section:
@@ -655,7 +655,6 @@ public class MotorbikeController : MonoBehaviour
             
             bike_input.throttle = 0f;
             rigid_body.AddForce(Vector3.zero);
-
         }
 
         ////////////////////////////////////////////////////////////////
@@ -1047,8 +1046,6 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
         // Update wheels steering angle (wheel colliders) - CRITICAL:
         ////////////////////////////////////////////////////////////////
-        
-        Vector3 dt_pos_bike_xz = Vector_XZ(dt_pos_bike);
 
         if (dt_pos_bike_magn >= SPEED_TRANSITION_UPRIGHT)
         {
@@ -1057,31 +1054,26 @@ public class MotorbikeController : MonoBehaviour
                 wheel_coll_fwd.steerAngle = -1f / FACT_DEG_2_RAD * RATIO_ANG_ROLL_2_ANG_WHEEL * angle_roll_bike;
             else
                 wheel_coll_fwd.steerAngle = FACTOR_ANGLE_WHEEL_FWD * bike_input.steer_scaled;
-
-            wheel_coll_fwd.steerAngle = FACTOR_ANGLE_WHEEL_FWD * bike_input.steer_scaled;
         }
-        else
+        else if (RHBCtrlBike.instance.UPRIGHT_CONSTR_ON == false) // dt_pos_bike_magn < dt_pos_bike_magn_prev
         {
-            if (dt_pos_bike_magn < dt_pos_bike_magn_prev && RHBCtrlBike.instance.UPRIGHT_CONSTR_ON == false)
+            wheel_coll_fwd.steerAngle = 0f; // Mathf.Clamp(bike_input.steer_scaled, -dt_pos_bike_magn, dt_pos_bike_magn);
+
+            try
             {
-                wheel_coll_fwd.steerAngle = 0f; // Mathf.Clamp(bike_input.steer_scaled, -dt_pos_bike_magn, dt_pos_bike_magn);
+                uprightConstraintEnforce(out RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
+            }
+            catch
+            { 
+                ExternalConsoleLogger.Log("_________________________________________________________________");
+                ExternalConsoleLogger.Log("MotorbikeController / MotorbikeControl(): CAN'T APPLY UPRIGHT CONSTRAINT \n");
+            }
 
-                try
-                {
-                    uprightConstraintEnforce(ref RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
-                }
-                catch
-                { 
-                    ExternalConsoleLogger.Log("_________________________________________________________________");
-                    ExternalConsoleLogger.Log("MotorbikeController / MotorbikeControl(): CAN'T APPLY UPRIGHT CONSTRAINT \n");
-                }
-
-                // Display section:
-                if (DISP_MOTOR_CONTROL_ON)
-                {
-                    ExternalConsoleLogger.Log("_________________________________________________________________");
-                    ExternalConsoleLogger.Log("MotorbikeControl(): upright constraint [TRUE] \n");
-                }
+            // Display section:
+            if (DISP_MOTOR_CONTROL_ON)
+            {
+                ExternalConsoleLogger.Log("_________________________________________________________________");
+                ExternalConsoleLogger.Log("MotorbikeControl(): upright constraint [TRUE] \n");
             }
         }
 
@@ -1325,7 +1317,7 @@ public class MotorbikeController : MonoBehaviour
 
         try
         {
-            uprightConstraintEnforce(ref RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
+            uprightConstraintEnforce(out RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
         }
         catch
         {
@@ -1349,7 +1341,7 @@ public class MotorbikeController : MonoBehaviour
         }
     }
 
-    public void uprightConstraintEnforce(ref bool upright_constr_on_this)
+    public void uprightConstraintEnforce(out bool upright_constr_on_this)
     {
         // Enforce roll angle zero:
         thisTransform.rotation = Quaternion.Euler(
@@ -1361,7 +1353,7 @@ public class MotorbikeController : MonoBehaviour
 
         // Rigid body constraints:
         rigid_body.angularDrag = 100f; // TODO: does this help anything?
-        rigid_body.constraints = RigidbodyConstraints.FreezeRotationZ; // was FreezeAll;
+        rigid_body.constraints = RigidbodyConstraints.FreezeRotationZ | RigidbodyConstraints.FreezeRotationX; // was FreezeAll;
 
         upright_constr_on_this = true;
     }
@@ -1393,8 +1385,7 @@ public class MotorbikeController : MonoBehaviour
 
     public void uprightCheck(out bool bike_fallen_this, bool hard_hit_this)
     {
-        if ((Mathf.Abs(angle_roll_bike) > FACT_DEG_2_RAD * ANGLE_ROLL_NONSLIP_MAX_DEG || Input.GetKeyDown(KeyCode.F) || hard_hit_this)
-            ) // && bike_fallen_this == false
+        if ((Mathf.Abs(angle_roll_bike) > FACT_DEG_2_RAD * ANGLE_ROLL_NONSLIP_MAX_DEG || Input.GetKeyDown(KeyCode.F) || hard_hit_this) ) 
         {
             Rider.SetActive(false);
 

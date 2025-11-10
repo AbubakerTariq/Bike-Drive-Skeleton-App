@@ -225,7 +225,6 @@ public class RHBCtrlBike : MonoBehaviour
     ////////////////////////////////////////////////////////////////////////////
     
     private bool RHBConnected = false; // was => distalRobot.is_device_connected;
-
     public DistalComm.ExerciseData distal_data => distalRobot.DistalData;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -362,6 +361,13 @@ public class RHBCtrlBike : MonoBehaviour
     
     float gain_force_case_radial = 0f;
     float gain_force_case_rot = 0f;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Motion routine flags - made visible to other classes (10.11.2025):
+    ////////////////////////////////////////////////////////////////////////////
+
+    public bool motionRoutineActiveBaseline = false;
+    public bool motionRoutineActiveHome = false;
 
     ////////////////////////////////////////////////////////////////////////////
     // Loader variables - TODO: why don't they work if placed in BikeGameUI?
@@ -673,8 +679,8 @@ public class RHBCtrlBike : MonoBehaviour
         const int DECIM_MOTION_ROUTINE = 1;
         int N_STEPS_MOTION_ROUTINE = DT_MOTION_ROUTINE_MSEC / DT_STEP_APP_MSEC / DECIM_MOTION_ROUTINE;
 
-        bool motionRoutineActiveBaseline = false;
-        bool motionRoutineActiveHome = false;
+        // bool motionRoutineActiveBaseline = false;
+        // bool motionRoutineActiveHome = false;
 
         float pos_radial_routine_start = 0; // dummy value
         float pos_rot_routine_start    = 0; // dummy value
@@ -703,7 +709,7 @@ public class RHBCtrlBike : MonoBehaviour
         // Enforce "bike upright" constraint - CRITICAL: 
         ////////////////////////////////////////////////////////////////////////////
         
-        UnityMainThreadDispatcher.Instance().Enqueue(() => MotorbikeController.instance.uprightConstraintEnforce(ref UPRIGHT_CONSTR_ON)); // constraint flag (13.09.2025) 
+        UnityMainThreadDispatcher.Instance().Enqueue(() => MotorbikeController.instance.uprightConstraintEnforce(out UPRIGHT_CONSTR_ON)); // constraint flag (13.09.2025) 
 
         //////////////////////////////////////////////////////////////////
         // Motion routine end stiffness:
