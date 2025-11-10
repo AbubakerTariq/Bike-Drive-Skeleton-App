@@ -241,6 +241,7 @@ public class RHBCtrlBike : MonoBehaviour
 
     // Flag to maintain 'upright' constraint while exercise is inactive and throttle input is zero:
     public bool UPRIGHT_CONSTR_ON; // constraint flag (13.09.2025)
+    public bool UPRIGHT_CONSTR_PRERELEASE;
 
     ////////////////////////////////////////////////////////////////////////////
     // Constants:
@@ -709,7 +710,7 @@ public class RHBCtrlBike : MonoBehaviour
         // Enforce "bike upright" constraint - CRITICAL: 
         ////////////////////////////////////////////////////////////////////////////
         
-        UnityMainThreadDispatcher.Instance().Enqueue(() => MotorbikeController.instance.uprightConstraintEnforce(out UPRIGHT_CONSTR_ON)); // constraint flag (13.09.2025) 
+        UnityMainThreadDispatcher.Instance().Enqueue(() => MotorbikeController.instance.uprightConstraintEnforce(out UPRIGHT_CONSTR_ON, out UPRIGHT_CONSTR_PRERELEASE)); // constraint flag (13.09.2025) 
 
         //////////////////////////////////////////////////////////////////
         // Motion routine end stiffness:
