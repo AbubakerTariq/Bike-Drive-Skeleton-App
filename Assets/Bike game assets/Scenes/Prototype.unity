@@ -26926,15 +26926,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56717b2fd6707fa48890f733b8ade5df, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  DT_PREVIEW: 2
-  P_GAIN_ERR_POS_TARG: 0.06
-  P_GAIN_ANGLE_INPUT: 3.5
-  D_GAIN_ANGLE_INPUT: 0
+  FACTOR_ACCEL: 0
   SPEED_REF_LOW: 8
   SPEED_REF_HIGH: 25
   rpm_value: 0
   velocity_rel_collision: {x: 0, y: 0, z: 0}
   bike_fallen: 0
+  bike_fallen_prev: 0
   gear_curr: 1
   wheel_coll_fwd: {fileID: 1479870654682857108}
   wheel_coll_back: {fileID: 1479870654655137860}
@@ -26945,8 +26943,11 @@ MonoBehaviour:
   RearMudGuardSusOffset: {x: 0, y: 0, z: 0}
   com: {x: 0, y: 1.5, z: 0}
   Rider: {fileID: 1479870655507070262}
-  RagdollAnimation: {fileID: 7985579707336744918, guid: a940ea4ebb45c9b45b7cf112fa49b7ae, type: 3}
   Ragdoll: {fileID: 3092097735282227737, guid: cd9e90ccf08bae74aa61d8797586998f, type: 3}
+  RagdollAnimation: {fileID: 7985579707336744918, guid: a940ea4ebb45c9b45b7cf112fa49b7ae, type: 3}
+  step_count_understeer: 0
+  step_count_fall: 0
+  dist_traveled: 0
   SpeedTxt: {fileID: 658235477}
 --- !u!4 &1479870654891984138
 Transform:
@@ -41002,6 +41003,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   waypointsParent: {fileID: 1993177864}
   curveResolution: 20
+  centerPoints: []
+  waypoints_vect: []
 --- !u!120 &2623428895044401316
 LineRenderer:
   m_ObjectHideFlags: 0
@@ -60103,6 +60106,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   waypointsParent: {fileID: 534531578}
   curveResolution: 20
+  centerPoints: []
+  waypoints_vect: []
 --- !u!120 &5027482598882535613
 LineRenderer:
   m_ObjectHideFlags: 0
@@ -68384,6 +68389,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   waypointsParent: {fileID: 932372300}
   curveResolution: 20
+  centerPoints: []
+  waypoints_vect: []
 --- !u!120 &5956518615989850027
 LineRenderer:
   m_ObjectHideFlags: 0
@@ -85468,6 +85475,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   waypointsParent: {fileID: 1964249634}
   curveResolution: 20
+  centerPoints: []
+  waypoints_vect: []
 --- !u!120 &7996369818009393755
 LineRenderer:
   m_ObjectHideFlags: 0

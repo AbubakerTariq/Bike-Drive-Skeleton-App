@@ -6956,6 +6956,10 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 8928942118896632358, guid: 43cb1882cd5b8df459a97a164cae1668, type: 3}
+      propertyPath: m_AngularDrag
+      value: 0.2
+      objectReference: {fileID: 0}
     - target: {fileID: 8928942118896632359, guid: 43cb1882cd5b8df459a97a164cae1668, type: 3}
       propertyPath: m_RootOrder
       value: 1

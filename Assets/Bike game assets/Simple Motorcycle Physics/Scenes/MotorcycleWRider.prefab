@@ -4657,7 +4657,7 @@ Rigidbody:
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 0
+  m_Constraints: 80
   m_CollisionDetection: 2
 --- !u!65 &8928942118896632379
 BoxCollider:
@@ -4684,11 +4684,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56717b2fd6707fa48890f733b8ade5df, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  FACTOR_ACCEL: 0
   SPEED_REF_LOW: 8
   SPEED_REF_HIGH: 25
   rpm_value: 0
   velocity_rel_collision: {x: 0, y: 0, z: 0}
   bike_fallen: 0
+  bike_fallen_prev: 0
   gear_curr: 1
   wheel_coll_fwd: {fileID: 8928942119820932949}
   wheel_coll_back: {fileID: 8928942119156124462}
@@ -4699,8 +4701,11 @@ MonoBehaviour:
   RearMudGuardSusOffset: {x: 0, y: 0, z: 0}
   com: {x: 0, y: 1.5, z: 0}
   Rider: {fileID: 5486286349470450988}
-  RagdollAnimation: {fileID: 7985579707336744918, guid: a940ea4ebb45c9b45b7cf112fa49b7ae, type: 3}
   Ragdoll: {fileID: 3092097735282227737, guid: cd9e90ccf08bae74aa61d8797586998f, type: 3}
+  RagdollAnimation: {fileID: 7985579707336744918, guid: a940ea4ebb45c9b45b7cf112fa49b7ae, type: 3}
+  step_count_understeer: 0
+  step_count_fall: 0
+  dist_traveled: 0
   SpeedTxt: {fileID: 0}
 --- !u!1 &8928942119159969042
 GameObject:

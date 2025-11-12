@@ -63,7 +63,7 @@ public class MotorbikeController : MonoBehaviour
     // Bike control parameters - STEERING - Factor adjustment:
     ////////////////////////////////////////////////////////////////////////////
 
-    public const float FACT_ASSIST_STEER_MAX      = 0.9f;
+    public const float FACT_ASSIST_STEER_MAX  = 0.9f;
 
     // Sensitivity of bike steering to RHB's ASSISTED control stiffness
     public const float OFFS_FACT_ASSIST_STEER = 0.5f; // 0.25f; 
@@ -198,7 +198,7 @@ public class MotorbikeController : MonoBehaviour
 
     private Transform thisTransform;
     public Vector3 com;
-    private Rigidbody rigid_body;
+    private Rigidbody rigid_body;  
 
     ///////////////////////////////////////////////////////////
     // Rider parameters:
@@ -409,6 +409,9 @@ public class MotorbikeController : MonoBehaviour
         thisTransform = GetComponent<Transform>();
         rigid_body = GetComponent<Rigidbody>();
         rigid_body.centerOfMass = com;
+
+        // Contrain all rigid body motion to keep bike from falling before exercise start (12.11.2025):
+        rigid_body.constraints = RigidbodyConstraints.FreezeAll;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -428,8 +431,6 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
         // Post-reset procedures: variables (31.10.2025)
         ////////////////////////////////////////////////////////////////
-
-        // bool reset_prev = false; // TODO: remove at a later date
 
         const float T_RISE_POST_RESET_SEC = 4.0f;
         float sigma_rise = 3f / T_RISE_POST_RESET_SEC; // for 95% rise
@@ -606,6 +607,20 @@ public class MotorbikeController : MonoBehaviour
         float pos_rot    = distal_this.PositionP; // ROTATIONAL position
 
         ////////////////////////////////////////////////////////////////
+        // Throttle mode - for upright constraint removal:
+        ////////////////////////////////////////////////////////////////
+
+        bool is_manual_throttle;
+
+        // Cases for MANUAL throttle:
+        if ((RHBCtrlBike.instance.CASE_CTRL_MODE == RHBCtrlBike.CTRL_ASSISTED && RHBCtrlBike.instance.FACT_ASSIST_THROTTLE == 0)
+            || RHBCtrlBike.instance.CASE_CTRL_MODE == RHBCtrlBike.CTRL_AUTO_STEER_MANUAL_THROT
+            || RHBCtrlBike.instance.CASE_CTRL_MODE == RHBCtrlBike.CTRL_MANUAL_SIMPLE)
+                is_manual_throttle = true;
+        else
+            is_manual_throttle = false;
+
+        ////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////
         // BIKE INPUT 1: ACCELERATION
         ////////////////////////////////////////////////////////////////   
@@ -617,7 +632,7 @@ public class MotorbikeController : MonoBehaviour
         ////////////////////////////////////////////////////////////////
         // BIKE INPUT 2: THROTTLE
         ////////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////        
 
         if (RHBCtrlBike.instance.isExerciseStarted) // && !reset_prev
         {
@@ -630,41 +645,16 @@ public class MotorbikeController : MonoBehaviour
             ////////////////////////////////////////////////////////////////
             // Upright constraint removal (several cases (10.11.2025):
             ////////////////////////////////////////////////////////////////
-            
+
+            bool upright_constr_release_stage;
+
             if (RHBCtrlBike.instance.UPRIGHT_CONSTR_ON) {
+                upright_constr_release_stage = uprightConstraintReleaseStage(is_manual_throttle, input_throttle_manual);
 
-                // Cases for MANUAL throttle:
-                if ((RHBCtrlBike.instance.CASE_CTRL_MODE == RHBCtrlBike.CTRL_ASSISTED && RHBCtrlBike.instance.FACT_ASSIST_THROTTLE == 0)
-                    || RHBCtrlBike.instance.CASE_CTRL_MODE == RHBCtrlBike.CTRL_AUTO_STEER_MANUAL_THROT
-                    || RHBCtrlBike.instance.CASE_CTRL_MODE == RHBCtrlBike.CTRL_MANUAL_SIMPLE)
-                {
-
-                    // "Pre-release" upright constraint to allow initial motion without rotation (10.11.2025):
-                    if (!RHBCtrlBike.instance.UPRIGHT_CONSTR_PRERELEASE && input_throttle_manual > INPUT_THROT_UPRIGHT_THRESH)
-                    {
-                        RHBCtrlBike.instance.UPRIGHT_CONSTR_PRERELEASE = true;
-                        rigid_body.constraints = RigidbodyConstraints.None;
-                        rigid_body.constraints = RigidbodyConstraints.FreezeRotationZ | RigidbodyConstraints.FreezeRotationX;
-
-                        ExternalConsoleLogger.Log("BikeMotionAndControlStates(): input_throttle_manual = [" + input_throttle_manual +
-                            "], INPUT_THROT_UPRIGHT_THRESH = [" + INPUT_THROT_UPRIGHT_THRESH + "] \n");
-                    }
-
-                    // Fully release upright constraint:
-                    else if (RHBCtrlBike.instance.UPRIGHT_CONSTR_PRERELEASE && dt_pos_bike_magn >= SPEED_TRANSITION_UPRIGHT)
-                        uprightConstraintRemove(out RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
-
-                    else
-                        wheel_coll_fwd.steerAngle = 0f; // safety catch
-                }
-
-                // Cases for AUTO throttle:
-                else if (dt_pos_bike_magn >= SPEED_TRANSITION_UPRIGHT)
-                { 
+                if (!upright_constr_release_stage)
                     wheel_coll_fwd.steerAngle = 0f; // safety catch
-                    uprightConstraintRemove(out RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
-                }
-            }
+
+            } // if (RHBCtrlBike.instance.UPRIGHT_CONSTR_ON) 
         }
         else
         {
@@ -1077,6 +1067,9 @@ public class MotorbikeController : MonoBehaviour
             try
             {
                 uprightConstraintEnforce(out RHBCtrlBike.instance.UPRIGHT_CONSTR_ON, out RHBCtrlBike.instance.UPRIGHT_CONSTR_PRERELEASE); // constraint flag (13.09.2025)
+
+                ExternalConsoleLogger.Log("_________________________________________________________________");
+                ExternalConsoleLogger.Log("MotorbikeController(): UPRIGHT CONSTRAINT [ON]\n");
             }
             catch
             {
@@ -1326,6 +1319,9 @@ public class MotorbikeController : MonoBehaviour
         try
         {
             uprightConstraintEnforce(out RHBCtrlBike.instance.UPRIGHT_CONSTR_ON, out RHBCtrlBike.instance.UPRIGHT_CONSTR_PRERELEASE); // constraint flag (13.09.2025)
+
+            ExternalConsoleLogger.Log("_________________________________________________________________");
+             ExternalConsoleLogger.Log("MotorbikeController(): UPRIGHT CONSTRAINT [ON]\n");
         }
         catch
         {
@@ -1347,7 +1343,7 @@ public class MotorbikeController : MonoBehaviour
     {
         // Enforce roll angle zero:
         thisTransform.rotation = Quaternion.Euler(
-            thisTransform.rotation.eulerAngles.x,
+            0, //thisTransform.rotation.eulerAngles.x,
             thisTransform.rotation.eulerAngles.y,
             0);
 
@@ -1379,6 +1375,31 @@ public class MotorbikeController : MonoBehaviour
 
         ExternalConsoleLogger.Log("_________________________________________________________________");
         ExternalConsoleLogger.Log("MotorbikeController(): UPRIGHT CONSTRAINT [REMOVED]\n");
+    }
+
+    public bool uprightConstraintReleaseStage(bool is_manual_throttle, float input_throttle_manual)
+    {
+        if (!RHBCtrlBike.instance.UPRIGHT_CONSTR_PRERELEASE && (!is_manual_throttle || input_throttle_manual > INPUT_THROT_UPRIGHT_THRESH))
+        {
+            RHBCtrlBike.instance.UPRIGHT_CONSTR_PRERELEASE = true;
+            rigid_body.constraints = RigidbodyConstraints.None;
+            rigid_body.constraints = RigidbodyConstraints.FreezeRotationZ | RigidbodyConstraints.FreezeRotationX;
+
+            // Display section:
+            ExternalConsoleLogger.Log("uprightConstraintReleaseStage(): input_throttle_manual = [" + input_throttle_manual +
+                "], INPUT_THROT_UPRIGHT_THRESH = [" + INPUT_THROT_UPRIGHT_THRESH + "] \n");
+
+            return true;
+        }
+
+        // Fully release upright constraint:
+        else if (RHBCtrlBike.instance.UPRIGHT_CONSTR_PRERELEASE && dt_pos_bike_magn >= SPEED_TRANSITION_UPRIGHT)
+        {
+            uprightConstraintRemove(out RHBCtrlBike.instance.UPRIGHT_CONSTR_ON); // constraint flag (13.09.2025)
+            return true;
+        }
+        else
+            return false;
     }
 
     void OnCollisionEnter(Collision collision)

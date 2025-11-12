@@ -710,7 +710,8 @@ public class RHBCtrlBike : MonoBehaviour
         // Enforce "bike upright" constraint - CRITICAL: 
         ////////////////////////////////////////////////////////////////////////////
 
-        UnityMainThreadDispatcher.Instance().Enqueue(() => MotorbikeController.instance.uprightConstraintEnforce(out UPRIGHT_CONSTR_ON, out UPRIGHT_CONSTR_PRERELEASE)); // constraint flag (13.09.2025) 
+        UnityMainThreadDispatcher.Instance().Enqueue(() => 
+            MotorbikeController.instance.uprightConstraintEnforce(out UPRIGHT_CONSTR_ON, out UPRIGHT_CONSTR_PRERELEASE)); // constraint flag (13.09.2025) 
 
         //////////////////////////////////////////////////////////////////
         // Motion routine end stiffness:
@@ -735,7 +736,7 @@ public class RHBCtrlBike : MonoBehaviour
         ////////////////////////////////////////////////////////////////////////////
 
         while (enabledControlThread)
-        {
+        {             
             ////////////////////////////////////////////////////////////////////////////
             ////////////////////////////////////////////////////////////////////////////
             // Thread sleep & time elapsed computation:
@@ -1692,5 +1693,5 @@ public class RHBCtrlBike : MonoBehaviour
                 ExternalConsoleLogger.Log("RHBCtrlBike() / Update(): rtControlThread START \n");
             }
         }
-    } // if (USE_STANDALONE_UI && is_rhb_connected)
+    }  
 }
