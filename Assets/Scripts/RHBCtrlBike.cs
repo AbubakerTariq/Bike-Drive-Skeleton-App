@@ -240,8 +240,8 @@ public class RHBCtrlBike : MonoBehaviour
     private bool runProceduresExerciseStop = false;
 
     // Flag to maintain 'upright' constraint while exercise is inactive and throttle input is zero:
-    public bool UPRIGHT_CONSTR_ON; // constraint flag (13.09.2025)
-    public bool UPRIGHT_CONSTR_PRERELEASE;
+    public bool UPRIGHT_CONSTR_ON         = true; // constraint flag (13.09.2025)
+    public bool UPRIGHT_CONSTR_PRERELEASE = false;
 
     ////////////////////////////////////////////////////////////////////////////
     // Constants:
@@ -384,7 +384,7 @@ public class RHBCtrlBike : MonoBehaviour
     // Display variables:
     ////////////////////////////////////////////////////////////////////////////
     
-    const bool DISP_RT_LOOP_ON = true;
+    const bool DISP_RT_LOOP_ON = false;
     const bool DISP_CONSOLE_ON = true;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -680,9 +680,6 @@ public class RHBCtrlBike : MonoBehaviour
         const int DECIM_MOTION_ROUTINE = 1;
         int N_STEPS_MOTION_ROUTINE = DT_MOTION_ROUTINE_MSEC / DT_STEP_APP_MSEC / DECIM_MOTION_ROUTINE;
 
-        // bool motionRoutineActiveBaseline = false;
-        // bool motionRoutineActiveHome = false;
-
         float pos_radial_routine_start = 0; // dummy value
         float pos_rot_routine_start    = 0; // dummy value
 
@@ -807,6 +804,7 @@ public class RHBCtrlBike : MonoBehaviour
                 //////////////////////////////////////////////////////////////////
 
                 motionRoutineActiveBaseline = true;
+                motionRoutineActiveHome = false; // safety catch
 
                 //////////////////////////////////////////////////////////////////
                 // PERFORMANCE metrics - set up variables: 
@@ -849,6 +847,7 @@ public class RHBCtrlBike : MonoBehaviour
                 //////////////////////////////////////////////////////////////////
 
                 motionRoutineActiveHome = true;
+                motionRoutineActiveBaseline = false; // safety catch
 
                 //////////////////////////////////////////////////////////////////
                 // PERFORMANCE metrics: compute UNDERSTEER fraction
@@ -879,7 +878,7 @@ public class RHBCtrlBike : MonoBehaviour
                 //////////////////////////////////////////////////////////////////
 
                 pos_radial_routine_start = distal_data.PositionR;
-                pos_rot_routine_start = distal_data.PositionP;
+                pos_rot_routine_start = distal_data.PositionP;              
 
                 /////////////////////////////////////////////////////////
                 // Go back to menu and restart game
@@ -1660,8 +1659,7 @@ public class RHBCtrlBike : MonoBehaviour
                 ref POS_RADIAL_THROT_ZERO,
                 ref K_STIFF_RADIAL_THROT_MANUAL,
                 ref SPEED_AUTO_THROTTLE_MAX_KPH,
-                ref RACE_DIRECTION,
-                ref UPRIGHT_CONSTR_ON
+                ref RACE_DIRECTION
             );
 
             // Offset the RADIAL reference positions to account for initial calibration errors - CRITICAL (20.09.2025):

@@ -202,8 +202,7 @@ public class BikeGameUI : MonoBehaviour
         ref float pos_radial_throt_zero,
         ref float k_stiff_radial_throt_manual,
         ref float speed_auto_throttle_max_kph,
-        ref int race_direction,
-        ref bool upright_constr_on)
+        ref int race_direction)
     {
         ////////////////////////////////////////////////////////////////////////////
         // Fixed settings for UNITY_GAME:
@@ -406,6 +405,13 @@ public class BikeGameUI : MonoBehaviour
                 RHBCtrlBike.instance.ToggleExerciseRHB(ref is_exerc_started);
 
                 RHBCtrlBike.instance.isExerciseStarted = is_exerc_started;
+
+                // Safety catch: enforce upright constraint to avoid false negatives (26.11.2025):
+                if (!is_exerc_started)
+                {
+                    MotorbikeController.instance.uprightConstraintEnforce(
+                        out RHBCtrlBike.instance.UPRIGHT_CONSTR_ON, out RHBCtrlBike.instance.UPRIGHT_CONSTR_PRERELEASE);
+                }
 
                 // Display section:
                 if (DISP_CONSOLE_UI_ON)
