@@ -146,7 +146,9 @@ public class DataManager : MonoBehaviour
             "Force Y R",
 
             "angle roll steer equiv",
-            "step count underst"
+            "step count underst",
+            "step count",
+            "dist traveled"
         };
 
         if (!File.Exists(dataFilePathThis))
@@ -302,7 +304,9 @@ public class DataManager : MonoBehaviour
                 $"{force_y_r}," +
 
                 $"{perform_vars_data.angle_roll_steer_equiv}," +
-                $"{perform_vars_data.step_count_understeer}";
+                $"{perform_vars_data.step_count_understeer}," +
+                $"{RHBCtrlBike.instance.step_count}," +
+                $"{MotorbikeController.instance.dist_traveled}";
 
             lock (fileLock)
             {

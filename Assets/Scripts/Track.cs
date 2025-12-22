@@ -185,8 +185,8 @@ public class Track : MonoBehaviour
             {
                 closestSqrDist = sqrDist;
                 float segmentStart = distances[i];
-                float segmentEnd = distances[i + 1];
-                projectedDistance = Mathf.Lerp(segmentStart, segmentEnd, t);
+                float segmentEnd   = distances[j]; // was [i + 1]
+                projectedDistance  = Mathf.Lerp(segmentStart, segmentEnd, t);
             }
         }
 

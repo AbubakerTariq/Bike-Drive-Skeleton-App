@@ -37,6 +37,9 @@ public class MotorbikeController : MonoBehaviour
     const float D_GAIN_ANGLE_INPUT = 0f;
     const float I_GAIN_ANGLE_INPUT = 0f;
 
+    // Steering performance: mininum reference roll angle (22.12.2025):
+    public const float ANGLE_ROLL_STEER_REF_MIN_DEG = 2.0f;
+
     ////////////////////////////////////////////////////////////////////////////
     // Bike control parameters - Steering - Forward wheel input (CRITICAL):
     ////////////////////////////////////////////////////////////////////////////
@@ -500,21 +503,24 @@ public class MotorbikeController : MonoBehaviour
 
             // UNDERSTEER detection: compare EQUIVALENT roll angle to
             // minimum (low-gain) steering input required to keep bike on track
-            if (Math.Abs(angle_roll_steer_equiv) < Mathf.Abs(fbk_ctrl_data.angle_roll_gain_lo))
-                step_count_understeer++;
+            if (Mathf.Abs(fbk_ctrl_data.angle_roll_gain_lo) > Mathf.PI / 180f * ANGLE_ROLL_STEER_REF_MIN_DEG &&
+                Math.Abs(angle_roll_steer_equiv) < Mathf.Abs(fbk_ctrl_data.angle_roll_gain_lo))
+                    step_count_understeer++;
 
             ////////////////////////////////////////////////////////////////
             // PERFORMANCE variables 2: DISTANCE TRAVELED so far
             ////////////////////////////////////////////////////////////////
 
-            float dist_traveled_rel; // distance relative to start line (wraps around)
+            float dist_to_start; // distance relative to start line (wraps around)
+            Vector3 centerPos = Track.instance.GetClosestPointOnCenterLine(bike_coords_data.pos_bike);
 
             if (RHBCtrlBike.instance.RACE_DIRECTION == RHBCtrlBike.DIR_CW)
-                dist_traveled_rel = Track.instance.GetDistanceAtPosition(bike_coords_data.pos_bike);
+                dist_to_start = Track.instance.GetDistanceAtPosition(centerPos);
             else
-                dist_traveled_rel = Track.instance.GetTrackLength() - Track.instance.GetDistanceAtPosition(bike_coords_data.pos_bike);
+                dist_to_start = Track.instance.GetTrackLength() - Track.instance.GetDistanceAtPosition(centerPos);
 
-            dist_traveled = Mathf.Max(dist_traveled, dist_traveled_rel);
+            if (dist_to_start > 0f && dist_to_start < 0.98f * Track.instance.GetTrackLength()) // conditions to avoid wrap-around issues
+                dist_traveled = Mathf.Max(dist_traveled, dist_to_start);
 
             ////////////////////////////////////////////////////////////////
             // Update PERFORMANCE public DATA VARIABLES for sharing among other classes (ensures atomicity & real-time updating):

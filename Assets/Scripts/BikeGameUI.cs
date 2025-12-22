@@ -116,8 +116,23 @@ public class BikeGameUI : MonoBehaviour
             ////////////////////////////////////////////////////////////////////////////
 
             string str_performance;
+            string str_distance = " ";
 
             if (RHBCtrlBike.instance.frac_understeer >= 0)
+            {
+                // "Distance traveled" string:
+                if (MotorbikeController.instance.dist_traveled >= RHBCtrlBike.FRAC_LENGTH_TRACK_LEGIT_RACE * Track.instance.GetTrackLength())
+                    str_distance =
+                        "Distance traveled = [" +
+                            String.Format("{0:#0}", MotorbikeController.instance.dist_traveled) + " m] >= " + 100f * RHBCtrlBike.FRAC_LENGTH_TRACK_LEGIT_RACE + " % track length \n\n";
+                else
+                    str_distance =
+                        "Distance traveled = [" +
+                            String.Format("{0:#0}", MotorbikeController.instance.dist_traveled) + " m] = " +
+                            String.Format("{0:#0.0}", 100f * MotorbikeController.instance.dist_traveled / Track.instance.GetTrackLength()) +
+                            " % track length (min required = " + 100f * RHBCtrlBike.FRAC_LENGTH_TRACK_LEGIT_RACE + "%) \n\n";
+
+                // "Performance" string:
                 str_performance =
                     "Previous exercise PERFORMANCE: \n\n" +
 
@@ -127,13 +142,11 @@ public class BikeGameUI : MonoBehaviour
 
                     "# falls = [" + MotorbikeController.instance.step_count_fall + "] (limit = " + RHBCtrlBike.N_FALLS_LIM + ")\n\n" +
 
-                    "Dist traveled = [" +
-                        String.Format("{0:#0}", MotorbikeController.instance.dist_traveled) + " m] = " +
-                        String.Format("{0:#0.0}", 100f * MotorbikeController.instance.dist_traveled / Track.instance.GetTrackLength()) +
-                        " % track length (min = " + 100f * RHBCtrlBike.FRAC_LENGTH_TRACK_LEGIT_RACE + "%) \n\n" +
+                    str_distance +
 
                     "Current GAME LEVEL       = [" + RHBCtrlBike.instance.game_level_curr + "] \n" +
                     "Recommended LEVEL CHANGE = [" + RHBCtrlBike.instance.game_level_change + "] \n\n";
+            }
             else
                 str_performance = "\n\n";
 

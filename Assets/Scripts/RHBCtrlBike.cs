@@ -1506,7 +1506,7 @@ public class RHBCtrlBike : MonoBehaviour
         float dist_traveled, float length_track)
     {
         if (dist_traveled < FRAC_LENGTH_TRACK_LEGIT_RACE * length_track)
-            game_level_change = 0;
+            level_change = 0;
         else if (frac_underst <= FRAC_UNDERSTEER_LEVEL_UP_MAX && step_count_fall == 0)
             level_change = 1;
         else if (frac_underst >= FRAC_UNDERSTEER_LEVEL_DOWN_MIN || step_count_fall > N_FALLS_LIM)
