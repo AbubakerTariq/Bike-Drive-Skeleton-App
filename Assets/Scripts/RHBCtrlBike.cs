@@ -812,6 +812,7 @@ public class RHBCtrlBike : MonoBehaviour
 
                 // Start UNDERSTEER event counter
                 MotorbikeController.instance.step_count_understeer = 0;
+                MotorbikeController.instance.step_count_moving     = 0;
 
                 // Start FALL counter:
                 MotorbikeController.instance.step_count_fall = 0;
@@ -853,7 +854,8 @@ public class RHBCtrlBike : MonoBehaviour
                 // PERFORMANCE metrics: compute UNDERSTEER fraction
                 //////////////////////////////////////////////////////////////////
 
-                frac_understeer = (float)MotorbikeController.instance.step_count_understeer / step_count;
+                frac_understeer = 
+                    (float)MotorbikeController.instance.step_count_understeer / (float)MotorbikeController.instance.step_count_moving;
 
                 /////////////////////////////////////////////////////////
                 // Set DataManager 'race started' flag (27.08.2025):

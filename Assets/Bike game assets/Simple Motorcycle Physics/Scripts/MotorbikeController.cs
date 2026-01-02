@@ -326,6 +326,7 @@ public class MotorbikeController : MonoBehaviour
     {
         public float angle_roll_steer_equiv;
         public int step_count_understeer;
+        public int step_count_moving;
     }
 
     /////////////////////////////////////////////////////////////
@@ -367,6 +368,7 @@ public class MotorbikeController : MonoBehaviour
 
     // UNDERSTEER events counter:
     public int step_count_understeer = 0;
+    public int step_count_moving     = 0;
 
     // Count falls during exercise:
     public int step_count_fall = 0;
@@ -501,11 +503,16 @@ public class MotorbikeController : MonoBehaviour
             // Steering input: EQUIVALENT roll angle as function of steering input (TODO: test approach)
             float angle_roll_steer_equiv = bike_input_data.steer_scaled;
 
-            // UNDERSTEER detection: compare EQUIVALENT roll angle to
-            // minimum (low-gain) steering input required to keep bike on track
-            if (Mathf.Abs(fbk_ctrl_data.angle_roll_gain_lo) > Mathf.PI / 180f * ANGLE_ROLL_STEER_REF_MIN_DEG &&
-                Math.Abs(angle_roll_steer_equiv) < Mathf.Abs(fbk_ctrl_data.angle_roll_gain_lo))
-                    step_count_understeer++;
+            // UNDERSTEER detection: compare EQUIVALENT roll angle to minimum (low-gain) steering input required to keep bike on track
+            if (dt_pos_bike_magn > SPEED_REF_LOW)
+            {
+                step_count_moving++;
+
+                if (Mathf.Abs(fbk_ctrl_data.angle_roll_gain_lo) > Mathf.PI / 180f * ANGLE_ROLL_STEER_REF_MIN_DEG &&
+                    (   Math.Abs(angle_roll_steer_equiv) < Mathf.Abs(fbk_ctrl_data.angle_roll_gain_lo) ||
+                        Math.Sign(angle_roll_steer_equiv) != Mathf.Sign(fbk_ctrl_data.angle_roll_gain_lo) ))
+                        step_count_understeer++;
+            }
 
             ////////////////////////////////////////////////////////////////
             // PERFORMANCE variables 2: DISTANCE TRAVELED so far
@@ -527,7 +534,8 @@ public class MotorbikeController : MonoBehaviour
             ////////////////////////////////////////////////////////////////   
 
             perform_vars_data.angle_roll_steer_equiv = angle_roll_steer_equiv;
-            perform_vars_data.step_count_understeer = step_count_understeer;
+            perform_vars_data.step_count_understeer  = step_count_understeer;
+            perform_vars_data.step_count_moving      = step_count_moving;
         }
         else if (!bike_fallen_prev)
             step_count_fall++;

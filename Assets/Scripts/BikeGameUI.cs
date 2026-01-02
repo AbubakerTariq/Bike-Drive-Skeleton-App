@@ -144,8 +144,14 @@ public class BikeGameUI : MonoBehaviour
 
                     str_distance +
 
-                    "Current GAME LEVEL       = [" + RHBCtrlBike.instance.game_level_curr + "] \n" +
-                    "Recommended LEVEL CHANGE = [" + RHBCtrlBike.instance.game_level_change + "] \n\n";
+                    "Current GAME LEVEL       = [" + RHBCtrlBike.instance.game_level_curr + "] \n";
+                
+                    if (RHBCtrlBike.instance.game_level_change > 0 )
+                        str_performance = str_performance +
+                            "Recommended LEVEL CHANGE = [+" + RHBCtrlBike.instance.game_level_change + "] \n\n";
+                    else
+                        str_performance = str_performance +
+                            "Recommended LEVEL CHANGE = [" + RHBCtrlBike.instance.game_level_change + "] \n\n";
             }
             else
                 str_performance = "\n\n";

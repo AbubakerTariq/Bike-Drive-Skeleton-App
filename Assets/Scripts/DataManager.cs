@@ -147,6 +147,7 @@ public class DataManager : MonoBehaviour
 
             "angle roll steer equiv",
             "step count underst",
+            "step count moving",
             "step count",
             "dist traveled"
         };
@@ -305,6 +306,7 @@ public class DataManager : MonoBehaviour
 
                 $"{perform_vars_data.angle_roll_steer_equiv}," +
                 $"{perform_vars_data.step_count_understeer}," +
+                $"{perform_vars_data.step_count_moving}," +
                 $"{RHBCtrlBike.instance.step_count}," +
                 $"{MotorbikeController.instance.dist_traveled}";
 
