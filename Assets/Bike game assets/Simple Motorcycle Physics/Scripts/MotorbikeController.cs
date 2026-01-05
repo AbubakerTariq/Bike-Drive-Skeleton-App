@@ -938,7 +938,7 @@ public class MotorbikeController : MonoBehaviour
         // Store error for next iteration:
         err_pos_preview2targ_prev = err_pos_preview2targ;
 
-        // Peoportional gain for target roll angle - CRITICAL
+        // Proportional gain for target roll angle - CRITICAL
         // Highest tested values that guarantee bike stability (25.09.2025):
         if (RHBCtrlBike.instance.CASE_CTRL_MODE == RHBCtrlBike.CTRL_ASSISTED)
             P_GAIN_ERR_POS_TARG = P_GAIN_ASSIST;

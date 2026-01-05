@@ -173,7 +173,7 @@ public class RHBCtrlBike : MonoBehaviour
 
     // Scaling factor for Patient's rotational inputs
     // To be set by UNITY_GAME or CARE_PLATFORM (compute using CARE_PLATFORM patient ROM data)
-    public float FRAC_POS_ROT_INPUT_PATIENT = 0.4f;
+    public float FRAC_POS_ROT_INPUT_PATIENT = 0.25f;
 
     ////////////////////////////////////////////////////////////////////////////
     // CARE_PLATFORM controlled parameters - THROTTLE assistance:
@@ -1325,7 +1325,7 @@ public class RHBCtrlBike : MonoBehaviour
                     k_stiff_radial_throt = K_STIFF_RADIAL_THROT_MANUAL;
 
                 // Reference equilibrium position:
-                pos_rot_eq_ref = FRAC_POS_ROT_INPUT_PATIENT * angle_roll_targ_this;
+                pos_rot_eq_ref    = FRAC_POS_ROT_INPUT_PATIENT * angle_roll_targ_this;
                 dt_pos_rot_eq_ref = FRAC_POS_ROT_INPUT_PATIENT * dt_angle_roll_targ_this;
 
                 ///////////////////////////////////////////////////////////////////////////
