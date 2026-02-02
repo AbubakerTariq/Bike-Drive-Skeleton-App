@@ -15,6 +15,8 @@ using PimDeWitte.UnityMainThreadDispatcher;
 
 public class RHBCtrlBike : MonoBehaviour
 {
+    [SerializeField] private UnityMainThreadDispatcher dispatcher;
+
     float FACT_DEG_2_RAD = (float)Math.PI / 180f;
 
     ////////////////////////////////////////////////////////////////////////////
@@ -90,11 +92,7 @@ public class RHBCtrlBike : MonoBehaviour
     // SetExercise() parameters:
     //////////////////////////////////////////////////////////////////////////// 
 
-    // private float OFFS_FORCE_RADIAL_INIT = 0f;
-    // private float OFFS_TORQUE_ROT_INIT = 0f;
-
     private bool SAFETY_TCP_APP_ON = false;
-    // private bool STABILITY_SET_TARG_ON = true;
 
     public const bool ENGAGE_BRAKE = false;
     public const bool DISENGAGE_BRAKE = true;
@@ -123,7 +121,6 @@ public class RHBCtrlBike : MonoBehaviour
 
     // NOTE: Extra damping to prevent limit cycles when handles contact physical limit
     // Normally should rely on embedded HL_SetTarget stability
-    // private float K_STIFF_RADIAL_WALL = 5000f;  
     private float B_DAMP_RADIAL_WALL  =   60f; // 0f to rely on embedded HL_SetTarget stability
 
     private float K_STIFF_ROT_WALL = 2.4f;  
@@ -397,8 +394,12 @@ public class RHBCtrlBike : MonoBehaviour
     // FUNCTIONS TO HARMONIZE with ReHandyBotController (10.10.2025):
     ////////////////////////////////////////////////////////////////////////////
 
+    System.Timers.Timer realTimeLoopTimer;
+
     private void Awake()
     {
+        dispatcher = FindAnyObjectByType<UnityMainThreadDispatcher>();
+
         // Singleton logic:
         if (instance != null && instance != this)
         {
@@ -415,6 +416,8 @@ public class RHBCtrlBike : MonoBehaviour
 
     private void Start()
     {
+        distalRobot.SetSafety(false); // added 2026.01.29
+
         // Reset Ethernet port to prevent those frequent connection delays:
         System.Diagnostics.Process.Start("ethernet_reset.bat");
 
@@ -450,6 +453,11 @@ public class RHBCtrlBike : MonoBehaviour
         enabledControlThread = false;
         rtControlThread?.Join();
 
+        // NEW: close timer (2026.01.29)
+        realTimeLoopTimer.Stop();
+        realTimeLoopTimer.Dispose();
+        realTimeLoopTimer = null;
+
         if (distalRobot == null || !RHBConnected)
             return;
 
@@ -469,21 +477,6 @@ public class RHBCtrlBike : MonoBehaviour
         }
 
         rhb_connected = distalRobot.EstablishConnection(ServerIP, ServerPort);
-
-        // This cycle of attempts actually delays establishing the connection (25.10.2025)
-        // TODO: remove at a later date
-        /*
-        for (int i = 0; i < MAX_ATTEMPTS; i++)
-        {
-            rhb_connected = distalRobot.EstablishConnection(ServerIP, ServerPort);
-
-            if (rhb_connected)
-            {
-                onComplete?.Invoke();
-                break;
-            }
-        }
-        */
     }
 
     private void StartSystem(UnityAction onComplete = null)
@@ -529,8 +522,6 @@ public class RHBCtrlBike : MonoBehaviour
         ////////////////////////////////////////////////////////////////////////////
         // Start CONNECTION thread:
         ////////////////////////////////////////////////////////////////////////////
-
-        // connectionThread?.Abort(); // removed unsafe Abort() call (27.10.2025)
 
         const int N_ATTEMPTS_CONNECT = 5;
         int connect_count = 0;
@@ -583,8 +574,6 @@ public class RHBCtrlBike : MonoBehaviour
 
         connectionThread.Start();
     }
-
-    // ConnectRHB() and ReConnectRHB() removed 23.10.2025
 
     public bool CalibrateRHB()
     {
@@ -707,7 +696,7 @@ public class RHBCtrlBike : MonoBehaviour
         // Enforce "bike upright" constraint - CRITICAL: 
         ////////////////////////////////////////////////////////////////////////////
 
-        UnityMainThreadDispatcher.Instance().Enqueue(() => 
+        dispatcher.Enqueue(() => 
             MotorbikeController.instance.uprightConstraintEnforce(out UPRIGHT_CONSTR_ON, out UPRIGHT_CONSTR_PRERELEASE)); // constraint flag (13.09.2025) 
 
         //////////////////////////////////////////////////////////////////
@@ -731,31 +720,17 @@ public class RHBCtrlBike : MonoBehaviour
         ////////////////////////////////////////////////////////////////////////////
         // Real-time loop:
         ////////////////////////////////////////////////////////////////////////////
+        
+        // NEW: Handle using a timer for precision (2026.01.29)
+        realTimeLoopTimer = new(DT_STEP_APP_MSEC);
 
-        while (enabledControlThread)
-        {             
+        realTimeLoopTimer.Elapsed += (sender, e) => // was while (enabledControlThread)
+        {
             ////////////////////////////////////////////////////////////////////////////
             ////////////////////////////////////////////////////////////////////////////
             // Thread sleep & time elapsed computation:
             ////////////////////////////////////////////////////////////////////////////   
             //////////////////////////////////////////////////////////////////////////// 
-
-            if (!USE_RT_TIMER_LOCK)
-            {
-                // Unconditional thread sleep:
-                Thread.Sleep(DT_STEP_APP_MSEC);
-            }
-            else
-            {
-                // Conditional thread sleep:
-                timerLocked = true;
-
-                while (timerLocked)
-                {
-                    Thread.Sleep(DT_STEP_APP_MSEC);
-                    timerLocked = false;
-                }
-            }
 
             if (timerActive)
             {
@@ -812,7 +787,7 @@ public class RHBCtrlBike : MonoBehaviour
 
                 // Start UNDERSTEER event counter
                 MotorbikeController.instance.step_count_understeer = 0;
-                MotorbikeController.instance.step_count_moving     = 0;
+                MotorbikeController.instance.step_count_moving = 0;
 
                 // Start FALL counter:
                 MotorbikeController.instance.step_count_fall = 0;
@@ -854,7 +829,7 @@ public class RHBCtrlBike : MonoBehaviour
                 // PERFORMANCE metrics: compute UNDERSTEER fraction
                 //////////////////////////////////////////////////////////////////
 
-                frac_understeer = 
+                frac_understeer =
                     (float)MotorbikeController.instance.step_count_understeer / (float)MotorbikeController.instance.step_count_moving;
 
                 /////////////////////////////////////////////////////////
@@ -872,7 +847,7 @@ public class RHBCtrlBike : MonoBehaviour
                 //////////////////////////////////////////////////////////////////
                 // Set feedback gains to zero:
                 //////////////////////////////////////////////////////////////////
-                
+
                 SetGainRHB(0f, 0f);
 
                 //////////////////////////////////////////////////////////////////
@@ -880,7 +855,7 @@ public class RHBCtrlBike : MonoBehaviour
                 //////////////////////////////////////////////////////////////////
 
                 pos_radial_routine_start = distal_data.PositionR;
-                pos_rot_routine_start = distal_data.PositionP;              
+                pos_rot_routine_start = distal_data.PositionP;
 
                 /////////////////////////////////////////////////////////
                 // Go back to menu and restart game
@@ -1009,9 +984,6 @@ public class RHBCtrlBike : MonoBehaviour
                         // Reset motion routine flags:
                         motionRoutineActiveHome = false;
 
-                        // Engage brakes (removed 21.10.2025)
-                        // bool success = SetBrakesRHB(ENGAGE_BRAKE, ENGAGE_BRAKE, N_ATTEMPTS_BRAKE, DELAY_BRAKE_MSEC);
-
                         // Display section:
                         if (DISP_CONSOLE_ON)
                             ExternalConsoleLogger.Log("RealTimeControlLoop(): COMPLETED motionRoutineActiveHome \n");
@@ -1034,7 +1006,10 @@ public class RHBCtrlBike : MonoBehaviour
 
             step_count++;
 
-        } // while (enabledControlThread)
+        }; // realTimeLoopTimer.Elapsed += (sender, e)
+
+        // NEW: start timer (2026.01.29)
+        realTimeLoopTimer.Start();
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -1092,25 +1067,6 @@ public class RHBCtrlBike : MonoBehaviour
 
         const int N_ATTEMPTS_MAX = 50;
         const int DELAY_START_EXERC_MSEC = 50;
-
-        // TODO: remove at a later date
-        /*
-        if (isExerciseStarted)
-        {
-            if (DISP_CONSOLE_ON)
-            {
-                ExternalConsoleLogger.Log(" ");
-                ExternalConsoleLogger.Log("StartExercise(): isExerciseStarted ALREADY \n");
-            }
-
-            onComplete?.Invoke();
-
-            if (isCalibrated)
-                OnExerciseStart?.Invoke();
-
-            return;
-        }
-        */
 
         //////////////////////////////////////////////////////////////////
         // Send Start Exercise command to firmware:
@@ -1202,22 +1158,6 @@ public class RHBCtrlBike : MonoBehaviour
 
     private void StopExerciseRHB(ref bool is_exerc_started, UnityAction onComplete = null)
     {
-        // TODO: remove at a later date
-        /*
-        if (!isExerciseStarted)
-        {
-            if (DISP_CONSOLE_ON)
-            {
-                ExternalConsoleLogger.Log(" ");
-                ExternalConsoleLogger.Log("StopExercise(): !isExerciseStarted  - return \n");
-            }
-
-            OnExerciseStop?.Invoke();
-            onComplete?.Invoke();
-            return;
-        }
-        */
-
         if (USE_STANDALONE_UI)
         {
             BikeGameUI.instance.SetLoaderText("Stopping Exercise...");
@@ -1479,8 +1419,7 @@ public class RHBCtrlBike : MonoBehaviour
         k_stiff_rot_equiv = k_stiff_rot_ref + k_stiff_rot_lim + k_stiff_rot_base;
 
         pos_eq_rot_equiv =
-            (k_stiff_rot_ref * pos_rot_eq_ref + k_stiff_rot_lim * pos_rot_eq_lim)
-             / k_stiff_rot_equiv;
+            (k_stiff_rot_ref * pos_rot_eq_ref + k_stiff_rot_lim * pos_rot_eq_lim) / k_stiff_rot_equiv;
 
         ////////////////////////////////////////////////////////////////////////////
         // Send limit force commands to RHB firmware:
@@ -1693,5 +1632,19 @@ public class RHBCtrlBike : MonoBehaviour
                 ExternalConsoleLogger.Log("RHBCtrlBike() / Update(): rtControlThread START \n");
             }
         }
-    }  
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    // NEW: function added 2026.01.29
+    ////////////////////////////////////////////////////////////////////////////
+    private void OnDestroy()
+    {
+        enabledControlThread = false;
+        rtControlThread?.Join();
+
+        realTimeLoopTimer.Stop();
+        realTimeLoopTimer.Dispose();
+        realTimeLoopTimer = null;
+    }
 }
